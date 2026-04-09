@@ -88,15 +88,15 @@
 	}
 
 	li[aria-current='page']::before {
-		--size: 6px;
+		--size: 4px;
 		content: '';
 		width: 0;
 		height: 0;
 		position: absolute;
-		top: 0;
+		bottom: 0.3em;
 		left: calc(50% - var(--size));
-		border: var(--size) solid transparent;
-		border-top: var(--size) solid var(--color-theme-1);
+        border-radius: var(--size);
+		border: var(--size) solid var(--color-theme-1);
 	}
 
 	nav a {
