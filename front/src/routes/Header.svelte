@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import github from '$lib/images/github.svg';
-	import logo from '$lib/images/tm-logo.png';
+	import logo from '$lib/images/tm-logo-crop.png';
 </script>
 
 <header>
