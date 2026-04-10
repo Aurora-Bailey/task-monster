@@ -1,47 +1,340 @@
 <script>
-	import TaskCard from '$lib/TaskCard.svelte';
-	import { activeTasks, formatMinutes } from '$lib/task-catalog';
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 
-	const totalMinutes = activeTasks.reduce((sum, task) => sum + task.durationMinutes, 0);
-	const repeatableCount = activeTasks.filter((task) => task.mode === 'repeatable').length;
-	const oneTimeCount = activeTasks.length - repeatableCount;
+	import TaskCard from '$lib/TaskCard.svelte';
+	import { formatElapsedDuration, formatMinutes } from '$lib/task-format';
+	import { doneTask, inactivateTask, loadActiveTasks, snoozeTask } from '$lib/tasks-client';
+
+	let tasks = $state([]);
+	let isLoading = $state(true);
+	let loadError = $state('');
+	let actionError = $state('');
+	let busyTasks = $state({});
+	let nowMs = $state(Date.now());
+	let audioReady = $state(false);
+	let audioSupported = $state(true);
+
+	let clockIntervalId = null;
+	let alarmLoopId = null;
+	let audioContext = null;
+
+	function sortActiveTasks(items) {
+		return [...items].sort(
+			(left, right) =>
+				new Date(left.activatedAt || left.createdAt).getTime() -
+				new Date(right.activatedAt || right.createdAt).getTime()
+		);
+	}
+
+	async function loadTasks() {
+		isLoading = true;
+		loadError = '';
+
+		try {
+			tasks = sortActiveTasks(await loadActiveTasks());
+		} catch (error) {
+			loadError = error.message;
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	function getBusyAction(taskId) {
+		return busyTasks[taskId] || null;
+	}
+
+	function setBusy(taskId, action) {
+		busyTasks = {
+			...busyTasks,
+			[taskId]: action
+		};
+	}
+
+	function clearBusy(taskId) {
+		const nextBusyTasks = { ...busyTasks };
+		delete nextBusyTasks[taskId];
+		busyTasks = nextBusyTasks;
+	}
+
+	function isTaskRinging(task) {
+		if (!task.activeToday || !task.alarmEnabled || !task.alarmDueAt) {
+			return false;
+		}
+
+		return new Date(task.alarmDueAt).getTime() <= nowMs;
+	}
+
+	function getActiveDurationLabel(task) {
+		if (!task.activatedAt) {
+			return 'Just started';
+		}
+
+		return formatElapsedDuration(nowMs - new Date(task.activatedAt).getTime());
+	}
+
+	function getAlarmLabel(task) {
+		if (!task.alarmEnabled || !task.alarmDueAt) {
+			return 'Off';
+		}
+
+		const delta = new Date(task.alarmDueAt).getTime() - nowMs;
+
+		if (delta >= 0) {
+			return `Rings in ${formatElapsedDuration(delta)}`;
+		}
+
+		return `Overdue by ${formatElapsedDuration(Math.abs(delta))}`;
+	}
+
+	async function handleInactivate(taskId) {
+		actionError = '';
+		setBusy(taskId, 'inactivate');
+
+		try {
+			await inactivateTask(taskId);
+			tasks = tasks.filter((task) => task.id !== taskId);
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
+	}
+
+	async function handleDone(taskId) {
+		actionError = '';
+		setBusy(taskId, 'done');
+
+		try {
+			await doneTask(taskId);
+			tasks = tasks.filter((task) => task.id !== taskId);
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
+	}
+
+	async function handleSnooze(taskId) {
+		actionError = '';
+		setBusy(taskId, 'snooze');
+
+		try {
+			const updatedTask = await snoozeTask(taskId);
+			tasks = sortActiveTasks(tasks.map((task) => (task.id === taskId ? updatedTask : task)));
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
+	}
+
+	async function unlockAudio() {
+		if (!browser) {
+			return;
+		}
+
+		const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+
+		if (!AudioContextConstructor) {
+			audioSupported = false;
+			return;
+		}
+
+		if (!audioContext) {
+			audioContext = new AudioContextConstructor();
+		}
+
+		try {
+			if (audioContext.state === 'suspended') {
+				await audioContext.resume();
+			}
+		} catch (error) {
+			console.error(error);
+		}
+
+		audioReady = audioContext.state === 'running';
+	}
+
+	function playAlarmPulse() {
+		if (!audioContext || audioContext.state !== 'running') {
+			return;
+		}
+
+		const now = audioContext.currentTime;
+		const oscillator = audioContext.createOscillator();
+		const gain = audioContext.createGain();
+
+		oscillator.type = 'square';
+		oscillator.frequency.setValueAtTime(880, now);
+		gain.gain.setValueAtTime(0.0001, now);
+		gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+		gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+		oscillator.connect(gain);
+		gain.connect(audioContext.destination);
+		oscillator.start(now);
+		oscillator.stop(now + 0.24);
+	}
+
+	function startAlarmLoop() {
+		if (!browser || alarmLoopId !== null) {
+			return;
+		}
+
+		playAlarmPulse();
+		alarmLoopId = window.setInterval(() => {
+			playAlarmPulse();
+		}, 1200);
+	}
+
+	function stopAlarmLoop() {
+		if (!browser || alarmLoopId === null) {
+			return;
+		}
+
+		window.clearInterval(alarmLoopId);
+		alarmLoopId = null;
+	}
+
+	onMount(() => {
+		void loadTasks();
+
+		if (browser) {
+			clockIntervalId = window.setInterval(() => {
+				nowMs = Date.now();
+			}, 1000);
+
+			const resumeAudio = () => {
+				void unlockAudio();
+			};
+
+			window.addEventListener('pointerdown', resumeAudio);
+			window.addEventListener('keydown', resumeAudio);
+
+			return () => {
+				window.removeEventListener('pointerdown', resumeAudio);
+				window.removeEventListener('keydown', resumeAudio);
+				window.clearInterval(clockIntervalId);
+				stopAlarmLoop();
+
+				if (audioContext) {
+					void audioContext.close();
+				}
+			};
+		}
+	});
+
+	const activeAlarmCount = $derived(tasks.filter((task) => task.alarmEnabled).length);
+	const ringingCount = $derived(tasks.filter((task) => isTaskRinging(task)).length);
+	const totalActiveMinutes = $derived(
+		Math.max(
+			0,
+			Math.round(
+				tasks.reduce((sum, task) => {
+					if (!task.activatedAt) {
+						return sum;
+					}
+
+					return sum + Math.max(0, nowMs - new Date(task.activatedAt).getTime());
+				}, 0) /
+					60000
+			)
+		)
+	);
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		if (ringingCount > 0) {
+			void unlockAudio();
+			startAlarmLoop();
+			return;
+		}
+
+		stopAlarmLoop();
+	});
 </script>
 
 <svelte:head>
 	<title>Active Tasks</title>
-	<meta name="description" content="Tasks currently on the table today." />
+	<meta name="description" content="Tasks currently active on the table." />
 </svelte:head>
 
 <section class="board">
 	<div class="hero">
 		<p class="eyebrow">Active</p>
-		<h1>What is on the table today</h1>
+		<h1>What is live on the table</h1>
 		<p class="lede">
-			{activeTasks.length} tasks are active today, adding up to {formatMinutes(totalMinutes)} of
-			focused work.
+			Every active task here is being timed from the exact moment you pulled it onto the board.
 		</p>
 	</div>
 
 	<div class="stats">
 		<article class="stat">
-			<span>On deck</span>
-			<strong>{activeTasks.length} tasks</strong>
+			<span>Active now</span>
+			<strong>{tasks.length} tasks</strong>
 		</article>
 		<article class="stat">
-			<span>Repeatable</span>
-			<strong>{repeatableCount} routines</strong>
+			<span>Alarmed</span>
+			<strong>{activeAlarmCount} timers</strong>
 		</article>
 		<article class="stat">
-			<span>One-time</span>
-			<strong>{oneTimeCount} shots</strong>
+			<span>Live time</span>
+			<strong>{formatMinutes(totalActiveMinutes)}</strong>
 		</article>
 	</div>
 
-	<div class="task-grid">
-		{#each activeTasks as task}
-			<TaskCard {task} />
-		{/each}
-	</div>
+	{#if loadError}
+		<div class="message-card error-card">
+			<strong>Could not load active tasks</strong>
+			<p>{loadError}</p>
+		</div>
+	{/if}
+
+	{#if actionError}
+		<div class="message-card error-card">
+			<strong>Could not update that task</strong>
+			<p>{actionError}</p>
+		</div>
+	{/if}
+
+	{#if ringingCount > 0 && audioSupported && !audioReady}
+		<div class="message-card warning-card">
+			<strong>Alarm audio needs a tap</strong>
+			<p>The browser is holding audio until you interact. Tap anywhere and the ringing will start.</p>
+		</div>
+	{/if}
+
+	{#if isLoading}
+		<div class="message-card">
+			<strong>Loading active tasks</strong>
+			<p>Pulling the current table and timer state from the database.</p>
+		</div>
+	{:else if tasks.length === 0}
+		<div class="message-card">
+			<strong>No active tasks</strong>
+			<p>Nothing is on the table right now. Activate something from the inactive stack.</p>
+		</div>
+	{:else}
+		<div class="task-grid">
+			{#each tasks as task}
+				<TaskCard
+					task={task}
+					variant="active"
+					activeDurationLabel={getActiveDurationLabel(task)}
+					alarmLabel={getAlarmLabel(task)}
+					ringing={isTaskRinging(task)}
+					busyAction={getBusyAction(task.id)}
+					onDone={handleDone}
+					onInactivate={handleInactivate}
+					onSnooze={handleSnooze}
+				/>
+			{/each}
+		</div>
+	{/if}
 </section>
 
 <style>
@@ -75,7 +368,8 @@
 		color: rgba(10, 20, 30, 0.9);
 	}
 
-	.lede {
+	.lede,
+	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
 		color: rgba(10, 20, 30, 0.7);
@@ -87,7 +381,8 @@
 		gap: 0.85rem;
 	}
 
-	.stat {
+	.stat,
+	.message-card {
 		display: grid;
 		gap: 0.4rem;
 		padding: 1rem 1.1rem;
@@ -105,10 +400,21 @@
 		color: rgba(10, 20, 30, 0.45);
 	}
 
-	.stat strong {
+	.stat strong,
+	.message-card strong {
 		font-size: 1.15rem;
 		letter-spacing: -0.02em;
 		color: rgba(10, 20, 30, 0.82);
+	}
+
+	.error-card {
+		border-color: rgba(159, 45, 39, 0.18);
+		background: rgba(255, 245, 244, 0.92);
+	}
+
+	.warning-card {
+		border-color: rgba(191, 121, 31, 0.18);
+		background: rgba(255, 249, 239, 0.94);
 	}
 
 	.task-grid {

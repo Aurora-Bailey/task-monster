@@ -1,3 +1,5 @@
+const { ObjectId } = require('mongodb');
+
 const TASK_COLOR_MAP = Object.freeze({
 	red: '#c74a4a',
 	orange: '#de7d37',
@@ -11,6 +13,46 @@ const TASK_COLOR_MAP = Object.freeze({
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
 const TASK_DURATION_VALUES = Object.freeze([5, 10, 15, 20, 30, 45, 60, 90, 120, 180]);
 const TASK_SNOOZE_VALUES = Object.freeze([5, 10, 15, 20, 30]);
+
+const serializedTaskJsonSchema = {
+	type: 'object',
+	required: [
+		'id',
+		'name',
+		'color',
+		'colorKey',
+		'mode',
+		'alarmEnabled',
+		'durationMinutes',
+		'snoozeMinutes',
+		'note',
+		'activeToday',
+		'activatedAt',
+		'alarmDueAt',
+		'lastCompletedAt',
+		'lastInactivatedAt',
+		'createdAt',
+		'updatedAt'
+	],
+	properties: {
+		id: { type: 'string' },
+		name: { type: 'string' },
+		color: { type: 'string' },
+		colorKey: { type: 'string' },
+		mode: { type: 'string' },
+		alarmEnabled: { type: 'boolean' },
+		durationMinutes: { type: ['integer', 'null'] },
+		snoozeMinutes: { type: ['integer', 'null'] },
+		note: { type: ['string', 'null'] },
+		activeToday: { type: 'boolean' },
+		activatedAt: { type: ['string', 'null'] },
+		alarmDueAt: { type: ['string', 'null'] },
+		lastCompletedAt: { type: ['string', 'null'] },
+		lastInactivatedAt: { type: ['string', 'null'] },
+		createdAt: { type: 'string' },
+		updatedAt: { type: 'string' }
+	}
+};
 
 function isAllowedTaskColor(color) {
 	return Object.hasOwn(TASK_COLOR_MAP, color);
@@ -28,6 +70,17 @@ function isAllowedTaskSnooze(snoozeMinutes) {
 	return TASK_SNOOZE_VALUES.includes(snoozeMinutes);
 }
 
+function toObjectId(value) {
+	return value instanceof ObjectId ? value : new ObjectId(value);
+}
+
+async function findOwnedTask(db, { taskId, userId }) {
+	return db.collection('tasks').findOne({
+		_id: toObjectId(taskId),
+		userId: toObjectId(userId)
+	});
+}
+
 function serializeTask(task) {
 	return {
 		id: task._id.toString(),
@@ -40,6 +93,10 @@ function serializeTask(task) {
 		snoozeMinutes: task.snoozeMinutes ?? null,
 		note: task.note ?? null,
 		activeToday: task.activeToday,
+		activatedAt: task.activatedAt ? task.activatedAt.toISOString() : null,
+		alarmDueAt: task.alarmDueAt ? task.alarmDueAt.toISOString() : null,
+		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
+		lastInactivatedAt: task.lastInactivatedAt ? task.lastInactivatedAt.toISOString() : null,
 		createdAt: task.createdAt.toISOString(),
 		updatedAt: task.updatedAt.toISOString()
 	};
@@ -50,9 +107,12 @@ module.exports = {
 	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
 	TASK_SNOOZE_VALUES,
+	findOwnedTask,
 	isAllowedTaskColor,
 	isAllowedTaskDuration,
 	isAllowedTaskMode,
 	isAllowedTaskSnooze,
+	serializedTaskJsonSchema,
+	toObjectId,
 	serializeTask
 };

@@ -9,6 +9,7 @@ const {
 	isAllowedTaskDuration,
 	isAllowedTaskMode,
 	isAllowedTaskSnooze,
+	serializedTaskJsonSchema,
 	serializeTask
 } = require('../../lib/tasks');
 
@@ -54,35 +55,7 @@ const createTaskSchema = {
 			required: ['task'],
 			properties: {
 				task: {
-					type: 'object',
-					required: [
-						'id',
-						'name',
-						'color',
-						'colorKey',
-						'mode',
-						'alarmEnabled',
-						'durationMinutes',
-						'snoozeMinutes',
-						'note',
-						'activeToday',
-						'createdAt',
-						'updatedAt'
-					],
-					properties: {
-						id: { type: 'string' },
-						name: { type: 'string' },
-						color: { type: 'string' },
-						colorKey: { type: 'string' },
-						mode: { type: 'string' },
-						alarmEnabled: { type: 'boolean' },
-						durationMinutes: { type: ['integer', 'null'] },
-						snoozeMinutes: { type: ['integer', 'null'] },
-						note: { type: ['string', 'null'] },
-						activeToday: { type: 'boolean' },
-						createdAt: { type: 'string' },
-						updatedAt: { type: 'string' }
-					}
+					...serializedTaskJsonSchema
 				}
 			}
 		}
@@ -152,6 +125,10 @@ async function createTaskRoute(app) {
 				snoozeMinutes,
 				note: note || null,
 				activeToday: false,
+				activatedAt: null,
+				alarmDueAt: null,
+				lastCompletedAt: null,
+				lastInactivatedAt: null,
 				archived: false,
 				createdAt,
 				updatedAt: createdAt
