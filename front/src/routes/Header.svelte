@@ -9,10 +9,10 @@
 	let logoutError = $state('');
 
 	const navLinks = [
-		{ href: '/active', label: 'Active' },
+		{ href: '/add', label: 'Add' },
 		{ href: '/inactive', label: 'Inactive' },
-		{ href: '/stats', label: 'Stats' },
-		{ href: '/add', label: 'Add' }
+		{ href: '/active', label: 'Active' },
+		{ href: '/stats', label: 'Stats' }
 	];
 
 	function isCurrent(href) {
