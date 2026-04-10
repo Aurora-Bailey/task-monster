@@ -15,15 +15,48 @@
 	} = $props();
 
 	const hasAlarm = $derived(task.alarmEnabled && task.durationMinutes && task.snoozeMinutes);
+	const isInactiveCard = $derived(variant !== 'active');
 	const visibleTitleChips = $derived([
 		task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
 		hasAlarm ? 'Alarm on' : null,
 		hasAlarm ? formatMinutes(task.durationMinutes) : null,
 		hasAlarm ? `Snooze ${formatMinutes(task.snoozeMinutes)}` : null
 	].filter(Boolean));
+
+	function handleInactiveActivate() {
+		if (!isInactiveCard || busyAction !== null) {
+			return;
+		}
+
+		onActivate(task.id);
+	}
+
+	function handleInactiveKeydown(event) {
+		if (!isInactiveCard || busyAction !== null) {
+			return;
+		}
+
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			onActivate(task.id);
+		}
+	}
 </script>
 
-<article class="task-card" class:is-active={variant === 'active'} style={`--task-accent: ${task.color};`}>
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+	class="task-card"
+	class:is-active={variant === 'active'}
+	class:is-inactive={isInactiveCard}
+	class:is-busy={busyAction !== null}
+	style={`--task-accent: ${task.color};`}
+	role={isInactiveCard ? 'button' : undefined}
+	tabindex={isInactiveCard ? 0 : undefined}
+	aria-label={isInactiveCard ? `Activate ${task.name}` : undefined}
+	aria-disabled={isInactiveCard ? busyAction !== null : undefined}
+	onclick={isInactiveCard ? handleInactiveActivate : undefined}
+	onkeydown={isInactiveCard ? handleInactiveKeydown : undefined}
+>
 	<div class="task-card__header">
 		<div class="task-card__title-block">
 			<h2>{task.name}</h2>
@@ -93,19 +126,8 @@
 				{busyAction === 'inactivate' ? 'Moving...' : 'Inactivate'}
 			</button>
 		</div>
-	{:else}
-		<div class="task-card__actions">
-			<button
-				class="action-button primary-button"
-				type="button"
-				disabled={busyAction !== null}
-				onclick={() => onActivate(task.id)}
-			>
-				{busyAction === 'activate' ? 'Activating...' : 'Activate task'}
-			</button>
-		</div>
 	{/if}
-</article>
+</div>
 
 <style>
 	.task-card {
@@ -122,6 +144,42 @@
 			inset 0 1px 0 rgba(255, 255, 255, 0.75);
 		position: relative;
 		overflow: hidden;
+	}
+
+	.task-card.is-inactive {
+		border-width: 2px;
+		border-color: color-mix(in srgb, var(--task-accent) 58%, white);
+		box-shadow:
+			0 20px 42px rgba(44, 62, 80, 0.11),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 16%, white),
+			inset 0 1px 0 rgba(255, 255, 255, 0.75);
+		cursor: pointer;
+		transition:
+			transform 0.16s ease,
+			box-shadow 0.16s ease,
+			border-color 0.16s ease;
+	}
+
+	.task-card.is-inactive:hover {
+		transform: translateY(-2px);
+		border-color: color-mix(in srgb, var(--task-accent) 82%, white);
+		box-shadow:
+			0 24px 48px rgba(44, 62, 80, 0.14),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 22%, white),
+			inset 0 1px 0 rgba(255, 255, 255, 0.82);
+	}
+
+	.task-card.is-inactive:focus-visible {
+		outline: none;
+		box-shadow:
+			0 0 0 4px color-mix(in srgb, var(--task-accent) 24%, white),
+			0 24px 48px rgba(44, 62, 80, 0.16),
+			inset 0 1px 0 rgba(255, 255, 255, 0.82);
+	}
+
+	.task-card.is-inactive.is-busy {
+		cursor: wait;
+		transform: none;
 	}
 
 	.task-card::before {
@@ -306,12 +364,6 @@
 		cursor: wait;
 		opacity: 0.74;
 		transform: none;
-	}
-
-	.primary-button {
-		background: linear-gradient(135deg, var(--task-accent), color-mix(in srgb, var(--task-accent) 70%, white));
-		color: white;
-		box-shadow: 0 12px 26px color-mix(in srgb, var(--task-accent) 26%, transparent);
 	}
 
 	.success-button {

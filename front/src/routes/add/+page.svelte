@@ -3,13 +3,13 @@
 	import { authorizedRequest } from '$lib/session';
 
 	const taskColors = [
-		{ value: 'red', hex: '#c74a4a', label: 'Red' },
-		{ value: 'orange', hex: '#de7d37', label: 'Orange' },
-		{ value: 'gold', hex: '#d7b23d', label: 'Gold' },
-		{ value: 'green', hex: '#5f9b55', label: 'Green' },
-		{ value: 'teal', hex: '#3d9790', label: 'Teal' },
-		{ value: 'blue', hex: '#4f6ed6', label: 'Blue' },
-		{ value: 'violet', hex: '#8a5bd1', label: 'Violet' }
+		{ value: 'red', hex: '#c74a4a', label: 'Red', taskType: 'Admin' },
+		{ value: 'orange', hex: '#de7d37', label: 'Orange', taskType: 'Errand' },
+		{ value: 'gold', hex: '#d7b23d', label: 'Gold', taskType: 'Chore' },
+		{ value: 'green', hex: '#5f9b55', label: 'Green', taskType: 'Wellness' },
+		{ value: 'teal', hex: '#3d9790', label: 'Teal', taskType: 'Reset' },
+		{ value: 'blue', hex: '#4f6ed6', label: 'Blue', taskType: 'Focus' },
+		{ value: 'violet', hex: '#8a5bd1', label: 'Violet', taskType: 'Planning' }
 	];
 
 	const taskDurations = [
@@ -117,8 +117,11 @@
 					{#each taskColors as color}
 						<label class="color-option" style={`--swatch-color: ${color.hex};`}>
 							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
-							<span class="swatch" aria-hidden="true"></span>
-							<span class="visually-hidden">{color.label}</span>
+							<span class="color-choice">
+								<span class="swatch" aria-hidden="true"></span>
+								<span class="color-caption">{color.taskType}</span>
+							</span>
+							<span class="visually-hidden">{color.label} for {color.taskType} tasks</span>
 						</label>
 					{/each}
 				</div>
@@ -313,6 +316,12 @@
 		pointer-events: none;
 	}
 
+	.color-choice {
+		display: grid;
+		justify-items: center;
+		gap: 0.45rem;
+	}
+
 	.swatch {
 		width: 2.35rem;
 		height: 2.35rem;
@@ -332,7 +341,7 @@
 		transform: translateY(-1px);
 	}
 
-	.color-option input:checked + .swatch {
+	.color-option input:checked + .color-choice .swatch {
 		transform: translateY(-2px) scale(1.05);
 		box-shadow:
 			0 0 0 2px rgba(255, 255, 255, 1),
@@ -340,7 +349,24 @@
 			0 12px 20px rgba(0, 0, 0, 0.18);
 	}
 
-	.color-option:focus-within .swatch {
+	.color-caption {
+		max-width: 4.8rem;
+		text-align: center;
+		font-size: 0.7rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		line-height: 1.2;
+		color: rgba(0, 0, 0, 0.52);
+		transition: color 0.16s ease, transform 0.16s ease;
+	}
+
+	.color-option input:checked + .color-choice .color-caption {
+		color: rgba(0, 0, 0, 0.76);
+		transform: translateY(-1px);
+	}
+
+	.color-option:focus-within .color-choice .swatch {
 		outline: 3px solid rgba(64, 117, 166, 0.35);
 		outline-offset: 3px;
 	}
