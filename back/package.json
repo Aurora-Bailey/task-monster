@@ -7,8 +7,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch index.js",
+    "dev": "nodemon --watch index.js --watch lib --watch routes index.js",
     "start": "node index.js"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   },
   "dependencies": {
     "fastify": "^5.6.1",
