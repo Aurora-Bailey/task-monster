@@ -1,5 +1,7 @@
 const { ObjectId } = require('mongodb');
 
+const { revokeSession } = require('../../lib/sessions');
+
 async function revokeSessionRoute(app) {
 	app.delete(
 		'/sessions/:sessionId',
@@ -35,21 +37,11 @@ async function revokeSessionRoute(app) {
 			}
 
 			const revokedAt = new Date();
-			const result = await app.mongo.db.collection('sessions').findOneAndUpdate(
-				{
-					_id: new ObjectId(sessionId),
-					userId: new ObjectId(request.auth.userId),
-					revokedAt: null
-				},
-				{
-					$set: {
-						revokedAt
-					}
-				},
-				{
-					returnDocument: 'after'
-				}
-			);
+			const result = await revokeSession(app.mongo.db, {
+				sessionId,
+				userId: request.auth.userId,
+				revokedAt
+			});
 
 			if (!result) {
 				return reply.code(404).send({

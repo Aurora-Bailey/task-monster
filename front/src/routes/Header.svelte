@@ -1,8 +1,12 @@
 <script>
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import github from '$lib/images/github.svg';
+	import { logoutAccount } from '$lib/session';
 	import logo from '$lib/images/tm-logo-crop.png';
+
+	let { user = null } = $props();
+	let isLoggingOut = $state(false);
+	let logoutError = $state('');
 
 	const navLinks = [
 		{ href: '/active', label: 'Active' },
@@ -13,6 +17,19 @@
 
 	function isCurrent(href) {
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
+
+	async function handleLogout() {
+		logoutError = '';
+		isLoggingOut = true;
+
+		try {
+			await logoutAccount();
+		} catch (error) {
+			logoutError = error.message;
+		} finally {
+			isLoggingOut = false;
+		}
 	}
 </script>
 
@@ -36,12 +53,25 @@
 		</ul>
 	</nav>
 
-	<div class="corner">
-		<a class="icon-link" href="https://github.com/aurora-bailey/task-monster" target="_blank" rel="noreferrer">
-			<img src={github} alt="GitHub" />
-		</a>
+	<div class="session-tools">
+		{#if user}
+			<a
+				class="user-pill"
+				href={resolve('/profile')}
+				aria-current={isCurrent('/profile') ? 'page' : undefined}
+			>
+				{user.username}
+			</a>
+			<button class="logout-button" type="button" onclick={handleLogout} disabled={isLoggingOut}>
+				{isLoggingOut ? 'Logging out...' : 'Log out'}
+			</button>
+		{/if}
 	</div>
 </header>
+
+{#if logoutError}
+	<p class="logout-error">{logoutError}</p>
+{/if}
 
 <style>
 	header {
@@ -83,9 +113,14 @@
 	}
 
 	nav,
-	.corner:last-child {
+	.session-tools {
 		display: flex;
 		justify-content: center;
+	}
+
+	.session-tools {
+		align-items: center;
+		gap: 0.65rem;
 	}
 
 	ul {
@@ -133,18 +168,51 @@
 		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
 	}
 
-	.icon-link {
-		width: 2.8rem;
-		height: 2.8rem;
+	.user-pill,
+	.logout-button {
+		display: inline-flex;
+		align-items: center;
 		justify-content: center;
+		padding: 0.7rem 0.9rem;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.62);
 		border: 1px solid rgba(255, 255, 255, 0.72);
 		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.08);
+		font-size: 0.76rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(13, 24, 36, 0.72);
+		text-decoration: none;
 	}
 
-	.icon-link:hover {
+	.logout-button {
+		cursor: pointer;
+	}
+
+	.user-pill[aria-current='page'] {
+		background: linear-gradient(135deg, rgba(64, 117, 166, 0.18), rgba(91, 147, 200, 0.12));
+		color: var(--color-theme-2);
+		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.16);
+	}
+
+	.logout-button:hover {
 		transform: translateY(-1px);
+		color: var(--color-theme-2);
+	}
+
+	.logout-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+	}
+
+	.logout-error {
+		margin: 0;
+		padding: 0 1rem 0.75rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		color: #9f2d27;
+		text-align: right;
 	}
 
 	@media (max-width: 760px) {
@@ -164,6 +232,10 @@
 
 	@media (max-width: 520px) {
 		.brand span {
+			display: none;
+		}
+
+		.user-pill {
 			display: none;
 		}
 

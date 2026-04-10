@@ -15,6 +15,17 @@ async function buildServer() {
 	app.decorate('config', config);
 	app.decorateRequest('auth', null);
 
+	app.addHook('onRequest', async (request, reply) => {
+		reply.header('Access-Control-Allow-Origin', '*');
+		reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+		reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+		reply.header('Access-Control-Max-Age', '86400');
+
+		if (request.method === 'OPTIONS') {
+			return reply.code(204).send();
+		}
+	});
+
 	const mongo = await connectToMongo({
 		mongoUrl: config.mongoUrl,
 		databaseName: config.mongoDbName

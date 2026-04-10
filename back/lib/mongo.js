@@ -36,6 +36,35 @@ async function ensureDatabaseIndexes(db) {
 			name: 'sessions_userId_revokedAt_createdAt'
 		}
 	);
+
+	await db.collection('login_attempts').createIndex(
+		{ expireAt: 1 },
+		{
+			name: 'login_attempts_expireAt_ttl',
+			expireAfterSeconds: 0
+		}
+	);
+
+	await db.collection('login_attempts').createIndex(
+		{ ipAddress: 1, createdAt: 1 },
+		{
+			name: 'login_attempts_ipAddress_createdAt'
+		}
+	);
+
+	await db.collection('login_attempts').createIndex(
+		{ ipAddress: 1, usernameLower: 1, createdAt: 1 },
+		{
+			name: 'login_attempts_ipAddress_usernameLower_createdAt'
+		}
+	);
+
+	await db.collection('login_events').createIndex(
+		{ userId: 1, createdAt: -1 },
+		{
+			name: 'login_events_userId_createdAt'
+		}
+	);
 }
 
 module.exports = {

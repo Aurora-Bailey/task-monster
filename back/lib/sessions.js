@@ -1,3 +1,5 @@
+const { ObjectId } = require('mongodb');
+
 const { createAuthToken, hashAuthToken } = require('./tokens');
 
 async function createSession(db, { userId, username, ipAddress, userAgent }) {
@@ -28,6 +30,25 @@ async function createSession(db, { userId, username, ipAddress, userAgent }) {
 	};
 }
 
+async function revokeSession(db, { sessionId, userId, revokedAt = new Date() }) {
+	return db.collection('sessions').findOneAndUpdate(
+		{
+			_id: new ObjectId(sessionId),
+			userId: new ObjectId(userId),
+			revokedAt: null
+		},
+		{
+			$set: {
+				revokedAt
+			}
+		},
+		{
+			returnDocument: 'after'
+		}
+	);
+}
+
 module.exports = {
-	createSession
+	createSession,
+	revokeSession
 };
