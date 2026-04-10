@@ -122,6 +122,22 @@
 				</div>
 			</div>
 
+			<div class="notes-stack">
+				<input id="task-notes-toggle" class="notes-toggle" type="checkbox" name="hasNotes" />
+				<label class="notes-row" for="task-notes-toggle">Additional notes</label>
+
+				<div class="notes-fields">
+					<label class="field-label" for="task-notes">Task notes</label>
+					<textarea
+						id="task-notes"
+						class="notes-input"
+						name="notes"
+						rows="4"
+						placeholder="Extra context, reminders, or anything that makes this task easier to land."
+					></textarea>
+				</div>
+			</div>
+
 			<button type="submit">Add</button>
 		</form>
 	</div>
@@ -396,6 +412,78 @@
 	.time-option:focus-within .time-pill {
 		outline: 3px solid rgba(64, 117, 166, 0.25);
 		outline-offset: 3px;
+	}
+
+	.notes-stack {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		column-gap: 0.75rem;
+		row-gap: 0.4rem;
+	}
+
+	.notes-toggle {
+		width: 1rem;
+		height: 1rem;
+		margin: 0;
+		accent-color: var(--color-theme-2);
+	}
+
+	.notes-row {
+		font-weight: 600;
+		color: rgba(0, 0, 0, 0.7);
+		cursor: pointer;
+	}
+
+	.notes-fields {
+		grid-column: 1 / -1;
+		display: grid;
+		gap: 0.55rem;
+		padding-left: 1.75rem;
+		max-height: 0;
+		overflow: hidden;
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(-0.35rem);
+		transition:
+			max-height 0.25s ease,
+			opacity 0.18s ease,
+			transform 0.18s ease,
+			padding-top 0.18s ease;
+	}
+
+	.notes-toggle:checked ~ .notes-fields {
+		max-height: 14rem;
+		padding-top: 0.35rem;
+		opacity: 1;
+		pointer-events: auto;
+		transform: translateY(0);
+	}
+
+	.notes-input {
+		width: 100%;
+		box-sizing: border-box;
+		padding: 0.9rem 1rem;
+		border: 1px solid rgba(64, 117, 166, 0.18);
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.92);
+		color: var(--color-text);
+		resize: vertical;
+		min-height: 7rem;
+		line-height: 1.45;
+		transition:
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
+	}
+
+	.notes-input::placeholder {
+		color: rgba(0, 0, 0, 0.35);
+	}
+
+	.notes-input:focus {
+		outline: none;
+		border-color: var(--color-theme-2);
+		box-shadow: 0 0 0 4px rgba(64, 117, 166, 0.12);
 	}
 
 	button {

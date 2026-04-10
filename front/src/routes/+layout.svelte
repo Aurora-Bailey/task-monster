@@ -38,10 +38,10 @@
 		justify-content: center;
 		align-items: center;
 		padding: 12px;
-	}
-
-	footer a {
-		font-weight: bold;
+		color: rgba(0, 0, 0, 0.45);
+		font-size: 0.82rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	@media (min-width: 480px) {
