@@ -1,4 +1,7 @@
 <script>
+	import { readApiBody, readApiError } from '$lib/api';
+	import { authorizedRequest } from '$lib/session';
+
 	const taskColors = [
 		{ value: 'red', hex: '#c74a4a', label: 'Red' },
 		{ value: 'orange', hex: '#de7d37', label: 'Orange' },
@@ -29,6 +32,63 @@
 		{ value: '20', label: '20 min' },
 		{ value: '30', label: '30 min' }
 	];
+
+	let taskName = $state('');
+	let selectedColor = $state(taskColors[0].value);
+	let taskMode = $state('repeatable');
+	let alarmEnabled = $state(false);
+	let durationMinutes = $state(taskDurations[1].value);
+	let snoozeMinutes = $state(snoozeDurations[1].value);
+	let notesEnabled = $state(false);
+	let note = $state('');
+	let isSubmitting = $state(false);
+	let successMessage = $state('');
+	let errorMessage = $state('');
+
+	function resetForm() {
+		taskName = '';
+		selectedColor = taskColors[0].value;
+		taskMode = 'repeatable';
+		alarmEnabled = false;
+		durationMinutes = taskDurations[1].value;
+		snoozeMinutes = snoozeDurations[1].value;
+		notesEnabled = false;
+		note = '';
+	}
+
+	async function handleSubmit(event) {
+		event.preventDefault();
+		successMessage = '';
+		errorMessage = '';
+		isSubmitting = true;
+
+		try {
+			const response = await authorizedRequest('/tasks', {
+				method: 'POST',
+				body: {
+					name: taskName,
+					color: selectedColor,
+					mode: taskMode,
+					alarmEnabled,
+					durationMinutes: alarmEnabled ? Number.parseInt(durationMinutes, 10) : null,
+					snoozeMinutes: alarmEnabled ? Number.parseInt(snoozeMinutes, 10) : null,
+					note: notesEnabled ? note : null
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error(await readApiError(response, 'Unable to save the task.'));
+			}
+
+			const body = await readApiBody(response);
+			successMessage = `Saved "${body.task.name}" to your task list.`;
+			resetForm();
+		} catch (error) {
+			errorMessage = error.message;
+		} finally {
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -38,16 +98,25 @@
 
 <div class="text-column">
 	<div class="paper">
-		<form class="task-form">
+		<form class="task-form" onsubmit={handleSubmit}>
 			<label class="field-label" for="task-name">Name that task</label>
-			<input id="task-name" class="text-input" type="text" name="name" placeholder="Wash dishes" />
+			<input
+				id="task-name"
+				bind:value={taskName}
+				class="text-input"
+				type="text"
+				name="name"
+				placeholder="Wash dishes"
+				maxlength="120"
+				required
+			/>
 
 			<fieldset class="color-picker">
 				<legend class="field-label">Task color</legend>
 				<div class="color-options">
-					{#each taskColors as color, index}
+					{#each taskColors as color}
 						<label class="color-option" style={`--swatch-color: ${color.hex};`}>
-							<input type="radio" name="color" value={color.value} checked={index === 0} />
+							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
 							<span class="swatch" aria-hidden="true"></span>
 							<span class="visually-hidden">{color.label}</span>
 						</label>
@@ -64,6 +133,7 @@
 						type="radio"
 						name="taskType"
 						value="one-time"
+						bind:group={taskMode}
 					/>
 					<input
 						id="task-type-repeatable"
@@ -71,7 +141,7 @@
 						type="radio"
 						name="taskType"
 						value="repeatable"
-						checked
+						bind:group={taskMode}
 					/>
 					<span class="mode-indicator" aria-hidden="true"></span>
 					<label class="mode-option mode-option-once" for="task-type-once">One-time task</label>
@@ -82,20 +152,26 @@
 			</fieldset>
 
 			<div class="alarm-stack">
-				<input id="task-alarm" class="alarm-toggle" type="checkbox" name="alarm" />
+				<input
+					id="task-alarm"
+					bind:checked={alarmEnabled}
+					class="alarm-toggle"
+					type="checkbox"
+					name="alarm"
+				/>
 				<label class="alarm-row" for="task-alarm">Alarm</label>
 
 				<div class="alarm-fields">
 					<fieldset class="time-group">
 						<legend class="field-label">Task length</legend>
 						<div class="time-options">
-							{#each taskDurations as duration, index}
+							{#each taskDurations as duration}
 								<label class="time-option">
 									<input
 										type="radio"
 										name="duration"
 										value={duration.value}
-										checked={index === 1}
+										bind:group={durationMinutes}
 									/>
 									<span class="time-pill">{duration.label}</span>
 								</label>
@@ -106,13 +182,13 @@
 					<fieldset class="time-group">
 						<legend class="field-label">Snooze length</legend>
 						<div class="time-options">
-							{#each snoozeDurations as duration, index}
+							{#each snoozeDurations as duration}
 								<label class="time-option">
 									<input
 										type="radio"
 										name="snooze"
 										value={duration.value}
-										checked={index === 1}
+										bind:group={snoozeMinutes}
 									/>
 									<span class="time-pill">{duration.label}</span>
 								</label>
@@ -123,22 +199,40 @@
 			</div>
 
 			<div class="notes-stack">
-				<input id="task-notes-toggle" class="notes-toggle" type="checkbox" name="hasNotes" />
+				<input
+					id="task-notes-toggle"
+					bind:checked={notesEnabled}
+					class="notes-toggle"
+					type="checkbox"
+					name="hasNotes"
+				/>
 				<label class="notes-row" for="task-notes-toggle">Additional notes</label>
 
 				<div class="notes-fields">
 					<label class="field-label" for="task-notes">Task notes</label>
 					<textarea
 						id="task-notes"
+						bind:value={note}
 						class="notes-input"
 						name="notes"
 						rows="4"
+						maxlength="2000"
 						placeholder="Extra context, reminders, or anything that makes this task easier to land."
 					></textarea>
 				</div>
 			</div>
 
-			<button type="submit">Add</button>
+			{#if errorMessage}
+				<p class="form-message error-message">{errorMessage}</p>
+			{/if}
+
+			{#if successMessage}
+				<p class="form-message success-message">{successMessage}</p>
+			{/if}
+
+			<button type="submit" disabled={isSubmitting}>
+				{isSubmitting ? 'Saving...' : 'Add'}
+			</button>
 		</form>
 	</div>
 </div>
@@ -486,6 +580,26 @@
 		box-shadow: 0 0 0 4px rgba(64, 117, 166, 0.12);
 	}
 
+	.form-message {
+		margin: 0;
+		padding: 0.9rem 1rem;
+		border-radius: 14px;
+		font-size: 0.92rem;
+		font-weight: 700;
+	}
+
+	.success-message {
+		background: rgba(67, 142, 94, 0.12);
+		color: #2d6d44;
+		border: 1px solid rgba(67, 142, 94, 0.18);
+	}
+
+	.error-message {
+		background: rgba(175, 68, 56, 0.1);
+		color: #9f2d27;
+		border: 1px solid rgba(175, 68, 56, 0.16);
+	}
+
 	button {
 		width: 100%;
 		padding: 0.9rem 1rem;
@@ -497,10 +611,17 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		box-shadow: 0 12px 24px rgba(64, 117, 166, 0.24);
+		cursor: pointer;
 	}
 
 	button:hover {
 		filter: brightness(1.04);
+	}
+
+	button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		filter: none;
 	}
 
 	button:focus-visible {

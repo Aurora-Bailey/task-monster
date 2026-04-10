@@ -65,6 +65,13 @@ async function ensureDatabaseIndexes(db) {
 			name: 'login_events_userId_createdAt'
 		}
 	);
+
+	await db.collection('tasks').createIndex(
+		{ userId: 1, archived: 1, activeToday: 1, createdAt: -1 },
+		{
+			name: 'tasks_userId_archived_activeToday_createdAt'
+		}
+	);
 }
 
 module.exports = {
