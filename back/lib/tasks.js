@@ -54,6 +54,56 @@ const serializedTaskJsonSchema = {
 	}
 };
 
+const serializedCompletedTaskJsonSchema = {
+	type: 'object',
+	required: [
+		'id',
+		'taskId',
+		'name',
+		'color',
+		'colorKey',
+		'mode',
+		'alarmEnabled',
+		'durationMinutes',
+		'snoozeMinutes',
+		'note',
+		'activeToday',
+		'activatedAt',
+		'alarmDueAt',
+		'lastCompletedAt',
+		'lastInactivatedAt',
+		'createdAt',
+		'updatedAt',
+		'completedAt',
+		'startedAt',
+		'endedAt',
+		'spentMilliseconds'
+	],
+	properties: {
+		id: { type: 'string' },
+		taskId: { type: 'string' },
+		name: { type: 'string' },
+		color: { type: 'string' },
+		colorKey: { type: 'string' },
+		mode: { type: 'string' },
+		alarmEnabled: { type: 'boolean' },
+		durationMinutes: { type: ['integer', 'null'] },
+		snoozeMinutes: { type: ['integer', 'null'] },
+		note: { type: ['string', 'null'] },
+		activeToday: { type: 'boolean' },
+		activatedAt: { type: ['string', 'null'] },
+		alarmDueAt: { type: ['string', 'null'] },
+		lastCompletedAt: { type: ['string', 'null'] },
+		lastInactivatedAt: { type: ['string', 'null'] },
+		createdAt: { type: 'string' },
+		updatedAt: { type: 'string' },
+		completedAt: { type: 'string' },
+		startedAt: { type: 'string' },
+		endedAt: { type: 'string' },
+		spentMilliseconds: { type: 'integer' }
+	}
+};
+
 function isAllowedTaskColor(color) {
 	return Object.hasOwn(TASK_COLOR_MAP, color);
 }
@@ -112,6 +162,7 @@ module.exports = {
 	isAllowedTaskDuration,
 	isAllowedTaskMode,
 	isAllowedTaskSnooze,
+	serializedCompletedTaskJsonSchema,
 	serializedTaskJsonSchema,
 	toObjectId,
 	serializeTask

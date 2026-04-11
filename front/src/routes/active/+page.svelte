@@ -1,10 +1,17 @@
 <script>
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
 	import TaskCard from '$lib/TaskCard.svelte';
-	import { formatElapsedDuration, formatMinutes } from '$lib/task-format';
-	import { doneTask, inactivateTask, loadActiveTasks, snoozeTask } from '$lib/tasks-client';
+	import { formatElapsedDuration } from '$lib/task-format';
+	import {
+		doneTask,
+		inactivateTask,
+		loadActiveTasks,
+		snoozeTask,
+		updateTaskNote
+	} from '$lib/tasks-client';
 
 	let tasks = $state([]);
 	let isLoading = $state(true);
@@ -93,7 +100,7 @@
 
 		try {
 			await inactivateTask(taskId);
-			tasks = tasks.filter((task) => task.id !== taskId);
+			await goto('/inactive');
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -107,7 +114,7 @@
 
 		try {
 			await doneTask(taskId);
-			tasks = tasks.filter((task) => task.id !== taskId);
+			await goto('/done');
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -127,6 +134,12 @@
 		} finally {
 			clearBusy(taskId);
 		}
+	}
+
+	async function handleSaveNote(taskId, note) {
+		const updatedTask = await updateTaskNote(taskId, note);
+		tasks = sortActiveTasks(tasks.map((task) => (task.id === taskId ? updatedTask : task)));
+		return updatedTask;
 	}
 
 	async function unlockAudio() {
@@ -225,23 +238,7 @@
 		}
 	});
 
-	const activeAlarmCount = $derived(tasks.filter((task) => task.alarmEnabled).length);
 	const ringingCount = $derived(tasks.filter((task) => isTaskRinging(task)).length);
-	const totalActiveMinutes = $derived(
-		Math.max(
-			0,
-			Math.round(
-				tasks.reduce((sum, task) => {
-					if (!task.activatedAt) {
-						return sum;
-					}
-
-					return sum + Math.max(0, nowMs - new Date(task.activatedAt).getTime());
-				}, 0) /
-					60000
-			)
-		)
-	);
 
 	$effect(() => {
 		if (!browser) {
@@ -264,29 +261,6 @@
 </svelte:head>
 
 <section class="board">
-	<div class="hero">
-		<p class="eyebrow">Active</p>
-		<h1>What is live on the table</h1>
-		<p class="lede">
-			Every active task here is being timed from the exact moment you pulled it onto the board.
-		</p>
-	</div>
-
-	<div class="stats">
-		<article class="stat">
-			<span>Active now</span>
-			<strong>{tasks.length} tasks</strong>
-		</article>
-		<article class="stat">
-			<span>Alarmed</span>
-			<strong>{activeAlarmCount} timers</strong>
-		</article>
-		<article class="stat">
-			<span>Live time</span>
-			<strong>{formatMinutes(totalActiveMinutes)}</strong>
-		</article>
-	</div>
-
 	{#if loadError}
 		<div class="message-card error-card">
 			<strong>Could not load active tasks</strong>
@@ -324,12 +298,14 @@
 				<TaskCard
 					task={task}
 					variant="active"
+					editableTaskId={task.id}
 					activeDurationLabel={getActiveDurationLabel(task)}
 					alarmLabel={getAlarmLabel(task)}
 					ringing={isTaskRinging(task)}
 					busyAction={getBusyAction(task.id)}
 					onDone={handleDone}
 					onInactivate={handleInactivate}
+					onSaveNote={handleSaveNote}
 					onSnooze={handleSnooze}
 				/>
 			{/each}
@@ -340,48 +316,16 @@
 <style>
 	.board {
 		display: grid;
-		gap: 1.4rem;
+		gap: 1rem;
 		padding: 1.4rem 0 2.4rem;
 	}
 
-	.hero {
-		display: grid;
-		gap: 0.5rem;
-		max-width: 42rem;
-	}
-
-	.eyebrow {
-		margin: 0;
-		font-size: 0.78rem;
-		font-weight: 800;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--color-theme-2);
-	}
-
-	h1 {
-		margin: 0;
-		text-align: left;
-		font-size: clamp(2.2rem, 5vw, 3.6rem);
-		line-height: 0.95;
-		letter-spacing: -0.05em;
-		color: rgba(10, 20, 30, 0.9);
-	}
-
-	.lede,
 	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
 		color: rgba(10, 20, 30, 0.7);
 	}
 
-	.stats {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.85rem;
-	}
-
-	.stat,
 	.message-card {
 		display: grid;
 		gap: 0.4rem;
@@ -392,15 +336,6 @@
 		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
 	}
 
-	.stat span {
-		font-size: 0.76rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: rgba(10, 20, 30, 0.45);
-	}
-
-	.stat strong,
 	.message-card strong {
 		font-size: 1.15rem;
 		letter-spacing: -0.02em;
@@ -424,8 +359,7 @@
 	}
 
 	@media (max-width: 840px) {
-		.task-grid,
-		.stats {
+		.task-grid {
 			grid-template-columns: 1fr;
 		}
 	}

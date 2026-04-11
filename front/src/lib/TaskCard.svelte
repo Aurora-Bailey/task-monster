@@ -1,13 +1,21 @@
 <script>
+	import { onDestroy } from 'svelte';
+
 	import { formatMinutes, formatTaskMode } from '$lib/task-format';
+
+	const NOTE_SAVE_DEBOUNCE_MS = 1000;
 
 	let {
 		task,
 		variant = 'inactive',
+		editableTaskId = null,
 		activeDurationLabel = '',
 		alarmLabel = '',
+		doneDurationLabel = '',
+		completedAtLabel = '',
 		ringing = false,
 		busyAction = null,
+		onSaveNote = null,
 		onActivate = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
@@ -15,13 +23,32 @@
 	} = $props();
 
 	const hasAlarm = $derived(task.alarmEnabled && task.durationMinutes && task.snoozeMinutes);
-	const isInactiveCard = $derived(variant !== 'active');
+	const isInactiveCard = $derived(variant === 'inactive');
+	const showsRuntime = $derived(variant === 'active' || variant === 'done');
+	const showsActions = $derived(variant === 'active');
+	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const visibleTitleChips = $derived([
+		variant === 'done' ? 'Completed' : null,
 		task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
 		hasAlarm ? 'Alarm on' : null,
 		hasAlarm ? formatMinutes(task.durationMinutes) : null,
 		hasAlarm ? `Snooze ${formatMinutes(task.snoozeMinutes)}` : null
 	].filter(Boolean));
+
+	let draftNote = $state('');
+	let lastCommittedNote = $state('');
+	let noteSaveStatus = $state('idle');
+	let noteSaveError = $state('');
+
+	let pendingSaveTimer = null;
+	let noteRevision = 0;
+
+	function clearPendingNoteSave() {
+		if (pendingSaveTimer !== null) {
+			clearTimeout(pendingSaveTimer);
+			pendingSaveTimer = null;
+		}
+	}
 
 	function handleInactiveActivate() {
 		if (!isInactiveCard || busyAction !== null) {
@@ -41,12 +68,97 @@
 			onActivate(task.id);
 		}
 	}
+
+	function stopEventPropagation(event) {
+		event.stopPropagation();
+	}
+
+	function scheduleNoteSave() {
+		if (!canEditNote) {
+			return;
+		}
+
+		clearPendingNoteSave();
+		noteSaveError = '';
+
+		if (draftNote === lastCommittedNote) {
+			noteSaveStatus = noteSaveStatus === 'saved' ? 'saved' : 'idle';
+			return;
+		}
+
+		noteRevision += 1;
+		const revision = noteRevision;
+		const noteToSave = draftNote;
+		noteSaveStatus = 'pending';
+		pendingSaveTimer = setTimeout(() => {
+			pendingSaveTimer = null;
+			void persistNote(revision, noteToSave);
+		}, NOTE_SAVE_DEBOUNCE_MS);
+	}
+
+	async function persistNote(revision, noteToSave) {
+		if (!canEditNote) {
+			return;
+		}
+
+		if (noteToSave === lastCommittedNote) {
+			if (revision === noteRevision) {
+				noteSaveStatus = 'saved';
+			}
+			return;
+		}
+
+		noteSaveStatus = 'saving';
+
+		try {
+			const updatedTask = await onSaveNote(editableTaskId, noteToSave);
+			const normalizedNote = updatedTask?.note ?? '';
+
+			lastCommittedNote = normalizedNote;
+
+			if (revision !== noteRevision) {
+				return;
+			}
+
+			draftNote = normalizedNote;
+			noteSaveStatus = 'saved';
+		} catch (error) {
+			if (revision !== noteRevision) {
+				return;
+			}
+
+			noteSaveStatus = 'error';
+			noteSaveError = error.message;
+		}
+	}
+
+	function handleNoteInput() {
+		scheduleNoteSave();
+	}
+
+	$effect(() => {
+		const incomingNote = task.note ?? '';
+
+		if (incomingNote === lastCommittedNote) {
+			return;
+		}
+
+		lastCommittedNote = incomingNote;
+
+		if (noteSaveStatus !== 'pending' && noteSaveStatus !== 'saving') {
+			draftNote = incomingNote;
+		}
+	});
+
+	onDestroy(() => {
+		clearPendingNoteSave();
+	});
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
 	class="task-card"
-	class:is-active={variant === 'active'}
+	class:is-active={variant !== 'inactive'}
 	class:is-inactive={isInactiveCard}
 	class:is-busy={busyAction !== null}
 	style={`--task-accent: ${task.color};`}
@@ -71,27 +183,66 @@
 		</div>
 	</div>
 
-	{#if task.note}
+	{#if task.note || canEditNote}
 		<div class="task-card__note-block">
-			<span class="task-card__note-label">Note</span>
-			<p class="task-card__note">{task.note}</p>
+			<div
+				class="task-card__note-header"
+				role="presentation"
+				onpointerdown={stopEventPropagation}
+				onclick={stopEventPropagation}
+				onkeydown={stopEventPropagation}
+			>
+				<span class="task-card__note-label">Note</span>
+
+				{#if canEditNote}
+					<div class="task-card__note-status" aria-live="polite">
+						{#if noteSaveStatus === 'pending' || noteSaveStatus === 'saving'}
+							<span class="note-spinner" aria-label="Waiting to save"></span>
+						{:else if noteSaveStatus === 'saved'}
+							<span class="note-check" aria-label="Saved">✓</span>
+						{:else if noteSaveStatus === 'error'}
+							<span class="note-error" aria-label="Save failed">!</span>
+						{/if}
+					</div>
+				{/if}
+			</div>
+
+			{#if canEditNote}
+				<textarea
+					bind:value={draftNote}
+					class="task-card__note-input"
+					rows="3"
+					placeholder="Add a note..."
+					onpointerdown={stopEventPropagation}
+					onclick={stopEventPropagation}
+					onkeydown={stopEventPropagation}
+					onkeyup={stopEventPropagation}
+					oninput={handleNoteInput}
+				></textarea>
+
+				{#if noteSaveStatus === 'error' && noteSaveError}
+					<p class="task-card__note-error">{noteSaveError}</p>
+				{/if}
+			{:else}
+				<p class="task-card__note">{task.note}</p>
+			{/if}
 		</div>
 	{/if}
 
-	{#if variant === 'active'}
+	{#if showsRuntime}
 		<div class="task-card__runtime">
 			<div class="runtime-stat">
-				<span>Active for</span>
-				<strong>{activeDurationLabel}</strong>
+				<span>{variant === 'done' ? 'Worked for' : 'Active for'}</span>
+				<strong>{variant === 'done' ? doneDurationLabel : activeDurationLabel}</strong>
 			</div>
 
 			<div class="runtime-stat">
-				<span>Alarm</span>
-				<strong>{alarmLabel || 'Off'}</strong>
+				<span>{variant === 'done' ? 'Completed' : 'Alarm'}</span>
+				<strong>{variant === 'done' ? completedAtLabel : alarmLabel || 'Off'}</strong>
 			</div>
 		</div>
 
-		{#if hasAlarm && ringing}
+		{#if variant === 'active' && hasAlarm && ringing}
 			<div class="alarm-panel">
 				<div>
 					<strong>Alarm ringing</strong>
@@ -108,24 +259,26 @@
 			</div>
 		{/if}
 
-		<div class="task-card__actions split-actions">
-			<button
-				class="action-button success-button"
-				type="button"
-				disabled={busyAction !== null}
-				onclick={() => onDone(task.id)}
-			>
-				{busyAction === 'done' ? 'Closing...' : 'Done'}
-			</button>
-			<button
-				class="action-button subtle-button"
-				type="button"
-				disabled={busyAction !== null}
-				onclick={() => onInactivate(task.id)}
-			>
-				{busyAction === 'inactivate' ? 'Moving...' : 'Inactivate'}
-			</button>
-		</div>
+		{#if showsActions}
+			<div class="task-card__actions split-actions">
+				<button
+					class="action-button subtle-button"
+					type="button"
+					disabled={busyAction !== null}
+					onclick={() => onInactivate(task.id)}
+				>
+					{busyAction === 'inactivate' ? 'Moving...' : 'Inactivate'}
+				</button>
+				<button
+					class="action-button success-button"
+					type="button"
+					disabled={busyAction !== null}
+					onclick={() => onDone(task.id)}
+				>
+					{busyAction === 'done' ? 'Closing...' : 'Done'}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -265,7 +418,6 @@
 
 	.task-card__note-label {
 		display: inline-block;
-		margin-bottom: 0.4rem;
 		font-family: 'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', Consolas, 'Liberation Mono',
 			Menlo, monospace;
 		font-size: 0.72rem;
@@ -275,10 +427,82 @@
 		color: rgba(20, 28, 38, 0.48);
 	}
 
+	.task-card__note-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.task-card__note-status {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1rem;
+		min-height: 1rem;
+	}
+
 	.task-card__note {
 		color: rgba(20, 28, 38, 0.72);
 		line-height: 1.5;
 		white-space: pre-wrap;
+	}
+
+	.task-card__note-input {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		resize: vertical;
+		font: inherit;
+		line-height: 1.5;
+		color: rgba(20, 28, 38, 0.72);
+	}
+
+	.task-card__note-input::placeholder {
+		color: rgba(20, 28, 38, 0.42);
+	}
+
+	.task-card__note-input:focus {
+		outline: none;
+	}
+
+	.task-card__note-error {
+		margin-top: 0.45rem;
+		font-size: 0.82rem;
+		color: #9f2d27;
+	}
+
+	.note-spinner,
+	.note-check,
+	.note-error {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1rem;
+		height: 1rem;
+		border-radius: 999px;
+		font-size: 0.72rem;
+		font-weight: 800;
+	}
+
+	.note-spinner {
+		border: 2px solid rgba(79, 110, 214, 0.18);
+		border-top-color: var(--task-accent);
+		animation: note-spin 0.8s linear infinite;
+	}
+
+	.note-check {
+		background: rgba(75, 159, 103, 0.14);
+		color: #2f8a4f;
+	}
+
+	.note-error {
+		background: rgba(159, 45, 39, 0.12);
+		color: #9f2d27;
 	}
 
 	.task-card__runtime {
@@ -382,6 +606,12 @@
 		background: linear-gradient(135deg, #c97b22, #e3a04f);
 		color: white;
 		box-shadow: 0 12px 24px rgba(201, 123, 34, 0.2);
+	}
+
+	@keyframes note-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	@media (max-width: 640px) {

@@ -12,6 +12,7 @@
 		{ href: '/add', label: 'Add' },
 		{ href: '/inactive', label: 'Inactive' },
 		{ href: '/active', label: 'Active' },
+		{ href: '/done', label: 'Done' },
 		{ href: '/stats', label: 'Stats' }
 	];
 

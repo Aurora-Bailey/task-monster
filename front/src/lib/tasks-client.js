@@ -25,12 +25,60 @@ async function runTaskAction(taskId, action) {
 	return body?.task ?? null;
 }
 
+export async function updateTaskNote(taskId, note) {
+	const response = await authorizedRequest(`/tasks/${taskId}/note`, {
+		method: 'PATCH',
+		body: {
+			note
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the note.'));
+	}
+
+	const body = await readApiBody(response);
+	return body?.task ?? null;
+}
+
 export function loadActiveTasks() {
 	return loadTaskList('/tasks/active');
 }
 
 export function loadInactiveTasks() {
 	return loadTaskList('/tasks/inactive');
+}
+
+export function loadDoneTasks() {
+	return loadTaskList('/tasks/done');
+}
+
+export async function loadDoneHistory({ day, tzOffsetMinutes } = {}) {
+	const params = new URLSearchParams();
+
+	if (day) {
+		params.set('day', day);
+	}
+
+	if (tzOffsetMinutes !== undefined && tzOffsetMinutes !== null) {
+		params.set('tzOffsetMinutes', String(tzOffsetMinutes));
+	}
+
+	const queryString = params.toString();
+	const query = queryString ? `?${queryString}` : '';
+	const response = await authorizedRequest(`/tasks/done${query}`);
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to load completed tasks.'));
+	}
+
+	const body = await readApiBody(response);
+
+	return {
+		tasks: body?.tasks ?? [],
+		days: body?.days ?? [],
+		selectedDay: body?.selectedDay ?? null
+	};
 }
 
 export function activateTask(taskId) {

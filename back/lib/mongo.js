@@ -86,6 +86,13 @@ async function ensureDatabaseIndexes(db) {
 			name: 'task_runs_userId_startedAt'
 		}
 	);
+
+	await db.collection('task_runs').createIndex(
+		{ userId: 1, endingReason: 1, endedAt: -1 },
+		{
+			name: 'task_runs_userId_endingReason_endedAt'
+		}
+	);
 }
 
 module.exports = {
