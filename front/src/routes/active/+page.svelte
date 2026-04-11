@@ -4,7 +4,9 @@
 	import { onMount } from 'svelte';
 
 	import TaskCard from '$lib/TaskCard.svelte';
+	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { formatElapsedDuration } from '$lib/task-format';
+	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
 	import {
 		doneTask,
 		inactivateTask,
@@ -21,25 +23,18 @@
 	let nowMs = $state(Date.now());
 	let audioReady = $state(false);
 	let audioSupported = $state(true);
+	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
 
 	let clockIntervalId = null;
 	let alarmLoopId = null;
 	let audioContext = null;
-
-	function sortActiveTasks(items) {
-		return [...items].sort(
-			(left, right) =>
-				new Date(left.activatedAt || left.createdAt).getTime() -
-				new Date(right.activatedAt || right.createdAt).getTime()
-		);
-	}
 
 	async function loadTasks() {
 		isLoading = true;
 		loadError = '';
 
 		try {
-			tasks = sortActiveTasks(await loadActiveTasks());
+			tasks = await loadActiveTasks();
 		} catch (error) {
 			loadError = error.message;
 		} finally {
@@ -128,7 +123,7 @@
 
 		try {
 			const updatedTask = await snoozeTask(taskId);
-			tasks = sortActiveTasks(tasks.map((task) => (task.id === taskId ? updatedTask : task)));
+			tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -138,7 +133,7 @@
 
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
-		tasks = sortActiveTasks(tasks.map((task) => (task.id === taskId ? updatedTask : task)));
+		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
 		return updatedTask;
 	}
 
@@ -211,6 +206,7 @@
 	}
 
 	onMount(() => {
+		sortMode = loadStoredTaskSort('active');
 		void loadTasks();
 
 		if (browser) {
@@ -239,6 +235,7 @@
 	});
 
 	const ringingCount = $derived(tasks.filter((task) => isTaskRinging(task)).length);
+	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'active' }));
 
 	$effect(() => {
 		if (!browser) {
@@ -293,8 +290,16 @@
 			<p>Nothing is on the table right now. Activate something from the inactive stack.</p>
 		</div>
 	{:else}
+		<TaskSortBar
+			value={sortMode}
+			onChange={(nextSortMode) => {
+				sortMode = nextSortMode;
+				storeTaskSort('active', nextSortMode);
+			}}
+		/>
+
 		<div class="task-grid">
-			{#each tasks as task}
+			{#each sortedTasks as task}
 				<TaskCard
 					task={task}
 					variant="active"

@@ -3,6 +3,8 @@
 
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { formatElapsedDuration } from '$lib/task-format';
+	import TaskSortBar from '$lib/TaskSortBar.svelte';
+	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
 	import { loadDoneHistory, updateTaskNote } from '$lib/tasks-client';
 
 	const completedAtFormatter = new Intl.DateTimeFormat(undefined, {
@@ -22,6 +24,7 @@
 	let isLoading = $state(true);
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
+	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -111,8 +114,10 @@
 	);
 	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
 	const canGoOlder = $derived(selectedDay !== null);
+	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'done' }));
 
 	onMount(() => {
+		sortMode = loadStoredTaskSort('done');
 		timezoneOffsetMinutes = new Date().getTimezoneOffset();
 		void loadTasks();
 	});
@@ -189,8 +194,16 @@
 			{/if}
 		</div>
 	{:else}
+		<TaskSortBar
+			value={sortMode}
+			onChange={(nextSortMode) => {
+				sortMode = nextSortMode;
+				storeTaskSort('done', nextSortMode);
+			}}
+		/>
+
 		<div class="task-grid">
-			{#each tasks as task}
+			{#each sortedTasks as task}
 				<TaskCard
 					task={task}
 					variant="done"

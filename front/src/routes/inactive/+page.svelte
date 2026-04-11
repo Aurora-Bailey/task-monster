@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 
 	import TaskCard from '$lib/TaskCard.svelte';
+	import TaskSortBar from '$lib/TaskSortBar.svelte';
+	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
 	import { activateTask, loadInactiveTasks, updateTaskNote } from '$lib/tasks-client';
 
 	let tasks = $state([]);
@@ -10,6 +12,7 @@
 	let loadError = $state('');
 	let actionError = $state('');
 	let busyTasks = $state({});
+	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
 
 	async function loadTasks() {
 		isLoading = true;
@@ -50,8 +53,11 @@
 	}
 
 	onMount(() => {
+		sortMode = loadStoredTaskSort('inactive');
 		loadTasks();
 	});
+
+	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'inactive' }));
 </script>
 
 <svelte:head>
@@ -88,8 +94,16 @@
 			</p>
 		</div>
 	{:else}
+		<TaskSortBar
+			value={sortMode}
+			onChange={(nextSortMode) => {
+				sortMode = nextSortMode;
+				storeTaskSort('inactive', nextSortMode);
+			}}
+		/>
+
 		<div class="task-grid">
-			{#each tasks as task}
+			{#each sortedTasks as task}
 				<TaskCard
 					task={task}
 					editableTaskId={task.id}
