@@ -7,6 +7,7 @@
 	let username = '';
 	let password = '';
 	let confirmPassword = '';
+	let alphaCode = '';
 	let errorMessage = '';
 	let isSubmitting = false;
 
@@ -23,11 +24,16 @@
 			return;
 		}
 
+		if (mode === 'create' && !alphaCode.trim()) {
+			errorMessage = 'Alpha code is required.';
+			return;
+		}
+
 		isSubmitting = true;
 
 		try {
 			if (mode === 'create') {
-				await createAccount({ username, password });
+				await createAccount({ username, password, alphaCode });
 			} else {
 				await loginAccount({ username, password });
 			}
@@ -53,7 +59,7 @@
 		<p class="eyebrow">Task Monster</p>
 		<h1>Keep the table tight.</h1>
 		<p class="lede">
-			Log in to pick up today&apos;s stack, or create a new account and start shaping the board.
+			Log in to pick up today&apos;s stack, or create a new account with the prerelease alpha code.
 		</p>
 	</div>
 
@@ -118,6 +124,19 @@
 					placeholder="Repeat the password"
 					required
 				/>
+
+				<label class="field-label" for="auth-alpha-code">Alpha code</label>
+				<input
+					id="auth-alpha-code"
+					bind:value={alphaCode}
+					class="text-input"
+					type="password"
+					name="alphaCode"
+					autocomplete="one-time-code"
+					placeholder="Prerelease access code"
+					required
+				/>
+				<p class="field-note">Account creation is locked behind the prerelease alpha code.</p>
 			{/if}
 
 			{#if errorMessage}
@@ -230,6 +249,12 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: rgba(0, 0, 0, 0.55);
+	}
+
+	.field-note {
+		margin: -0.25rem 0 0.2rem;
+		font-size: 0.88rem;
+		color: rgba(10, 20, 30, 0.56);
 	}
 
 	.text-input {

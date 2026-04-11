@@ -3,10 +3,12 @@ const { MongoServerError } = require('mongodb');
 const { hashPassword } = require('../../lib/passwords');
 const { normalizeUsername, validateUsername } = require('../../lib/users');
 
+const PRERELEASE_ALPHA_CODE = 'gyarados';
+
 const createUserSchema = {
 	body: {
 		type: 'object',
-		required: ['username', 'password'],
+		required: ['username', 'password', 'alphaCode'],
 		additionalProperties: false,
 		properties: {
 			username: {
@@ -18,6 +20,11 @@ const createUserSchema = {
 				type: 'string',
 				minLength: 8,
 				maxLength: 128
+			},
+			alphaCode: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 64
 			}
 		}
 	},
@@ -52,6 +59,7 @@ async function createUserRoute(app) {
 		async (request, reply) => {
 			const username = request.body.username.trim();
 			const password = request.body.password;
+			const alphaCode = request.body.alphaCode.trim().toLowerCase();
 			const usernameLower = normalizeUsername(username);
 
 			if (username.length < 3 || username.length > 32) {
@@ -63,6 +71,18 @@ async function createUserRoute(app) {
 			if (!validateUsername(username)) {
 				return reply.code(400).send({
 					message: 'Username can only include letters, numbers, underscores, and hyphens.'
+				});
+			}
+
+			if (!alphaCode) {
+				return reply.code(400).send({
+					message: 'Alpha code is required to create an account.'
+				});
+			}
+
+			if (alphaCode !== PRERELEASE_ALPHA_CODE) {
+				return reply.code(403).send({
+					message: 'Invalid alpha code.'
 				});
 			}
 
