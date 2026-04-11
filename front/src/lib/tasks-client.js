@@ -89,6 +89,10 @@ export function activateTask(taskId) {
 	return runTaskAction(taskId, 'activate');
 }
 
+export function archiveTask(taskId) {
+	return runTaskAction(taskId, 'archive');
+}
+
 export function moveTaskToDaymap(taskId) {
 	return runTaskAction(taskId, 'daymap');
 }

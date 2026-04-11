@@ -5,7 +5,7 @@
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
-	import { loadInactiveTasks, moveTaskToDaymap, updateTaskNote } from '$lib/tasks-client';
+	import { archiveTask, loadInactiveTasks, moveTaskToDaymap, updateTaskNote } from '$lib/tasks-client';
 
 	let tasks = $state([]);
 	let isLoading = $state(true);
@@ -52,6 +52,34 @@
 		return updatedTask;
 	}
 
+	async function handleArchive(taskId) {
+		if (
+			typeof window !== 'undefined' &&
+			!window.confirm(
+				'Archive this task? It will no longer be visible until an archive page exists.'
+			)
+		) {
+			return;
+		}
+
+		actionError = '';
+		busyTasks = {
+			...busyTasks,
+			[taskId]: 'archive'
+		};
+
+		try {
+			await archiveTask(taskId);
+			tasks = tasks.filter((task) => task.id !== taskId);
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			const nextBusyTasks = { ...busyTasks };
+			delete nextBusyTasks[taskId];
+			busyTasks = nextBusyTasks;
+		}
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('inactive');
 		loadTasks();
@@ -75,7 +103,7 @@
 
 	{#if actionError}
 		<div class="message-card error-card">
-			<strong>Could not move that task to daymap</strong>
+			<strong>Could not update that task</strong>
 			<p>{actionError}</p>
 		</div>
 	{/if}
@@ -109,7 +137,9 @@
 					editableTaskId={task.id}
 					clickActionLabel="Move to daymap"
 					busyAction={busyTasks[task.id] || null}
+					showArchiveButton={true}
 					onActivate={handleDaymap}
+					onArchive={handleArchive}
 					onSaveNote={handleSaveNote}
 				/>
 			{/each}

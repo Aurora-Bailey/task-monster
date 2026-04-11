@@ -17,7 +17,9 @@
 		ringing = false,
 		busyAction = null,
 		onSaveNote = null,
+		showArchiveButton = false,
 		onActivate = () => {},
+		onArchive = () => {},
 		onUnmap = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
@@ -74,6 +76,16 @@
 
 	function stopEventPropagation(event) {
 		event.stopPropagation();
+	}
+
+	function handleArchiveClick(event) {
+		event.stopPropagation();
+
+		if (!showArchiveButton || busyAction !== null) {
+			return;
+		}
+
+		onArchive(task.id);
 	}
 
 	function scheduleNoteSave() {
@@ -184,6 +196,30 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if showArchiveButton}
+			<button
+				class="archive-button"
+				type="button"
+				aria-label={`Archive ${task.name}`}
+				title="Archive task"
+				disabled={busyAction !== null}
+				onpointerdown={stopEventPropagation}
+				onclick={handleArchiveClick}
+				onkeydown={stopEventPropagation}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path
+						d="M4 7h16M7 7V5h10v2m-9 4h8m-9 0v6h10v-6"
+						fill="none"
+						stroke="currentColor"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.8"
+					/>
+				</svg>
+			</button>
+		{/if}
 	</div>
 
 	{#if task.note || canEditNote}
@@ -382,6 +418,42 @@
 	.task-card__title-block {
 		display: grid;
 		gap: 0.25rem;
+	}
+
+	.archive-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.3rem;
+		height: 2.3rem;
+		padding: 0;
+		border: 1px solid rgba(20, 28, 38, 0.08);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.92);
+		color: rgba(20, 28, 38, 0.56);
+		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
+		cursor: pointer;
+		transition:
+			transform 0.15s ease,
+			color 0.15s ease,
+			box-shadow 0.15s ease;
+	}
+
+	.archive-button svg {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	.archive-button:hover {
+		transform: translateY(-1px);
+		color: #9f2d27;
+		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+	}
+
+	.archive-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
 	}
 
 	h2,
