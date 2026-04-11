@@ -5,7 +5,12 @@
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
-	import { loadInactiveTasks, moveTaskToDaymap, updateTaskNote } from '$lib/tasks-client';
+	import {
+		activateTask,
+		loadDaymapTasks,
+		unmapTask,
+		updateTaskNote
+	} from '$lib/tasks-client';
 
 	let tasks = $state([]);
 	let isLoading = $state(true);
@@ -19,7 +24,7 @@
 		loadError = '';
 
 		try {
-			tasks = await loadInactiveTasks();
+			tasks = await loadDaymapTasks();
 		} catch (error) {
 			loadError = error.message;
 		} finally {
@@ -27,22 +32,44 @@
 		}
 	}
 
-	async function handleDaymap(taskId) {
-		actionError = '';
+	function setBusy(taskId, action) {
 		busyTasks = {
 			...busyTasks,
-			[taskId]: 'daymap'
+			[taskId]: action
 		};
+	}
+
+	function clearBusy(taskId) {
+		const nextBusyTasks = { ...busyTasks };
+		delete nextBusyTasks[taskId];
+		busyTasks = nextBusyTasks;
+	}
+
+	async function handleActivate(taskId) {
+		actionError = '';
+		setBusy(taskId, 'activate');
 
 		try {
-			await moveTaskToDaymap(taskId);
-			await goto('/daymap');
+			await activateTask(taskId);
+			await goto('/active');
 		} catch (error) {
 			actionError = error.message;
 		} finally {
-			const nextBusyTasks = { ...busyTasks };
-			delete nextBusyTasks[taskId];
-			busyTasks = nextBusyTasks;
+			clearBusy(taskId);
+		}
+	}
+
+	async function handleUnmap(taskId) {
+		actionError = '';
+		setBusy(taskId, 'unmap');
+
+		try {
+			await unmapTask(taskId);
+			await goto('/inactive');
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
 		}
 	}
 
@@ -53,52 +80,52 @@
 	}
 
 	onMount(() => {
-		sortMode = loadStoredTaskSort('inactive');
-		loadTasks();
+		sortMode = loadStoredTaskSort('daymap');
+		void loadTasks();
 	});
 
-	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'inactive' }));
+	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'daymap' }));
 </script>
 
 <svelte:head>
-	<title>Inactive Tasks</title>
-	<meta name="description" content="Your full backlog of possible tasks that are not on today's map yet." />
+	<title>Daymap Tasks</title>
+	<meta
+		name="description"
+		content="Tasks selected for today that are ready to start but are not active yet."
+	/>
 </svelte:head>
 
 <section class="board">
 	{#if loadError}
 		<div class="message-card error-card">
-			<strong>Could not load inactive tasks</strong>
+			<strong>Could not load daymap tasks</strong>
 			<p>{loadError}</p>
 		</div>
 	{/if}
 
 	{#if actionError}
 		<div class="message-card error-card">
-			<strong>Could not move that task to daymap</strong>
+			<strong>Could not update that task</strong>
 			<p>{actionError}</p>
 		</div>
 	{/if}
 
 	{#if isLoading}
 		<div class="message-card">
-			<strong>Loading inactive tasks</strong>
-			<p>Pulling the full backlog that is still outside today's plan.</p>
+			<strong>Loading daymap tasks</strong>
+			<p>Pulling today's selected stack before anything is started.</p>
 		</div>
 	{:else if tasks.length === 0}
 		<div class="message-card">
-			<strong>No inactive tasks</strong>
-			<p>
-				Everything is already on today's map, active, or finished. Add another task if you want more
-				options in reserve.
-			</p>
+			<strong>No tasks on today's daymap</strong>
+			<p>Pick a few from inactive when you want to build out the day's chunk before starting.</p>
 		</div>
 	{:else}
 		<TaskSortBar
 			value={sortMode}
 			onChange={(nextSortMode) => {
 				sortMode = nextSortMode;
-				storeTaskSort('inactive', nextSortMode);
+				storeTaskSort('daymap', nextSortMode);
 			}}
 		/>
 
@@ -106,11 +133,12 @@
 			{#each sortedTasks as task}
 				<TaskCard
 					task={task}
+					variant="daymap"
 					editableTaskId={task.id}
-					clickActionLabel="Move to daymap"
 					busyAction={busyTasks[task.id] || null}
-					onActivate={handleDaymap}
+					onActivate={handleActivate}
 					onSaveNote={handleSaveNote}
+					onUnmap={handleUnmap}
 				/>
 			{/each}
 		</div>

@@ -59,6 +59,7 @@ async function activateTaskRoute(app) {
 				task.alarmEnabled && task.durationMinutes
 					? new Date(activatedAt.getTime() + task.durationMinutes * 60 * 1000)
 					: null;
+			const mappedAt = task.mappedAt || activatedAt;
 
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
@@ -69,6 +70,8 @@ async function activateTaskRoute(app) {
 				},
 				{
 					$set: {
+						mappedToday: true,
+						mappedAt,
 						activeToday: true,
 						activatedAt,
 						alarmDueAt,

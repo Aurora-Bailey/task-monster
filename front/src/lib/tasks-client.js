@@ -45,6 +45,10 @@ export function loadActiveTasks() {
 	return loadTaskList('/tasks/active');
 }
 
+export function loadDaymapTasks() {
+	return loadTaskList('/tasks/daymap');
+}
+
 export function loadInactiveTasks() {
 	return loadTaskList('/tasks/inactive');
 }
@@ -85,8 +89,16 @@ export function activateTask(taskId) {
 	return runTaskAction(taskId, 'activate');
 }
 
+export function moveTaskToDaymap(taskId) {
+	return runTaskAction(taskId, 'daymap');
+}
+
 export function inactivateTask(taskId) {
 	return runTaskAction(taskId, 'inactivate');
+}
+
+export function unmapTask(taskId) {
+	return runTaskAction(taskId, 'unmap');
 }
 
 export function doneTask(taskId) {

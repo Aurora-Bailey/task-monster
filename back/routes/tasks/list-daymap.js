@@ -2,17 +2,20 @@ const { ObjectId } = require('mongodb');
 
 const { serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
-function compareInactiveTasks(left, right) {
+function compareDaymapTasks(left, right) {
 	if (left.mode !== right.mode) {
 		return left.mode === 'repeatable' ? -1 : 1;
 	}
 
-	return right.updatedAt.getTime() - left.updatedAt.getTime();
+	const leftTime = (left.mappedAt || left.updatedAt || left.createdAt).getTime();
+	const rightTime = (right.mappedAt || right.updatedAt || right.createdAt).getTime();
+
+	return rightTime - leftTime;
 }
 
-async function listInactiveTasksRoute(app) {
+async function listDaymapTasksRoute(app) {
 	app.get(
-		'/tasks/inactive',
+		'/tasks/daymap',
 		{
 			schema: {
 				response: {
@@ -35,18 +38,16 @@ async function listInactiveTasksRoute(app) {
 				.find({
 					userId: new ObjectId(request.auth.userId),
 					archived: false,
-					activeToday: false,
-					mappedToday: {
-						$ne: true
-					}
+					mappedToday: true,
+					activeToday: false
 				})
 				.toArray();
 
 			return {
-				tasks: tasks.sort(compareInactiveTasks).map(serializeTask)
+				tasks: tasks.sort(compareDaymapTasks).map(serializeTask)
 			};
 		}
 	);
 }
 
-module.exports = listInactiveTasksRoute;
+module.exports = listDaymapTasksRoute;

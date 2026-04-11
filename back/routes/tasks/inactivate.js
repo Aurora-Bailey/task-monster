@@ -55,6 +55,7 @@ async function inactivateTaskRoute(app) {
 			}
 
 			const inactivatedAt = new Date();
+			const mappedAt = task.mappedAt || inactivatedAt;
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
@@ -64,6 +65,8 @@ async function inactivateTaskRoute(app) {
 				},
 				{
 					$set: {
+						mappedToday: true,
+						mappedAt,
 						activeToday: false,
 						activatedAt: null,
 						alarmDueAt: null,

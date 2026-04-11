@@ -1,6 +1,5 @@
 const { ObjectId } = require('mongodb');
 
-const { closeOpenTaskRun } = require('../../lib/task-runs');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const taskParamsSchema = {
@@ -11,9 +10,9 @@ const taskParamsSchema = {
 	}
 };
 
-async function doneTaskRoute(app) {
+async function moveTaskToDaymapRoute(app) {
 	app.post(
-		'/tasks/:taskId/done',
+		'/tasks/:taskId/daymap',
 		{
 			schema: {
 				params: taskParamsSchema,
@@ -48,31 +47,34 @@ async function doneTaskRoute(app) {
 				});
 			}
 
-			if (!task.activeToday) {
+			if (task.activeToday) {
 				return reply.code(409).send({
-					message: 'Task must be active before it can be marked done.'
+					message: "Active tasks are already on today's map."
 				});
 			}
 
-			const completedAt = new Date();
+			if (task.mappedToday === true) {
+				return reply.code(409).send({
+					message: 'Task is already on the day map.'
+				});
+			}
+
+			const mappedAt = new Date();
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
-					activeToday: true
+					activeToday: false,
+					mappedToday: {
+						$ne: true
+					}
 				},
 				{
 					$set: {
-						mappedToday: false,
-						mappedAt: null,
-						activeToday: false,
-						activatedAt: null,
-						alarmDueAt: null,
-						lastCompletedAt: completedAt,
-						lastInactivatedAt: completedAt,
-						archived: task.mode === 'one-time',
-						updatedAt: completedAt
+						mappedToday: true,
+						mappedAt,
+						updatedAt: mappedAt
 					}
 				},
 				{
@@ -82,16 +84,9 @@ async function doneTaskRoute(app) {
 
 			if (!result) {
 				return reply.code(409).send({
-					message: 'Task could not be marked done.'
+					message: 'Task could not be moved to the day map.'
 				});
 			}
-
-			await closeOpenTaskRun(app.mongo.db, {
-				userId: request.auth.userId,
-				taskId,
-				endedAt: completedAt,
-				endingReason: 'done'
-			});
 
 			return {
 				task: serializeTask(result)
@@ -100,4 +95,4 @@ async function doneTaskRoute(app) {
 	);
 }
 
-module.exports = doneTaskRoute;
+module.exports = moveTaskToDaymapRoute;

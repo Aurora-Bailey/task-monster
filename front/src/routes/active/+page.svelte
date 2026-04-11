@@ -95,7 +95,7 @@
 
 		try {
 			await inactivateTask(taskId);
-			await goto('/inactive');
+			await goto('/daymap');
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -287,7 +287,7 @@
 	{:else if tasks.length === 0}
 		<div class="message-card">
 			<strong>No active tasks</strong>
-			<p>Nothing is on the table right now. Activate something from the inactive stack.</p>
+			<p>Nothing is on the table right now. Start something from the daymap when you are ready.</p>
 		</div>
 	{:else}
 		<TaskSortBar

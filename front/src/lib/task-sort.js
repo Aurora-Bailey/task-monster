@@ -40,6 +40,8 @@ function getTaskTime(task, variant) {
 	switch (variant) {
 		case 'active':
 			return new Date(task.activatedAt || task.createdAt || task.updatedAt).getTime();
+		case 'daymap':
+			return new Date(task.mappedAt || task.updatedAt || task.createdAt).getTime();
 		case 'done':
 			return new Date(task.completedAt || task.endedAt || task.lastCompletedAt || task.updatedAt).getTime();
 		default:

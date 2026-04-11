@@ -9,6 +9,7 @@
 		task,
 		variant = 'inactive',
 		editableTaskId = null,
+		clickActionLabel = 'Activate',
 		activeDurationLabel = '',
 		alarmLabel = '',
 		doneDurationLabel = '',
@@ -17,6 +18,7 @@
 		busyAction = null,
 		onSaveNote = null,
 		onActivate = () => {},
+		onUnmap = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
 		onSnooze = () => {}
@@ -24,8 +26,9 @@
 
 	const hasAlarm = $derived(task.alarmEnabled && task.durationMinutes && task.snoozeMinutes);
 	const isInactiveCard = $derived(variant === 'inactive');
+	const isDaymapCard = $derived(variant === 'daymap');
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
-	const showsActions = $derived(variant === 'active');
+	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const visibleTitleChips = $derived([
 		variant === 'done' ? 'Completed' : null,
@@ -164,7 +167,7 @@
 	style={`--task-accent: ${task.color};`}
 	role={isInactiveCard ? 'button' : undefined}
 	tabindex={isInactiveCard ? 0 : undefined}
-	aria-label={isInactiveCard ? `Activate ${task.name}` : undefined}
+	aria-label={isInactiveCard ? `${clickActionLabel} ${task.name}` : undefined}
 	aria-disabled={isInactiveCard ? busyAction !== null : undefined}
 	onclick={isInactiveCard ? handleInactiveActivate : undefined}
 	onkeydown={isInactiveCard ? handleInactiveKeydown : undefined}
@@ -258,16 +261,35 @@
 				</button>
 			</div>
 		{/if}
+	{/if}
 
-		{#if showsActions}
-			<div class="task-card__actions split-actions">
+	{#if showsActions}
+		<div class="task-card__actions split-actions">
+			{#if isDaymapCard}
+				<button
+					class="action-button subtle-button"
+					type="button"
+					disabled={busyAction !== null}
+					onclick={() => onUnmap(task.id)}
+				>
+					{busyAction === 'unmap' ? 'Moving...' : 'Inactive'}
+				</button>
+				<button
+					class="action-button success-button"
+					type="button"
+					disabled={busyAction !== null}
+					onclick={() => onActivate(task.id)}
+				>
+					{busyAction === 'activate' ? 'Starting...' : 'Activate'}
+				</button>
+			{:else}
 				<button
 					class="action-button subtle-button"
 					type="button"
 					disabled={busyAction !== null}
 					onclick={() => onInactivate(task.id)}
 				>
-					{busyAction === 'inactivate' ? 'Moving...' : 'Inactivate'}
+					{busyAction === 'inactivate' ? 'Moving...' : 'Daymap'}
 				</button>
 				<button
 					class="action-button success-button"
@@ -277,8 +299,8 @@
 				>
 					{busyAction === 'done' ? 'Closing...' : 'Done'}
 				</button>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	{/if}
 </div>
 

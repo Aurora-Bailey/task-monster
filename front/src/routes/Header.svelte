@@ -11,6 +11,7 @@
 	const navLinks = [
 		{ href: '/add', label: 'Add' },
 		{ href: '/inactive', label: 'Inactive' },
+		{ href: '/daymap', label: 'Daymap' },
 		{ href: '/active', label: 'Active' },
 		{ href: '/done', label: 'Done' },
 		{ href: '/stats', label: 'Stats' }
