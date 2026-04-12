@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { collapseQueuePositionsAfter } = require('../../lib/task-queue');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const taskParamsSchema = {
@@ -10,9 +11,9 @@ const taskParamsSchema = {
 	}
 };
 
-async function moveTaskToDaymapRoute(app) {
+async function unqueueTaskRoute(app) {
 	app.post(
-		'/tasks/:taskId/daymap',
+		'/tasks/:taskId/unqueue',
 		{
 			schema: {
 				params: taskParamsSchema,
@@ -47,35 +48,32 @@ async function moveTaskToDaymapRoute(app) {
 				});
 			}
 
-			if (task.activeToday) {
+			if (task.activeToday || task.mappedToday !== true) {
 				return reply.code(409).send({
-					message: "Active tasks are already on today's map."
+					message: 'Only daymap tasks can be removed from the queue.'
 				});
 			}
 
-			if (task.mappedToday === true) {
+			if (!Number.isInteger(task.queuePosition) || task.queuePosition < 1) {
 				return reply.code(409).send({
-					message: 'Task is already on the day map.'
+					message: 'Task is not queued.'
 				});
 			}
 
-			const mappedAt = new Date();
+			const updatedAt = new Date();
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
+					mappedToday: true,
 					activeToday: false,
-					mappedToday: {
-						$ne: true
-					}
+					queuePosition: task.queuePosition
 				},
 				{
 					$set: {
-						mappedToday: true,
-						mappedAt,
 						queuePosition: null,
-						updatedAt: mappedAt
+						updatedAt
 					}
 				},
 				{
@@ -85,9 +83,14 @@ async function moveTaskToDaymapRoute(app) {
 
 			if (!result) {
 				return reply.code(409).send({
-					message: 'Task could not be moved to the day map.'
+					message: 'Task could not be removed from the queue.'
 				});
 			}
+
+			await collapseQueuePositionsAfter(app.mongo.db, {
+				userId: request.auth.userId,
+				queuePosition: task.queuePosition
+			});
 
 			return {
 				task: serializeTask(result)
@@ -96,4 +99,4 @@ async function moveTaskToDaymapRoute(app) {
 	);
 }
 
-module.exports = moveTaskToDaymapRoute;
+module.exports = unqueueTaskRoute;

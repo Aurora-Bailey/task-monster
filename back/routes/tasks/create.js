@@ -126,6 +126,7 @@ async function createTaskRoute(app) {
 				note: note || null,
 				mappedToday: false,
 				mappedAt: null,
+				queuePosition: null,
 				activeToday: false,
 				activatedAt: null,
 				alarmDueAt: null,

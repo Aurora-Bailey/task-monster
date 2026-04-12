@@ -8,6 +8,8 @@
 	import {
 		activateTask,
 		loadDaymapTasks,
+		queueTask,
+		unqueueTask,
 		unmapTask,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -79,6 +81,25 @@
 		return updatedTask;
 	}
 
+	async function handleQueueToggle(task) {
+		actionError = '';
+		setBusy(task.id, task.queuePosition ? 'unqueue' : 'queue');
+
+		try {
+			if (task.queuePosition) {
+				await unqueueTask(task.id);
+			} else {
+				await queueTask(task.id);
+			}
+
+			tasks = await loadDaymapTasks();
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(task.id);
+		}
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('daymap');
 		void loadTasks();
@@ -137,6 +158,7 @@
 					editableTaskId={task.id}
 					busyAction={busyTasks[task.id] || null}
 					onActivate={handleActivate}
+					onQueueToggle={handleQueueToggle}
 					onSaveNote={handleSaveNote}
 					onUnmap={handleUnmap}
 				/>

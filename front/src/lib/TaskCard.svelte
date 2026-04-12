@@ -20,6 +20,7 @@
 		showArchiveButton = false,
 		onActivate = () => {},
 		onArchive = () => {},
+		onQueueToggle = () => {},
 		onUnmap = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
@@ -29,6 +30,7 @@
 	const hasAlarm = $derived(task.alarmEnabled && task.durationMinutes && task.snoozeMinutes);
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
+	const isQueuedDaymapTask = $derived(isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0);
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
@@ -86,6 +88,16 @@
 		}
 
 		onArchive(task.id);
+	}
+
+	function handleQueueToggleClick(event) {
+		event.stopPropagation();
+
+		if (!isDaymapCard || busyAction !== null) {
+			return;
+		}
+
+		onQueueToggle(task);
 	}
 
 	function scheduleNoteSave() {
@@ -185,41 +197,71 @@
 	onkeydown={isInactiveCard ? handleInactiveKeydown : undefined}
 >
 	<div class="task-card__header">
-		<div class="task-card__title-block">
-			<h2>{task.name}</h2>
+		<div class="task-card__header-main">
+			<div class="task-card__title-block">
+				<h2>{task.name}</h2>
 
-			{#if visibleTitleChips.length > 0}
-				<div class="task-card__title-chips">
-					{#each visibleTitleChips as chip}
-						<span class="highlight-chip">{chip}</span>
-					{/each}
-				</div>
-			{/if}
+				{#if visibleTitleChips.length > 0}
+					<div class="task-card__title-chips">
+						{#each visibleTitleChips as chip}
+							<span class="highlight-chip">{chip}</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 
-		{#if showArchiveButton}
-			<button
-				class="archive-button"
-				type="button"
-				aria-label={`Archive ${task.name}`}
-				title="Archive task"
-				disabled={busyAction !== null}
-				onpointerdown={stopEventPropagation}
-				onclick={handleArchiveClick}
-				onkeydown={stopEventPropagation}
-			>
-				<svg viewBox="0 0 24 24" aria-hidden="true">
-					<path
-						d="M4 7h16M7 7V5h10v2m-9 4h8m-9 0v6h10v-6"
-						fill="none"
-						stroke="currentColor"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="1.8"
-					/>
-				</svg>
-			</button>
-		{/if}
+		<div class="task-card__header-actions">
+			{#if isDaymapCard}
+				<button
+					class="queue-button"
+					class:is-queued={isQueuedDaymapTask}
+					type="button"
+					aria-label={
+						isQueuedDaymapTask
+							? `Remove ${task.name} from the queue`
+							: `Add ${task.name} to the queue`
+					}
+					title={isQueuedDaymapTask ? 'Remove from queue' : 'Add to queue'}
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleQueueToggleClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'queue' || busyAction === 'unqueue'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else if isQueuedDaymapTask}
+						<span>{task.queuePosition}</span>
+					{:else}
+						<span>+</span>
+					{/if}
+				</button>
+			{/if}
+
+			{#if showArchiveButton}
+				<button
+					class="archive-button"
+					type="button"
+					aria-label={`Archive ${task.name}`}
+					title="Archive task"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleArchiveClick}
+					onkeydown={stopEventPropagation}
+				>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path
+							d="M4 7h16M7 7V5h10v2m-9 4h8m-9 0v6h10v-6"
+							fill="none"
+							stroke="currentColor"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.8"
+						/>
+					</svg>
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	{#if task.note || canEditNote}
@@ -231,7 +273,7 @@
 				onclick={stopEventPropagation}
 				onkeydown={stopEventPropagation}
 			>
-				<span class="task-card__note-label">Note</span>
+				<span class="task-card__note-label">Notepad</span>
 
 				{#if canEditNote}
 					<div class="task-card__note-status" aria-live="polite">
@@ -251,7 +293,7 @@
 					bind:value={draftNote}
 					class="task-card__note-input"
 					rows="3"
-					placeholder="Add a note..."
+					placeholder="Add to notepad..."
 					onpointerdown={stopEventPropagation}
 					onclick={stopEventPropagation}
 					onkeydown={stopEventPropagation}
@@ -415,9 +457,79 @@
 		gap: 1rem;
 	}
 
+	.task-card__header-main {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.85rem;
+		min-width: 0;
+		flex: 1 1 auto;
+	}
+
+	.task-card__header-actions {
+		display: inline-flex;
+		align-items: flex-start;
+		justify-content: flex-end;
+		gap: 0.7rem;
+		flex: 0 0 auto;
+	}
+
 	.task-card__title-block {
 		display: grid;
 		gap: 0.25rem;
+		min-width: 0;
+	}
+
+	.queue-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		width: 2.35rem;
+		height: 2.35rem;
+		padding: 0;
+		border: 1px solid rgba(20, 28, 38, 0.1);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.92);
+		color: rgba(20, 28, 38, 0.58);
+		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
+		cursor: pointer;
+		transition:
+			transform 0.15s ease,
+			box-shadow 0.15s ease,
+			color 0.15s ease,
+			background 0.15s ease;
+	}
+
+	.queue-button span {
+		font-size: 0.88rem;
+		font-weight: 800;
+		line-height: 1;
+	}
+
+	.queue-button.is-queued {
+		background: color-mix(in srgb, var(--task-accent) 18%, white);
+		border-color: color-mix(in srgb, var(--task-accent) 34%, white);
+		color: color-mix(in srgb, var(--task-accent) 68%, black);
+	}
+
+	.queue-button:hover {
+		transform: translateY(-1px);
+		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+	}
+
+	.queue-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
+	}
+
+	.queue-button__spinner {
+		width: 0.92rem;
+		height: 0.92rem;
+		border: 2px solid rgba(20, 28, 38, 0.16);
+		border-top-color: var(--task-accent);
+		border-radius: 999px;
+		animation: note-spin 0.8s linear infinite;
 	}
 
 	.archive-button {

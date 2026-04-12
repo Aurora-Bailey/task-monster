@@ -73,6 +73,13 @@ async function ensureDatabaseIndexes(db) {
 		}
 	);
 
+	await db.collection('tasks').createIndex(
+		{ userId: 1, archived: 1, mappedToday: 1, activeToday: 1, queuePosition: 1 },
+		{
+			name: 'tasks_userId_archived_mappedToday_activeToday_queuePosition'
+		}
+	);
+
 	await db.collection('task_runs').createIndex(
 		{ userId: 1, taskId: 1, endedAt: 1, startedAt: -1 },
 		{

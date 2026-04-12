@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { collapseQueuePositionsAfter } = require('../../lib/task-queue');
 const { openTaskRun } = require('../../lib/task-runs');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
@@ -60,6 +61,7 @@ async function activateTaskRoute(app) {
 					? new Date(activatedAt.getTime() + task.durationMinutes * 60 * 1000)
 					: null;
 			const mappedAt = task.mappedAt || activatedAt;
+			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
 
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
@@ -72,6 +74,7 @@ async function activateTaskRoute(app) {
 					$set: {
 						mappedToday: true,
 						mappedAt,
+						queuePosition: null,
 						activeToday: true,
 						activatedAt,
 						alarmDueAt,
@@ -88,6 +91,11 @@ async function activateTaskRoute(app) {
 					message: 'Task could not be activated.'
 				});
 			}
+
+			await collapseQueuePositionsAfter(app.mongo.db, {
+				userId: request.auth.userId,
+				queuePosition: previousQueuePosition
+			});
 
 			await openTaskRun(app.mongo.db, {
 				userId: request.auth.userId,

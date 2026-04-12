@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { activateNextQueuedTask, collapseQueuePositionsAfter } = require('../../lib/task-queue');
 const { closeOpenTaskRun } = require('../../lib/task-runs');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
@@ -54,8 +55,14 @@ async function inactivateTaskRoute(app) {
 				});
 			}
 
+			const activeCountBeforeUpdate = await app.mongo.db.collection('tasks').countDocuments({
+				userId: task.userId,
+				archived: false,
+				activeToday: true
+			});
 			const inactivatedAt = new Date();
 			const mappedAt = task.mappedAt || inactivatedAt;
+			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
@@ -67,6 +74,7 @@ async function inactivateTaskRoute(app) {
 					$set: {
 						mappedToday: true,
 						mappedAt,
+						queuePosition: null,
 						activeToday: false,
 						activatedAt: null,
 						alarmDueAt: null,
@@ -85,12 +93,24 @@ async function inactivateTaskRoute(app) {
 				});
 			}
 
+			await collapseQueuePositionsAfter(app.mongo.db, {
+				userId: request.auth.userId,
+				queuePosition: previousQueuePosition
+			});
+
 			await closeOpenTaskRun(app.mongo.db, {
 				userId: request.auth.userId,
 				taskId,
 				endedAt: inactivatedAt,
 				endingReason: 'inactive'
 			});
+
+			if (activeCountBeforeUpdate < 2) {
+				await activateNextQueuedTask(app.mongo.db, {
+					userId: request.auth.userId,
+					activatedAt: inactivatedAt
+				});
+			}
 
 			return {
 				task: serializeTask(result)

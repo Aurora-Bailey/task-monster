@@ -95,6 +95,13 @@
 
 		try {
 			await inactivateTask(taskId);
+			const nextTasks = await loadActiveTasks();
+
+			if (nextTasks.length > 0) {
+				tasks = nextTasks;
+				return;
+			}
+
 			await goto('/daymap');
 		} catch (error) {
 			actionError = error.message;
@@ -109,6 +116,13 @@
 
 		try {
 			await doneTask(taskId);
+			const nextTasks = await loadActiveTasks();
+
+			if (nextTasks.length > 0) {
+				tasks = nextTasks;
+				return;
+			}
+
 			await goto('/done');
 		} catch (error) {
 			actionError = error.message;

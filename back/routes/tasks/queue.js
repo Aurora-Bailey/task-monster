@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { getNextQueuePosition } = require('../../lib/task-queue');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const taskParamsSchema = {
@@ -10,9 +11,9 @@ const taskParamsSchema = {
 	}
 };
 
-async function moveTaskToDaymapRoute(app) {
+async function queueTaskRoute(app) {
 	app.post(
-		'/tasks/:taskId/daymap',
+		'/tasks/:taskId/queue',
 		{
 			schema: {
 				params: taskParamsSchema,
@@ -47,35 +48,35 @@ async function moveTaskToDaymapRoute(app) {
 				});
 			}
 
-			if (task.activeToday) {
+			if (task.activeToday || task.mappedToday !== true) {
 				return reply.code(409).send({
-					message: "Active tasks are already on today's map."
+					message: 'Only daymap tasks can be queued.'
 				});
 			}
 
-			if (task.mappedToday === true) {
+			if (Number.isInteger(task.queuePosition) && task.queuePosition > 0) {
 				return reply.code(409).send({
-					message: 'Task is already on the day map.'
+					message: 'Task is already queued.'
 				});
 			}
 
-			const mappedAt = new Date();
+			const updatedAt = new Date();
+			const queuePosition = await getNextQueuePosition(app.mongo.db, {
+				userId: request.auth.userId
+			});
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
+					mappedToday: true,
 					activeToday: false,
-					mappedToday: {
-						$ne: true
-					}
+					queuePosition: null
 				},
 				{
 					$set: {
-						mappedToday: true,
-						mappedAt,
-						queuePosition: null,
-						updatedAt: mappedAt
+						queuePosition,
+						updatedAt
 					}
 				},
 				{
@@ -85,7 +86,7 @@ async function moveTaskToDaymapRoute(app) {
 
 			if (!result) {
 				return reply.code(409).send({
-					message: 'Task could not be moved to the day map.'
+					message: 'Task could not be queued.'
 				});
 			}
 
@@ -96,4 +97,4 @@ async function moveTaskToDaymapRoute(app) {
 	);
 }
 
-module.exports = moveTaskToDaymapRoute;
+module.exports = queueTaskRoute;

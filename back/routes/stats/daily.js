@@ -1,0 +1,528 @@
+const { ObjectId } = require('mongodb');
+
+const BREAKDOWN_LIMIT = 10;
+const DONE_LOG_LIMIT = 12;
+const SESSION_LOG_LIMIT = 100;
+const OVERLAP_BANDS = [
+	{ key: 'solo', label: 'Solo' },
+	{ key: 'double', label: 'Double' },
+	{ key: 'triple', label: 'Triple' },
+	{ key: 'quadPlus', label: 'Quad+' }
+];
+
+function parseTimezoneOffsetMinutes(value) {
+	if (value === undefined) {
+		return 0;
+	}
+
+	const parsed = Number.parseInt(value, 10);
+
+	if (!Number.isInteger(parsed) || parsed < -840 || parsed > 840) {
+		throw new Error('Invalid timezone offset.');
+	}
+
+	return parsed;
+}
+
+function isValidDayString(value) {
+	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function getCurrentLocalDay(timezoneOffsetMinutes) {
+	return new Date(Date.now() - timezoneOffsetMinutes * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function getUtcRangeForLocalDay(day, timezoneOffsetMinutes) {
+	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+	return {
+		startedAt: new Date(Date.UTC(year, month - 1, date, 0, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000),
+		endedBefore: new Date(
+			Date.UTC(year, month - 1, date + 1, 0, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000
+		)
+	};
+}
+
+function buildCadenceBuckets(day, timezoneOffsetMinutes) {
+	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+	return Array.from({ length: 24 }, (_, hour) => ({
+		hour,
+		label: formatHourLabel(hour),
+		startedAt: new Date(
+			Date.UTC(year, month - 1, date, hour, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000
+		),
+		endedBefore: new Date(
+			Date.UTC(year, month - 1, date, hour + 1, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000
+		),
+		milliseconds: 0
+	}));
+}
+
+function formatHourLabel(hour) {
+	if (hour === 0) {
+		return '12a';
+	}
+
+	if (hour < 12) {
+		return `${hour}a`;
+	}
+
+	if (hour === 12) {
+		return '12p';
+	}
+
+	return `${hour - 12}p`;
+}
+
+function getOverlapMilliseconds(startedAt, endedBefore, leftStartedAt, leftEndedBefore) {
+	return Math.max(
+		0,
+		Math.min(endedBefore.getTime(), leftEndedBefore.getTime()) -
+			Math.max(startedAt.getTime(), leftStartedAt.getTime())
+	);
+}
+
+function toOutcome(endingReason) {
+	if (endingReason === 'done') {
+		return 'done';
+	}
+
+	if (endingReason === 'inactive') {
+		return 'inactive';
+	}
+
+	return 'active';
+}
+
+function getFallbackTask(taskId) {
+	return {
+		id: taskId,
+		name: 'Unknown task',
+		color: '#6f7d8b',
+		colorKey: 'unknown',
+		mode: 'repeatable'
+	};
+}
+
+const dailyStatsSchema = {
+	querystring: {
+		type: 'object',
+		additionalProperties: false,
+		properties: {
+			day: {
+				type: 'string'
+			},
+			tzOffsetMinutes: {
+				type: ['integer', 'string']
+			}
+		}
+	},
+	response: {
+		200: {
+			type: 'object',
+			required: [
+				'selectedDay',
+				'summary',
+				'overlapBands',
+				'breakdown',
+				'cadence',
+				'doneLog',
+				'sessionLog'
+			],
+			properties: {
+				selectedDay: {
+					type: 'string'
+				},
+				summary: {
+					type: 'object',
+					required: [
+						'trackedMilliseconds',
+						'wallClockMilliseconds',
+						'overlapMilliseconds',
+						'runCount',
+						'completedCount',
+						'pausedCount',
+						'averageRunMilliseconds',
+						'longestRunMilliseconds'
+					],
+					properties: {
+						trackedMilliseconds: { type: 'integer' },
+						wallClockMilliseconds: { type: 'integer' },
+						overlapMilliseconds: { type: 'integer' },
+						runCount: { type: 'integer' },
+						completedCount: { type: 'integer' },
+						pausedCount: { type: 'integer' },
+						averageRunMilliseconds: { type: 'integer' },
+						longestRunMilliseconds: { type: 'integer' }
+					}
+				},
+				overlapBands: {
+					type: 'array',
+					items: {
+						type: 'object',
+						required: ['key', 'label', 'milliseconds'],
+						properties: {
+							key: { type: 'string' },
+							label: { type: 'string' },
+							milliseconds: { type: 'integer' }
+						}
+					}
+				},
+				breakdown: {
+					type: 'array',
+					items: {
+						type: 'object',
+						required: [
+							'taskId',
+							'name',
+							'color',
+							'colorKey',
+							'mode',
+							'totalMilliseconds',
+							'runCount',
+							'completedCount'
+						],
+						properties: {
+							taskId: { type: 'string' },
+							name: { type: 'string' },
+							color: { type: 'string' },
+							colorKey: { type: 'string' },
+							mode: { type: 'string' },
+							totalMilliseconds: { type: 'integer' },
+							runCount: { type: 'integer' },
+							completedCount: { type: 'integer' }
+						}
+					}
+				},
+				cadence: {
+					type: 'array',
+					items: {
+						type: 'object',
+						required: ['hour', 'label', 'milliseconds'],
+						properties: {
+							hour: { type: 'integer' },
+							label: { type: 'string' },
+							milliseconds: { type: 'integer' }
+						}
+					}
+				},
+				doneLog: {
+					type: 'array',
+					items: {
+						type: 'object',
+						required: ['id', 'taskId', 'name', 'color', 'colorKey', 'mode', 'completedAt', 'spentMilliseconds'],
+						properties: {
+							id: { type: 'string' },
+							taskId: { type: 'string' },
+							name: { type: 'string' },
+							color: { type: 'string' },
+							colorKey: { type: 'string' },
+							mode: { type: 'string' },
+							completedAt: { type: 'string' },
+							spentMilliseconds: { type: 'integer' }
+						}
+					}
+				},
+				sessionLog: {
+					type: 'array',
+					items: {
+						type: 'object',
+						required: [
+							'id',
+							'taskId',
+							'name',
+							'color',
+							'colorKey',
+							'mode',
+							'startedAt',
+							'endedAt',
+							'spentMilliseconds',
+							'outcome'
+						],
+						properties: {
+							id: { type: 'string' },
+							taskId: { type: 'string' },
+							name: { type: 'string' },
+							color: { type: 'string' },
+							colorKey: { type: 'string' },
+							mode: { type: 'string' },
+							startedAt: { type: 'string' },
+							endedAt: { type: 'string' },
+							spentMilliseconds: { type: 'integer' },
+							outcome: { type: 'string' }
+						}
+					}
+				}
+			}
+		}
+	}
+};
+
+async function dailyStatsRoute(app) {
+	app.get(
+		'/stats/daily',
+		{
+			schema: dailyStatsSchema
+		},
+		async (request, reply) => {
+			let timezoneOffsetMinutes;
+
+			try {
+				timezoneOffsetMinutes = parseTimezoneOffsetMinutes(request.query.tzOffsetMinutes);
+			} catch (error) {
+				return reply.code(400).send({
+					message: error.message
+				});
+			}
+
+			if (request.query.day !== undefined && !isValidDayString(request.query.day)) {
+				return reply.code(400).send({
+					message: 'Invalid day.'
+				});
+			}
+
+			const selectedDay = request.query.day || getCurrentLocalDay(timezoneOffsetMinutes);
+			const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
+			const now = new Date();
+			const cadenceBuckets = buildCadenceBuckets(selectedDay, timezoneOffsetMinutes);
+			const userId = new ObjectId(request.auth.userId);
+
+			const taskRuns = await app.mongo.db
+				.collection('task_runs')
+				.find({
+					userId,
+					startedAt: {
+						$lt: endedBefore
+					},
+					$or: [
+						{
+							endedAt: null
+						},
+						{
+							endedAt: {
+								$gt: startedAt
+							}
+						}
+					]
+				})
+				.sort({
+					startedAt: 1
+				})
+				.toArray();
+
+			const taskIds = [...new Set(taskRuns.map((taskRun) => taskRun.taskId.toString()))];
+			const tasks = taskIds.length
+				? await app.mongo.db
+						.collection('tasks')
+						.find({
+							_id: {
+								$in: taskIds.map((taskId) => new ObjectId(taskId))
+							}
+						})
+						.toArray()
+				: [];
+			const tasksById = new Map(
+				tasks.map((task) => [
+					task._id.toString(),
+					{
+						id: task._id.toString(),
+						name: task.name,
+						color: task.colorHex,
+						colorKey: task.colorKey,
+						mode: task.mode
+					}
+				])
+			);
+
+			const clippedRuns = [];
+			const breakdownByTaskId = new Map();
+			const overlapEvents = [];
+			let trackedMilliseconds = 0;
+			let completedCount = 0;
+			let pausedCount = 0;
+			let longestRunMilliseconds = 0;
+
+			for (const taskRun of taskRuns) {
+				const taskId = taskRun.taskId.toString();
+				const task = tasksById.get(taskId) || getFallbackTask(taskId);
+				const effectiveStartedAt = new Date(
+					Math.max(taskRun.startedAt.getTime(), startedAt.getTime())
+				);
+				const rawEndedAt = taskRun.endedAt ? taskRun.endedAt : now;
+				const effectiveEndedAt = new Date(
+					Math.min(rawEndedAt.getTime(), endedBefore.getTime())
+				);
+				const spentMilliseconds = Math.max(
+					0,
+					effectiveEndedAt.getTime() - effectiveStartedAt.getTime()
+				);
+
+				if (spentMilliseconds <= 0) {
+					continue;
+				}
+
+				const outcome = toOutcome(taskRun.endingReason);
+				const completedWithinDay =
+					taskRun.endingReason === 'done' &&
+					taskRun.endedAt &&
+					taskRun.endedAt.getTime() >= startedAt.getTime() &&
+					taskRun.endedAt.getTime() < endedBefore.getTime();
+				const pausedWithinDay =
+					taskRun.endingReason === 'inactive' &&
+					taskRun.endedAt &&
+					taskRun.endedAt.getTime() >= startedAt.getTime() &&
+					taskRun.endedAt.getTime() < endedBefore.getTime();
+
+				trackedMilliseconds += spentMilliseconds;
+				longestRunMilliseconds = Math.max(longestRunMilliseconds, spentMilliseconds);
+				if (completedWithinDay) {
+					completedCount += 1;
+				}
+				if (pausedWithinDay) {
+					pausedCount += 1;
+				}
+
+				overlapEvents.push({
+					time: effectiveStartedAt.getTime(),
+					delta: 1
+				});
+				overlapEvents.push({
+					time: effectiveEndedAt.getTime(),
+					delta: -1
+				});
+
+				for (const bucket of cadenceBuckets) {
+					const overlapMilliseconds = getOverlapMilliseconds(
+						effectiveStartedAt,
+						effectiveEndedAt,
+						bucket.startedAt,
+						bucket.endedBefore
+					);
+
+					if (overlapMilliseconds > 0) {
+						bucket.milliseconds += overlapMilliseconds;
+					}
+				}
+
+				const currentBreakdown =
+					breakdownByTaskId.get(taskId) || {
+						taskId,
+						name: task.name,
+						color: task.color,
+						colorKey: task.colorKey,
+						mode: task.mode,
+						totalMilliseconds: 0,
+						runCount: 0,
+						completedCount: 0
+					};
+				currentBreakdown.totalMilliseconds += spentMilliseconds;
+				currentBreakdown.runCount += 1;
+				if (completedWithinDay) {
+					currentBreakdown.completedCount += 1;
+				}
+				breakdownByTaskId.set(taskId, currentBreakdown);
+
+				clippedRuns.push({
+					id: taskRun._id.toString(),
+					taskId,
+					name: task.name,
+					color: task.color,
+					colorKey: task.colorKey,
+					mode: task.mode,
+					startedAt: effectiveStartedAt.toISOString(),
+					endedAt: effectiveEndedAt.toISOString(),
+					spentMilliseconds,
+					outcome,
+					completedAt:
+						completedWithinDay && taskRun.endedAt ? taskRun.endedAt.toISOString() : null
+				});
+			}
+
+			overlapEvents.sort((left, right) => left.time - right.time || left.delta - right.delta);
+
+			const overlapTotals = {
+				solo: 0,
+				double: 0,
+				triple: 0,
+				quadPlus: 0
+			};
+			let activeCount = 0;
+			let previousTime = null;
+
+			for (const event of overlapEvents) {
+				if (previousTime !== null && event.time > previousTime && activeCount > 0) {
+					const duration = event.time - previousTime;
+
+					if (activeCount === 1) {
+						overlapTotals.solo += duration;
+					} else if (activeCount === 2) {
+						overlapTotals.double += duration;
+					} else if (activeCount === 3) {
+						overlapTotals.triple += duration;
+					} else {
+						overlapTotals.quadPlus += duration;
+					}
+				}
+
+				activeCount += event.delta;
+				previousTime = event.time;
+			}
+
+			const wallClockMilliseconds =
+				overlapTotals.solo +
+				overlapTotals.double +
+				overlapTotals.triple +
+				overlapTotals.quadPlus;
+			const averageRunMilliseconds = clippedRuns.length
+				? Math.round(trackedMilliseconds / clippedRuns.length)
+				: 0;
+
+			return {
+				selectedDay,
+				summary: {
+					trackedMilliseconds,
+					wallClockMilliseconds,
+					overlapMilliseconds: Math.max(0, trackedMilliseconds - wallClockMilliseconds),
+					runCount: clippedRuns.length,
+					completedCount,
+					pausedCount,
+					averageRunMilliseconds,
+					longestRunMilliseconds
+				},
+				overlapBands: OVERLAP_BANDS.map((band) => ({
+					key: band.key,
+					label: band.label,
+					milliseconds: overlapTotals[band.key]
+				})),
+				breakdown: [...breakdownByTaskId.values()]
+					.sort((left, right) => right.totalMilliseconds - left.totalMilliseconds)
+					.slice(0, BREAKDOWN_LIMIT),
+				cadence: cadenceBuckets.map((bucket) => ({
+					hour: bucket.hour,
+					label: bucket.label,
+					milliseconds: bucket.milliseconds
+				})),
+				doneLog: clippedRuns
+					.filter((taskRun) => taskRun.completedAt)
+					.sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime())
+					.slice(0, DONE_LOG_LIMIT)
+					.map((taskRun) => ({
+						id: taskRun.id,
+						taskId: taskRun.taskId,
+						name: taskRun.name,
+						color: taskRun.color,
+						colorKey: taskRun.colorKey,
+						mode: taskRun.mode,
+						completedAt: taskRun.completedAt,
+						spentMilliseconds: taskRun.spentMilliseconds
+					})),
+				sessionLog: clippedRuns
+					.sort((left, right) => new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime())
+					.slice(0, SESSION_LOG_LIMIT)
+			};
+		}
+	);
+}
+
+module.exports = dailyStatsRoute;

@@ -209,10 +209,10 @@
 					type="checkbox"
 					name="hasNotes"
 				/>
-				<label class="notes-row" for="task-notes-toggle">Additional notes</label>
+				<label class="notes-row" for="task-notes-toggle">Additional notepad</label>
 
 				<div class="notes-fields">
-					<label class="field-label" for="task-notes">Task notes</label>
+					<label class="field-label" for="task-notes">Task notepad</label>
 					<textarea
 						id="task-notes"
 						bind:value={note}

@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { collapseQueuePositionsAfter } = require('../../lib/task-queue');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const taskParamsSchema = {
@@ -60,6 +61,7 @@ async function unmapTaskRoute(app) {
 			}
 
 			const updatedAt = new Date();
+			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
@@ -72,6 +74,7 @@ async function unmapTaskRoute(app) {
 					$set: {
 						mappedToday: false,
 						mappedAt: null,
+						queuePosition: null,
 						updatedAt
 					}
 				},
@@ -85,6 +88,11 @@ async function unmapTaskRoute(app) {
 					message: 'Task could not be moved back to inactive.'
 				});
 			}
+
+			await collapseQueuePositionsAfter(app.mongo.db, {
+				userId: request.auth.userId,
+				queuePosition: previousQueuePosition
+			});
 
 			return {
 				task: serializeTask(result)

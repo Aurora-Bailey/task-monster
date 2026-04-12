@@ -101,8 +101,16 @@ export function inactivateTask(taskId) {
 	return runTaskAction(taskId, 'inactivate');
 }
 
+export function queueTask(taskId) {
+	return runTaskAction(taskId, 'queue');
+}
+
 export function unmapTask(taskId) {
 	return runTaskAction(taskId, 'unmap');
+}
+
+export function unqueueTask(taskId) {
+	return runTaskAction(taskId, 'unqueue');
 }
 
 export function doneTask(taskId) {

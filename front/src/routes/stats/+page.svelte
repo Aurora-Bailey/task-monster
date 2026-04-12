@@ -1,839 +1,743 @@
 <script>
-	import { reportOptions, statsOverview, statsReports } from '$lib/task-stats';
+	import { onMount } from 'svelte';
 
-	let selectedReportId = $state('today');
+	import { formatElapsedDuration } from '$lib/task-format';
+	import { loadDailyStats } from '$lib/stats-client';
 
-	const activeReport = $derived(statsReports[selectedReportId]);
-	const maxOverlapMinutes = $derived(
-		Math.max(...activeReport.overlapBands.map((band) => band.minutes), 1)
-	);
-	const maxBreakdownMinutes = $derived(
-		Math.max(...activeReport.breakdown.items.map((item) => item.minutes), 1)
-	);
-	const maxCadenceMinutes = $derived(
-		Math.max(...activeReport.cadence.items.map((item) => item.minutes), 1)
-	);
+	const overlapColors = {
+		solo: '#6f7d8b',
+		double: '#3d9790',
+		triple: '#d7b23d',
+		quadPlus: '#c74a4a'
+	};
+	const HOUR_TIER_MS = 60 * 60 * 1000;
+	const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
+		month: 'long',
+		day: 'numeric'
+	});
+	const timeLabelFormatter = new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit'
+	});
 
-	function formatDuration(minutes) {
-		if (!minutes) {
-			return '0 min';
-		}
+	let selectedDay = $state(null);
+	let summary = $state(null);
+	let overlapBands = $state([]);
+	let breakdown = $state([]);
+	let cadence = $state([]);
+	let doneLog = $state([]);
+	let sessionLog = $state([]);
+	let isLoading = $state(true);
+	let loadError = $state('');
+	let timezoneOffsetMinutes = 0;
 
-		const hours = Math.floor(minutes / 60);
-		const remainingMinutes = minutes % 60;
-
-		if (!hours) {
-			return `${minutes} min`;
-		}
-
-		if (!remainingMinutes) {
-			return `${hours} hr${hours === 1 ? '' : 's'}`;
-		}
-
-		return `${hours}h ${remainingMinutes}m`;
+	function formatDayLabel(day) {
+		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+		return dayLabelFormatter.format(new Date(year, month - 1, date));
 	}
+
+	function formatClock(value) {
+		return timeLabelFormatter.format(new Date(value));
+	}
+
+	function formatWindow(startedAt, endedAt) {
+		return `${formatClock(startedAt)} - ${formatClock(endedAt)}`;
+	}
+
+	function getCadenceTierPercent(milliseconds, tierIndex) {
+		const tierStart = tierIndex * HOUR_TIER_MS;
+		const tierMilliseconds = Math.min(
+			Math.max(milliseconds - tierStart, 0),
+			HOUR_TIER_MS
+		);
+
+		return (tierMilliseconds / HOUR_TIER_MS) * 100;
+	}
+
+	function formatOutcome(outcome) {
+		if (outcome === 'done') {
+			return 'Done';
+		}
+
+		if (outcome === 'inactive') {
+			return 'Paused';
+		}
+
+		return 'Active';
+	}
+
+	function getTodayDay() {
+		const now = new Date();
+		const year = now.getFullYear();
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		const date = String(now.getDate()).padStart(2, '0');
+
+		return `${year}-${month}-${date}`;
+	}
+
+	function shiftDay(day, deltaDays) {
+		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+		const shifted = new Date(year, month - 1, date + deltaDays);
+
+		return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-${String(shifted.getDate()).padStart(2, '0')}`;
+	}
+
+	async function loadStats(day = selectedDay) {
+		isLoading = true;
+		loadError = '';
+
+		try {
+			const stats = await loadDailyStats({
+				day,
+				tzOffsetMinutes: timezoneOffsetMinutes
+			});
+
+			selectedDay = stats.selectedDay || getTodayDay();
+			summary = stats.summary;
+			overlapBands = stats.overlapBands;
+			breakdown = stats.breakdown;
+			cadence = stats.cadence;
+			doneLog = stats.doneLog;
+			sessionLog = stats.sessionLog;
+		} catch (error) {
+			loadError = error.message;
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function selectDay(day) {
+		if (!day || day === selectedDay || isLoading) {
+			return;
+		}
+
+		await loadStats(day);
+	}
+
+	async function showNewerDay() {
+		if (!canGoNewer) {
+			return;
+		}
+
+		await loadStats(shiftDay(selectedDay, 1));
+	}
+
+	async function showOlderDay() {
+		if (!selectedDay) {
+			return;
+		}
+
+		await loadStats(shiftDay(selectedDay, -1));
+	}
+
+	const todayDay = $derived(getTodayDay());
+	const visibleDays = $derived(
+		selectedDay ? [selectedDay, shiftDay(selectedDay, -1), shiftDay(selectedDay, -2)] : []
+	);
+	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
+	const canGoOlder = $derived(selectedDay !== null);
+	const hasStats = $derived(Boolean(summary) && summary.runCount > 0);
+	const maxOverlapMilliseconds = $derived(
+		Math.max(...overlapBands.map((band) => band.milliseconds), 1)
+	);
+	const maxBreakdownMilliseconds = $derived(
+		Math.max(...breakdown.map((item) => item.totalMilliseconds), 1)
+	);
+	const summaryCards = $derived(
+		summary
+			? [
+					{
+						label: 'Tracked time',
+						value: formatElapsedDuration(summary.trackedMilliseconds),
+						note: 'Summed run time for the day. Overlap counts fully.'
+					},
+					{
+						label: 'On-table time',
+						value: formatElapsedDuration(summary.wallClockMilliseconds),
+						note: 'Unique clock time with at least one active task.'
+					},
+					{
+						label: 'Overlap bonus',
+						value: formatElapsedDuration(summary.overlapMilliseconds),
+						note: 'Additional tracked time created by concurrent runs.'
+					},
+					{
+						label: 'Done',
+						value: `${summary.completedCount}`,
+						note: 'Runs that closed with a done outcome on this day.'
+					},
+					{
+						label: 'Paused',
+						value: `${summary.pausedCount}`,
+						note: 'Runs moved back off the table without being finished.'
+					},
+					{
+						label: 'Longest run',
+						value: formatElapsedDuration(summary.longestRunMilliseconds),
+						note: 'Longest single clipped run inside the selected day.'
+					}
+				]
+			: []
+	);
+
+	onMount(() => {
+		timezoneOffsetMinutes = new Date().getTimezoneOffset();
+		void loadStats();
+	});
 </script>
 
 <svelte:head>
 	<title>Stats</title>
 	<meta
 		name="description"
-		content="Daily, weekly, and monthly stats prototypes for task-monster."
+		content="Real daily stats built from completed, paused, and currently active task runs."
 	/>
 </svelte:head>
 
 <section class="stats-page">
-	<div class="hero-shell">
-		<div class="hero-copy">
-			<p class="eyebrow">{activeReport.eyebrow}</p>
-			<h1>{activeReport.title}</h1>
-			<p class="lede">{activeReport.subtitle}</p>
-		</div>
+	{#if selectedDay}
+		<nav class="day-pager" aria-label="Stats days">
+			<button
+				class="pager-arrow"
+				type="button"
+				disabled={!canGoNewer || isLoading}
+				onclick={showNewerDay}
+			>
+				&lt;&lt;
+			</button>
 
-		<div class="hero-aside">
-			<div class="range-switch" role="group" aria-label="Switch stats report window">
-				{#each reportOptions as option}
+			<div class="day-pill-row">
+				{#each visibleDays as day}
 					<button
+						class:selected-day={day === selectedDay}
+						class="day-pill"
 						type="button"
-						class:selected={selectedReportId === option.id}
-						aria-pressed={selectedReportId === option.id}
-						onclick={() => {
-							selectedReportId = option.id;
-						}}
+						disabled={isLoading && day !== selectedDay}
+						aria-pressed={day === selectedDay}
+						onclick={() => selectDay(day)}
 					>
-						<strong>{option.label}</strong>
-						<span>{option.caption}</span>
+						{formatDayLabel(day)}
 					</button>
 				{/each}
 			</div>
 
-			<article class="hero-card">
-				<div class="hero-card__top">
-					<div>
-						<p class="hero-card__label">{activeReport.windowLabel}</p>
-						<h2>Dense readout</h2>
-					</div>
-					<span class="status-pill">{activeReport.status}</span>
-				</div>
+			<button
+				class="pager-arrow"
+				type="button"
+				disabled={!canGoOlder || isLoading}
+				onclick={showOlderDay}
+			>
+				&gt;&gt;
+			</button>
+		</nav>
+	{/if}
 
-				<div class="hero-card__body">
-					<div class="score-orb" style={`--score: ${activeReport.heroScore.value};`}>
-						<div class="score-orb__inner">
-							<span>{activeReport.heroScore.label}</span>
-							<strong>{activeReport.heroScore.value}</strong>
-						</div>
-					</div>
-
-					<p class="hero-card__note">{activeReport.heroScore.note}</p>
-				</div>
-
-				<div class="score-grid">
-					{#each activeReport.scoreCards as score}
-						<article class="score-card">
-							<div class="score-card__top">
-								<span>{score.label}</span>
-								<strong>{score.value}%</strong>
-							</div>
-							<div class="meter-track">
-								<div class="meter-fill" style={`width: ${score.value}%;`}></div>
-							</div>
-							<p>{score.note}</p>
-						</article>
-					{/each}
-				</div>
-			</article>
+	<header class="stats-header">
+		<div>
+			<p class="eyebrow">Stats</p>
+			<h1>{selectedDay ? formatDayLabel(selectedDay) : 'Daily stats'}</h1>
+			<p class="lede">Everything on this page is computed from real task-run data in the database.</p>
 		</div>
-	</div>
+	</header>
 
-	<div class="overview-grid">
-		{#each statsOverview as card}
-			<article class="overview-card">
-				<span>{card.label}</span>
-				<strong>{card.value}</strong>
-				<p>{card.note}</p>
-			</article>
-		{/each}
-	</div>
+	{#if loadError}
+		<div class="message-card error-card">
+			<strong>Could not load stats</strong>
+			<p>{loadError}</p>
+		</div>
+	{/if}
 
-	<div class="metric-grid">
-		{#each activeReport.metricCards as metric}
-			<article class={`metric-card tone-${metric.tone ?? 'default'}`}>
-				<span>{metric.label}</span>
-				<strong>{metric.value}</strong>
-				<p>{metric.note}</p>
-			</article>
-		{/each}
-	</div>
+	{#if isLoading}
+		<div class="message-card">
+			<strong>Loading stats</strong>
+			<p>Pulling task runs, clipping them to the selected day, and computing the report.</p>
+		</div>
+	{:else if !hasStats}
+		<div class="message-card">
+			<strong>{selectedDay ? `No tracked activity on ${formatDayLabel(selectedDay)}` : 'No tracked activity yet'}</strong>
+			<p>Stats appear after a task enters active and creates at least one real run in the database.</p>
+		</div>
+	{:else}
+		<div class="summary-grid">
+			{#each summaryCards as card}
+				<article class="summary-card">
+					<span>{card.label}</span>
+					<strong>{card.value}</strong>
+					<p>{card.note}</p>
+				</article>
+			{/each}
+		</div>
 
-	<div class="report-grid">
-		<section class="panel panel-wide">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Overlap</p>
-					<h2>Output stack</h2>
+		<div class="report-grid">
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Overlap</p>
+						<h2>Concurrent time</h2>
+					</div>
+					<p>Wall-clock time split by how many tasks were active at once.</p>
 				</div>
-				<p>Single-task focus still carries the bulk, but the bonus lanes are easy to spot.</p>
-			</div>
 
-			<div class="output-grid">
-				<div class="overlap-lanes">
-					{#each activeReport.overlapBands as band}
-						<article class="overlap-lane">
-							<div class="overlap-lane__meta">
-								<div>
-									<strong>{band.label}</strong>
-									<p>{band.note}</p>
-								</div>
-								<span>{formatDuration(band.minutes)}</span>
+				<div class="metric-list">
+					{#each overlapBands as band}
+						<article class="metric-row">
+							<div class="metric-row__meta">
+								<strong>{band.label}</strong>
+								<span>{formatElapsedDuration(band.milliseconds)}</span>
 							</div>
-
-							<div class="overlap-track">
+							<div class="metric-track">
 								<div
-									class="overlap-fill"
-									style={`--band-color: ${band.color}; width: ${(band.minutes / maxOverlapMinutes) * 100}%;`}
+									class="metric-fill"
+									style={`--fill-color: ${overlapColors[band.key]}; width: ${(band.milliseconds / maxOverlapMilliseconds) * 100}%;`}
 								></div>
 							</div>
 						</article>
 					{/each}
 				</div>
+			</section>
 
-				<div class="counter-grid">
-					{#each activeReport.counters as counter}
-						<article class="counter-card">
-							<span>{counter.label}</span>
-							<strong>{counter.value}</strong>
-							<p>{counter.note}</p>
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Breakdown</p>
+						<h2>Time by task</h2>
+					</div>
+					<p>The heaviest tasks for the selected day, using tracked task time.</p>
+				</div>
+
+				<div class="metric-list">
+					{#each breakdown as item}
+						<article class="metric-row">
+							<div class="metric-row__meta">
+								<div>
+									<strong>{item.name}</strong>
+									<p>{item.runCount} runs{item.completedCount ? `, ${item.completedCount} done` : ''}</p>
+								</div>
+								<span>{formatElapsedDuration(item.totalMilliseconds)}</span>
+							</div>
+							<div class="metric-track">
+								<div
+									class="metric-fill"
+									style={`--fill-color: ${item.color}; width: ${(item.totalMilliseconds / maxBreakdownMilliseconds) * 100}%;`}
+								></div>
+							</div>
 						</article>
 					{/each}
 				</div>
-			</div>
-		</section>
+			</section>
 
-		<section class="panel">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Breakdown</p>
-					<h2>{activeReport.breakdown.title}</h2>
-				</div>
-				<p>{activeReport.breakdown.caption}</p>
-			</div>
-
-			<div class="breakdown-list">
-				{#each activeReport.breakdown.items as item}
-					<article class="breakdown-row">
-						<div class="breakdown-row__meta">
-							<div>
-								<strong>{item.label}</strong>
-								<p>{item.note}</p>
-							</div>
-							<span>{formatDuration(item.minutes)}</span>
-						</div>
-
-						<div class="breakdown-track">
-							<div
-								class="breakdown-fill"
-								style={`--breakdown-color: ${item.color}; width: ${(item.minutes / maxBreakdownMinutes) * 100}%;`}
-							></div>
-						</div>
-					</article>
-				{/each}
-			</div>
-		</section>
-
-		<section class="panel">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Cadence</p>
-					<h2>{activeReport.cadence.title}</h2>
-				</div>
-				<p>{activeReport.cadence.caption}</p>
-			</div>
-
-			<div class="cadence-chart">
-				{#each activeReport.cadence.items as item}
-					<div class="cadence-column">
-						<div class="cadence-shell">
-							<div
-								class="cadence-fill"
-								style={`--cadence-color: ${item.color}; height: ${(item.minutes / maxCadenceMinutes) * 100}%;`}
-							></div>
-						</div>
-						<strong>{item.label}</strong>
-						<span>{formatDuration(item.minutes)}</span>
-						<small>{item.note}</small>
+			<section class="panel panel-wide">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Cadence</p>
+						<h2>Hour by hour</h2>
 					</div>
-				{/each}
-			</div>
-		</section>
-
-		<section class="panel">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Stacks</p>
-					<h2>Top pairings</h2>
+					<p>Each stacked tier represents another 60 minutes of tracked time inside the same hour.</p>
 				</div>
-				<p>Where multi-tasking actually paid off instead of just sounding efficient.</p>
-			</div>
 
-			<div class="combo-list">
-				{#each activeReport.combos as combo}
-					<article class="combo-card">
-						<div class="combo-card__top">
-							<strong>{combo.title}</strong>
-							<span>{combo.multiplier}</span>
-						</div>
-						<p>{combo.note}</p>
-						<small>{formatDuration(combo.minutes)} of overlapped credit</small>
-					</article>
-				{/each}
-			</div>
-		</section>
-
-		<section class="panel">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Progress</p>
-					<h2>Broad progress</h2>
+				<div class="cadence-legend" aria-hidden="true">
+					<span class="legend-pill legend-pill-blue">0-60m</span>
+					<span class="legend-pill legend-pill-orange">60-120m</span>
+					<span class="legend-pill legend-pill-purple">120m+</span>
 				</div>
-				<p>Weekly and monthly sections widen out, but even the daily view benefits from a broader lens.</p>
-			</div>
 
-			<div class="progress-list">
-				{#each activeReport.progress as item}
-					<article class="progress-row">
-						<div class="progress-row__meta">
+				<div class="cadence-chart">
+					{#each cadence as item}
+						<div class="cadence-column">
+							<div class="cadence-shell">
+								<div class="cadence-tier">
+									<div
+										class="cadence-fill cadence-fill-purple"
+										style={`height: ${getCadenceTierPercent(item.milliseconds, 2)}%;`}
+									></div>
+								</div>
+								<div class="cadence-tier">
+									<div
+										class="cadence-fill cadence-fill-orange"
+										style={`height: ${getCadenceTierPercent(item.milliseconds, 1)}%;`}
+									></div>
+								</div>
+								<div class="cadence-tier">
+									<div
+										class="cadence-fill cadence-fill-blue"
+										style={`height: ${getCadenceTierPercent(item.milliseconds, 0)}%;`}
+									></div>
+								</div>
+							</div>
 							<strong>{item.label}</strong>
-							<span>{item.progress}%</span>
+							<span>{item.milliseconds ? formatElapsedDuration(item.milliseconds) : '0s'}</span>
 						</div>
-						<div class="progress-track">
-							<div class="progress-fill" style={`width: ${item.progress}%;`}></div>
-						</div>
-						<p>{item.note}</p>
-					</article>
-				{/each}
-			</div>
-		</section>
-
-		<section class="panel">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Done</p>
-					<h2>Done log</h2>
+					{/each}
 				</div>
-				<p>Quick close ledger. Useful for seeing what really got finished versus just touched.</p>
-			</div>
+			</section>
 
-			<div class="done-log">
-				{#each activeReport.doneLog as item}
-					<article class="done-item">
-						<div class="done-item__top">
-							<strong>{item.title}</strong>
-							<span>{item.time}</span>
-						</div>
-						<p>{item.note}</p>
-					</article>
-				{/each}
-			</div>
-		</section>
-
-		<section class="panel panel-wide">
-			<div class="panel-header">
-				<div>
-					<p class="section-label">Ledger</p>
-					<h2>Session log</h2>
-				</div>
-				<p>Approximate filler timing for each run. This is the shape the real activity ledger can grow into later.</p>
-			</div>
-
-			<div class="ledger">
-				<div class="ledger-head">
-					<span>Window</span>
-					<span>Stack</span>
-					<span>Minutes</span>
-					<span>Overlap</span>
-					<span>Outcome</span>
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Done</p>
+						<h2>Completion log</h2>
+					</div>
+					<p>Runs that actually closed with a done result on this day.</p>
 				</div>
 
-				{#each activeReport.sessionLog as row}
-					<article class="ledger-row">
-						<span>{row.window}</span>
-						<strong>{row.stack}</strong>
-						<span>{formatDuration(row.minutes)}</span>
-						<span class="ledger-chip">{row.overlap}</span>
-						<span>{row.outcome}</span>
-					</article>
-				{/each}
-			</div>
-		</section>
-	</div>
+				<div class="done-log">
+					{#if doneLog.length === 0}
+						<p class="empty-note">Nothing finished on this day.</p>
+					{:else}
+						{#each doneLog as item}
+							<article class="done-item" style={`--task-accent: ${item.color};`}>
+								<div class="done-item__top">
+									<strong>{item.name}</strong>
+									<span>{formatClock(item.completedAt)}</span>
+								</div>
+								<p>{formatElapsedDuration(item.spentMilliseconds)}</p>
+							</article>
+						{/each}
+					{/if}
+				</div>
+			</section>
+
+			<section class="panel panel-wide">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Ledger</p>
+						<h2>Session log</h2>
+					</div>
+					<p>Every run that touched the selected day, clipped to the local day window.</p>
+				</div>
+
+				<div class="ledger">
+					<div class="ledger-head">
+						<span>Window</span>
+						<span>Task</span>
+						<span>Tracked</span>
+						<span>Outcome</span>
+					</div>
+
+					{#each sessionLog as row}
+						<article class="ledger-row">
+							<span>{formatWindow(row.startedAt, row.endedAt)}</span>
+							<strong>{row.name}</strong>
+							<span>{formatElapsedDuration(row.spentMilliseconds)}</span>
+							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span>
+						</article>
+					{/each}
+				</div>
+			</section>
+		</div>
+	{/if}
 </section>
 
 <style>
 	.stats-page {
 		display: grid;
-		gap: 1.15rem;
-		padding: 1.25rem 0 2.8rem;
-	}
-
-	.hero-shell {
-		display: grid;
-		grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
 		gap: 1rem;
-		align-items: start;
+		padding: 1.4rem 0 2.4rem;
 	}
 
-	.hero-copy,
-	.hero-aside,
-	.hero-card,
-	.score-grid,
-	.metric-grid,
-	.report-grid,
-	.output-grid,
-	.overlap-lanes,
-	.counter-grid,
-	.breakdown-list,
-	.combo-list,
-	.progress-list,
-	.done-log {
+	.day-pager {
 		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 0.75rem;
 	}
 
-	.hero-copy {
-		gap: 0.6rem;
-		padding: 1.4rem 1.5rem 1.2rem;
-		border-radius: 30px;
-		background:
-			radial-gradient(circle at top left, rgba(85, 141, 197, 0.24), transparent 40%),
-			linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(245, 249, 253, 0.86));
-		border: 1px solid rgba(255, 255, 255, 0.72);
-		box-shadow: 0 26px 52px rgba(38, 56, 74, 0.1);
+	.day-pill-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem;
 	}
 
-	.eyebrow,
-	.section-label,
-	.hero-card__label {
-		margin: 0;
-		font-size: 0.74rem;
+	.day-pill,
+	.pager-arrow {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.9rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.74);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.66);
+		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.08);
+		font-size: 0.8rem;
 		font-weight: 800;
-		letter-spacing: 0.16em;
+		letter-spacing: 0.04em;
+		color: rgba(13, 24, 36, 0.72);
+	}
+
+	.day-pill.selected-day {
+		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
+		color: white;
+		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
+	}
+
+	.day-pill:disabled,
+	.pager-arrow:disabled {
+		opacity: 0.45;
+	}
+
+	.stats-header {
+		display: grid;
+		gap: 0.4rem;
+		padding: 1.4rem 1.5rem;
+		border-radius: 24px;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.88)),
+			radial-gradient(circle at top, rgba(64, 117, 166, 0.12), rgba(255, 255, 255, 0));
+		border: 1px solid rgba(255, 255, 255, 0.75);
+		box-shadow:
+			0 26px 60px rgba(44, 62, 80, 0.12),
+			inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	}
+
+	.eyebrow {
+		margin: 0;
+		font-size: 0.8rem;
+		font-weight: 800;
+		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: color-mix(in srgb, var(--color-theme-2) 82%, black);
+		color: var(--color-theme-2);
 	}
 
 	h1,
-	h2 {
+	h2,
+	strong,
+	p,
+	span {
 		margin: 0;
-		text-align: left;
-		letter-spacing: -0.05em;
-		color: rgba(12, 20, 30, 0.94);
 	}
 
 	h1 {
-		font-size: clamp(2.5rem, 6vw, 4.6rem);
-		line-height: 0.92;
+		font-size: clamp(2.3rem, 5vw, 3.8rem);
+		line-height: 0.95;
+		letter-spacing: -0.05em;
+		color: rgba(10, 20, 30, 0.92);
 	}
 
 	h2 {
-		font-size: 1.3rem;
+		font-size: 1.35rem;
+		letter-spacing: -0.03em;
+		color: rgba(10, 20, 30, 0.88);
 	}
 
-	p,
-	strong {
-		margin: 0;
+	.lede,
+	.message-card p,
+	.panel-header p,
+	.metric-row__meta p,
+	.summary-card p,
+	.done-item p,
+	.empty-note {
+		color: rgba(10, 20, 30, 0.66);
 	}
 
-	.lede {
-		max-width: 43rem;
-		font-size: 1.02rem;
-		line-height: 1.55;
-		color: rgba(12, 20, 30, 0.68);
-	}
-
-	.hero-aside {
-		gap: 0.9rem;
-	}
-
-	.range-switch {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.55rem;
-		padding: 0.5rem;
-		border-radius: 22px;
-		background: rgba(255, 255, 255, 0.74);
-		border: 1px solid rgba(255, 255, 255, 0.72);
-		box-shadow: 0 18px 36px rgba(38, 56, 74, 0.08);
-	}
-
-	.range-switch button {
-		display: grid;
-		gap: 0.18rem;
-		padding: 0.8rem 0.9rem;
-		border: 0;
-		border-radius: 16px;
-		background: transparent;
-		color: rgba(12, 20, 30, 0.7);
-		text-align: left;
-		cursor: pointer;
-		transition:
-			transform 0.15s ease,
-			background 0.15s ease,
-			box-shadow 0.15s ease;
-	}
-
-	.range-switch button strong {
-		font-size: 0.9rem;
-	}
-
-	.range-switch button span {
-		font-size: 0.74rem;
-		color: rgba(12, 20, 30, 0.5);
-	}
-
-	.range-switch button:hover {
-		transform: translateY(-1px);
-		background: rgba(64, 117, 166, 0.08);
-	}
-
-	.range-switch button.selected {
-		background:
-			linear-gradient(135deg, rgba(64, 117, 166, 0.16), rgba(255, 255, 255, 0.94)),
-			rgba(255, 255, 255, 0.95);
-		box-shadow: inset 0 0 0 1px rgba(64, 117, 166, 0.16);
-	}
-
-	.hero-card,
-	.overview-card,
-	.metric-card,
+	.message-card,
 	.panel,
-	.score-card,
-	.counter-card,
-	.combo-card,
-	.done-item {
-		background: rgba(255, 255, 255, 0.7);
-		border: 1px solid rgba(255, 255, 255, 0.76);
-		box-shadow: 0 22px 44px rgba(38, 56, 74, 0.08);
+	.summary-card {
+		background: rgba(255, 255, 255, 0.58);
+		border: 1px solid rgba(255, 255, 255, 0.66);
+		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
 	}
 
-	.hero-card {
-		gap: 1rem;
-		padding: 1.15rem;
-		border-radius: 28px;
-	}
-
-	.hero-card__top,
-	.score-card__top,
-	.panel-header,
-	.overlap-lane__meta,
-	.breakdown-row__meta,
-	.combo-card__top,
-	.progress-row__meta,
-	.done-item__top,
-	.ledger-row,
-	.ledger-head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	.hero-card__top {
-		flex-wrap: wrap;
-	}
-
-	.status-pill {
-		padding: 0.45rem 0.7rem;
-		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.1);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: color-mix(in srgb, var(--color-theme-2) 78%, black);
-	}
-
-	.hero-card__body {
+	.message-card {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 1rem;
-		align-items: center;
-	}
-
-	.score-orb {
-		display: grid;
-		place-items: center;
-		width: 9rem;
-		aspect-ratio: 1;
-		padding: 0.8rem;
-		border-radius: 999px;
-		background:
-			conic-gradient(
-				from -90deg,
-				color-mix(in srgb, var(--color-theme-2) 90%, white) calc(var(--score) * 1%),
-				rgba(12, 20, 30, 0.08) 0
-			);
-		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.86),
-			0 20px 34px rgba(64, 117, 166, 0.18);
-	}
-
-	.score-orb__inner {
-		display: grid;
-		place-items: center;
-		width: 100%;
-		height: 100%;
-		border-radius: inherit;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 252, 0.94));
-		text-align: center;
-	}
-
-	.score-orb__inner span {
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: rgba(12, 20, 30, 0.48);
-	}
-
-	.score-orb__inner strong {
-		font-size: 2.15rem;
-		letter-spacing: -0.06em;
-		color: rgba(12, 20, 30, 0.92);
-	}
-
-	.hero-card__note {
-		font-size: 0.98rem;
-		line-height: 1.55;
-		color: rgba(12, 20, 30, 0.68);
-	}
-
-	.score-grid {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.7rem;
-	}
-
-	.score-card {
-		gap: 0.5rem;
-		padding: 0.85rem 0.95rem;
+		gap: 0.4rem;
+		padding: 1rem 1.1rem;
 		border-radius: 18px;
 	}
 
-	.score-card__top span,
-	.overview-card span,
-	.metric-card span,
-	.counter-card span {
-		font-size: 0.74rem;
-		font-weight: 800;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: rgba(12, 20, 30, 0.48);
+	.error-card {
+		border-color: rgba(159, 45, 39, 0.18);
+		background: rgba(255, 245, 244, 0.92);
 	}
 
-	.score-card__top strong,
-	.overview-card strong,
-	.metric-card strong,
-	.counter-card strong {
-		font-size: 1.22rem;
-		letter-spacing: -0.04em;
-		color: rgba(12, 20, 30, 0.9);
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1rem;
 	}
 
-	.meter-track,
-	.overlap-track,
-	.breakdown-track,
-	.progress-track {
-		height: 0.72rem;
-		border-radius: 999px;
-		background: rgba(12, 20, 30, 0.08);
-		overflow: hidden;
-	}
-
-	.meter-fill,
-	.progress-fill {
-		height: 100%;
-		border-radius: inherit;
-		background: linear-gradient(90deg, var(--color-theme-2), #9ac0e5);
-	}
-
-	.score-card p,
-	.overview-card p,
-	.metric-card p,
-	.panel-header p,
-	.counter-card p,
-	.overlap-lane__meta p,
-	.breakdown-row__meta p,
-	.combo-card p,
-	.progress-row p,
-	.done-item p {
-		font-size: 0.92rem;
-		line-height: 1.45;
-		color: rgba(12, 20, 30, 0.62);
-	}
-
-	.overview-grid {
-		grid-template-columns: repeat(6, minmax(0, 1fr));
-		gap: 0.8rem;
-	}
-
-	.metric-grid {
-		grid-template-columns: repeat(6, minmax(0, 1fr));
-		gap: 0.8rem;
-	}
-
-	.overview-card,
-	.metric-card,
-	.counter-card {
-		gap: 0.35rem;
-		padding: 0.95rem 1rem;
+	.summary-card {
+		display: grid;
+		gap: 0.45rem;
+		padding: 1.1rem 1.15rem;
 		border-radius: 20px;
 	}
 
-	.tone-ink {
-		background: linear-gradient(160deg, rgba(255, 255, 255, 0.76), rgba(240, 245, 250, 0.9));
+	.summary-card span,
+	.section-label {
+		font-size: 0.74rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(10, 20, 30, 0.48);
 	}
 
-	.tone-teal {
-		background: linear-gradient(160deg, rgba(61, 151, 144, 0.14), rgba(255, 255, 255, 0.9));
-	}
-
-	.tone-gold {
-		background: linear-gradient(160deg, rgba(215, 178, 61, 0.16), rgba(255, 255, 255, 0.92));
-	}
-
-	.tone-rose {
-		background: linear-gradient(160deg, rgba(199, 74, 74, 0.14), rgba(255, 255, 255, 0.9));
-	}
-
-	.tone-night {
-		background: linear-gradient(160deg, rgba(18, 32, 46, 0.14), rgba(255, 255, 255, 0.9));
-	}
-
-	.tone-blue {
-		background: linear-gradient(160deg, rgba(79, 110, 214, 0.12), rgba(255, 255, 255, 0.92));
+	.summary-card strong {
+		font-size: 1.3rem;
+		letter-spacing: -0.03em;
+		color: rgba(10, 20, 30, 0.88);
 	}
 
 	.report-grid {
+		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.95rem;
+		gap: 1rem;
 	}
 
 	.panel {
+		display: grid;
 		gap: 1rem;
-		padding: 1.15rem;
-		border-radius: 26px;
+		padding: 1.2rem;
+		border-radius: 22px;
 	}
 
 	.panel-wide {
-		grid-column: span 2;
+		grid-column: 1 / -1;
 	}
 
-	.output-grid {
-		grid-template-columns: minmax(0, 1.1fr) minmax(19rem, 0.9fr);
-		gap: 1rem;
+	.panel-header {
+		display: grid;
+		gap: 0.3rem;
 	}
 
-	.overlap-lanes,
-	.breakdown-list,
-	.combo-list,
-	.progress-list,
+	.metric-list,
 	.done-log {
+		display: grid;
+		gap: 0.85rem;
+	}
+
+	.metric-row {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.metric-row__meta {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
 		gap: 0.8rem;
 	}
 
-	.overlap-lane,
-	.breakdown-row,
-	.progress-row {
-		display: grid;
-		gap: 0.4rem;
+	.metric-track {
+		height: 0.7rem;
+		border-radius: 999px;
+		background: rgba(20, 28, 38, 0.08);
+		overflow: hidden;
 	}
 
-	.overlap-lane__meta strong,
-	.breakdown-row__meta strong,
-	.combo-card__top strong,
-	.progress-row__meta strong,
-	.done-item__top strong,
-	.ledger-row strong {
-		font-size: 0.98rem;
-		color: rgba(12, 20, 30, 0.88);
-	}
-
-	.overlap-lane__meta span,
-	.breakdown-row__meta span,
-	.progress-row__meta span,
-	.done-item__top span {
-		font-size: 0.86rem;
-		font-weight: 700;
-		color: rgba(12, 20, 30, 0.6);
-	}
-
-	.overlap-fill,
-	.breakdown-fill {
+	.metric-fill {
 		height: 100%;
-		border-radius: inherit;
-	}
-
-	.overlap-fill {
-		background: linear-gradient(
-			90deg,
-			var(--band-color),
-			color-mix(in srgb, var(--band-color) 40%, white)
-		);
-	}
-
-	.breakdown-fill {
-		background: linear-gradient(
-			90deg,
-			var(--breakdown-color),
-			color-mix(in srgb, var(--breakdown-color) 38%, white)
-		);
-	}
-
-	.counter-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.75rem;
+		min-width: 0.35rem;
+		border-radius: 999px;
+		background: linear-gradient(135deg, var(--fill-color), color-mix(in srgb, var(--fill-color) 62%, white));
 	}
 
 	.cadence-chart {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(4.2rem, 1fr));
-		gap: 0.75rem;
-		align-items: end;
-		min-height: 15rem;
+		grid-template-columns: repeat(24, minmax(2.6rem, 1fr));
+		gap: 0.6rem;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding-bottom: 0.2rem;
+	}
+
+	.cadence-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem;
+	}
+
+	.legend-pill {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem 0.75rem;
+		border-radius: 999px;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.legend-pill-blue {
+		background: rgba(79, 110, 214, 0.14);
+		color: #3e5ab0;
+	}
+
+	.legend-pill-orange {
+		background: rgba(201, 123, 34, 0.14);
+		color: #a35f12;
+	}
+
+	.legend-pill-purple {
+		background: rgba(138, 91, 209, 0.14);
+		color: #6f47b6;
 	}
 
 	.cadence-column {
 		display: grid;
-		justify-items: center;
-		gap: 0.35rem;
+		gap: 0.4rem;
+		min-width: 2.6rem;
+	}
+
+	.cadence-column strong,
+	.cadence-column span {
+		font-size: 0.72rem;
+		text-align: center;
 	}
 
 	.cadence-shell {
-		width: 100%;
 		height: 10rem;
-		display: flex;
-		align-items: end;
-		padding: 0.32rem;
-		box-sizing: border-box;
+		display: grid;
+		grid-template-rows: repeat(3, minmax(0, 1fr));
+		gap: 0.35rem;
 		border-radius: 18px;
-		background: rgba(12, 20, 30, 0.06);
+		padding: 0.45rem;
+		background: linear-gradient(180deg, rgba(235, 241, 247, 0.9), rgba(247, 250, 253, 0.9));
+		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
+	.cadence-tier {
+		display: flex;
+		align-items: flex-end;
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.78);
+		overflow: hidden;
 	}
 
 	.cadence-fill {
 		width: 100%;
-		min-height: 0.9rem;
-		border-radius: 14px;
-		background: linear-gradient(
-			180deg,
-			var(--cadence-color),
-			color-mix(in srgb, var(--cadence-color) 35%, white)
-		);
+		border-radius: 10px;
 	}
 
-	.cadence-column strong {
-		font-size: 0.86rem;
-		color: rgba(12, 20, 30, 0.88);
+	.cadence-fill-blue {
+		background: linear-gradient(180deg, var(--color-theme-2), #8fc2f0);
 	}
 
-	.cadence-column span,
-	.cadence-column small,
-	.combo-card small {
-		color: rgba(12, 20, 30, 0.58);
+	.cadence-fill-orange {
+		background: linear-gradient(180deg, #c97b22, #ebb267);
 	}
 
-	.cadence-column span {
-		font-size: 0.8rem;
-		font-weight: 700;
+	.cadence-fill-purple {
+		background: linear-gradient(180deg, #8a5bd1, #b88af0);
 	}
 
-	.cadence-column small {
-		text-align: center;
-		font-size: 0.74rem;
-		line-height: 1.25;
-	}
-
-	.combo-card,
 	.done-item {
-		gap: 0.55rem;
+		display: grid;
+		gap: 0.35rem;
 		padding: 0.95rem 1rem;
-		border-radius: 18px;
+		border-radius: 16px;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 253, 0.92)),
+			linear-gradient(135deg, color-mix(in srgb, var(--task-accent) 14%, white), white 65%);
+		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
 	}
 
-	.combo-card__top span {
-		padding: 0.28rem 0.5rem;
-		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.1);
-		font-size: 0.74rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: color-mix(in srgb, var(--color-theme-2) 82%, black);
-	}
-
-	.progress-track {
-		margin: 0.08rem 0 0.12rem;
-	}
-
-	.progress-fill {
-		background: linear-gradient(90deg, var(--color-theme-1), #d87474);
+	.done-item__top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
 	}
 
 	.ledger {
@@ -844,108 +748,65 @@
 	.ledger-head,
 	.ledger-row {
 		display: grid;
-		grid-template-columns: 1.05fr 1.6fr 0.8fr 0.8fr 0.8fr;
+		grid-template-columns: 1.1fr 1.2fr 0.8fr 0.7fr;
+		gap: 0.8rem;
 		align-items: center;
-		gap: 0.75rem;
 	}
 
 	.ledger-head {
-		padding: 0 0.25rem;
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: rgba(12, 20, 30, 0.48);
-	}
-
-	.ledger-row {
-		padding: 0.9rem 1rem;
-		border-radius: 18px;
-		background: rgba(247, 249, 252, 0.82);
-		border: 1px solid rgba(12, 20, 30, 0.06);
-	}
-
-	.ledger-row span {
-		font-size: 0.86rem;
-		color: rgba(12, 20, 30, 0.66);
-	}
-
-	.ledger-chip {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: fit-content;
-		padding: 0.3rem 0.5rem;
-		border-radius: 999px;
-		background: rgba(12, 20, 30, 0.08);
+		padding: 0 0.2rem;
 		font-size: 0.72rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(12, 20, 30, 0.62);
+		color: rgba(20, 28, 38, 0.48);
 	}
 
-	@media (max-width: 1100px) {
-		.hero-shell,
-		.output-grid,
+	.ledger-row {
+		padding: 0.95rem 1rem;
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.82);
+		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
+	.outcome-pill {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.45rem 0.7rem;
+		border-radius: 999px;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.outcome-done {
+		background: rgba(75, 159, 103, 0.14);
+		color: #2f8a4f;
+	}
+
+	.outcome-inactive {
+		background: rgba(201, 123, 34, 0.14);
+		color: #a35f12;
+	}
+
+	.outcome-active {
+		background: rgba(79, 110, 214, 0.14);
+		color: #3e5ab0;
+	}
+
+	@media (max-width: 980px) {
+		.summary-grid,
 		.report-grid {
 			grid-template-columns: 1fr;
 		}
-
-		.panel-wide {
-			grid-column: auto;
-		}
-
-		.overview-grid,
-		.metric-grid {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
 	}
 
-	@media (max-width: 820px) {
-		.range-switch {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-
-		.hero-card__body,
-		.score-grid,
-		.counter-grid,
+	@media (max-width: 760px) {
 		.ledger-head,
 		.ledger-row {
 			grid-template-columns: 1fr;
-		}
-
-		.score-grid {
-			gap: 0.6rem;
-		}
-
-		.ledger-head {
-			display: none;
-		}
-
-		.ledger-row {
-			gap: 0.35rem;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.overview-grid,
-		.metric-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.hero-copy,
-		.hero-card,
-		.panel {
-			padding: 1rem;
-		}
-
-		.panel-header,
-		.overlap-lane__meta,
-		.breakdown-row__meta,
-		.done-item__top,
-		.progress-row__meta {
-			flex-direction: column;
 		}
 	}
 </style>
