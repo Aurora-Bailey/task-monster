@@ -3,13 +3,62 @@
 	import { authorizedRequest } from '$lib/session';
 
 	const taskColors = [
-		{ value: 'red', hex: '#c74a4a', label: 'Red', taskType: 'Admin' },
-		{ value: 'orange', hex: '#de7d37', label: 'Orange', taskType: 'Errand' },
-		{ value: 'gold', hex: '#d7b23d', label: 'Gold', taskType: 'Chore' },
-		{ value: 'green', hex: '#5f9b55', label: 'Green', taskType: 'Wellness' },
-		{ value: 'teal', hex: '#3d9790', label: 'Teal', taskType: 'Reset' },
-		{ value: 'blue', hex: '#4f6ed6', label: 'Blue', taskType: 'Focus' },
-		{ value: 'violet', hex: '#8a5bd1', label: 'Violet', taskType: 'Planning' }
+		{
+			value: 'red',
+			hex: '#c74a4a',
+			label: 'Red',
+			category: 'System',
+			description:
+				'The stuff that keeps life from drifting off the rails: bills, forms, insurance, lease, car upkeep, scheduling, paperwork, email, and account fixes.'
+		},
+		{
+			value: 'orange',
+			hex: '#de7d37',
+			label: 'Orange',
+			category: 'World',
+			description:
+				'Outside-the-house motion: errands, pickups, shopping, pharmacy, post office, appointments, and travel across town.'
+		},
+		{
+			value: 'gold',
+			hex: '#d7b23d',
+			label: 'Yellow',
+			category: 'Home',
+			description:
+				'Physical upkeep of your space: dishes, laundry, trash, sweeping, kitchen reset, organizing, and apartment care.'
+		},
+		{
+			value: 'green',
+			hex: '#5f9b55',
+			label: 'Green',
+			category: 'Body',
+			description:
+				'Care of the organism: meals, hydration, hormones or meds, sleep support, shower, stretching, walks, and health appointments.'
+		},
+		{
+			value: 'teal',
+			hex: '#3d9790',
+			label: 'Teal',
+			category: 'Reset',
+			description:
+				'Recovery and nervous-system maintenance: bath, tidy reset, journaling, room calming, digital cleanup, and getting back online after fog or overwhelm.'
+		},
+		{
+			value: 'blue',
+			hex: '#4f6ed6',
+			label: 'Blue',
+			category: 'Craft',
+			description:
+				'Focused building and learning: coding, automation study, SLCC work, reading docs, writing, debugging, systems design, and skill-forging.'
+		},
+		{
+			value: 'violet',
+			hex: '#8a5bd1',
+			label: 'Purple',
+			category: 'Becoming',
+			description:
+				'Vision, planning, and deeper arc work: daymaps, long-term goals, HW autobahn thinking, identity design, personal philosophy, dream notes, and future-self architecture.'
+		}
 	];
 
 	const taskDurations = [
@@ -47,6 +96,9 @@
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
+	const selectedColorMeta = $derived(
+		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
+	);
 
 	function resetForm() {
 		taskName = '';
@@ -123,21 +175,28 @@
 				required
 			/>
 
-			<fieldset class="color-picker">
-				<legend class="field-label">Task color</legend>
-				<div class="color-options">
-					{#each taskColors as color}
-						<label class="color-option" style={`--swatch-color: ${color.hex};`}>
-							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
-							<span class="color-choice">
-								<span class="swatch" aria-hidden="true"></span>
-								<span class="color-caption">{color.taskType}</span>
-							</span>
-							<span class="visually-hidden">{color.label} for {color.taskType} tasks</span>
-						</label>
-					{/each}
-				</div>
-			</fieldset>
+				<fieldset class="color-picker">
+					<legend class="field-label">Task color</legend>
+					<div class="color-options">
+						{#each taskColors as color}
+							<label class="color-option" style={`--swatch-color: ${color.hex};`}>
+								<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
+								<span class="color-choice">
+									<span class="swatch" aria-hidden="true"></span>
+									<span class="color-caption">{color.category}</span>
+								</span>
+								<span class="visually-hidden">{color.label} for {color.category} tasks</span>
+							</label>
+						{/each}
+					</div>
+					<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
+						<p class="color-helper__title">
+							<span class="color-helper__dot" aria-hidden="true"></span>
+							<strong>{selectedColorMeta.category}</strong>
+						</p>
+						<p class="color-helper__description">{selectedColorMeta.description}</p>
+					</div>
+				</fieldset>
 
 			<fieldset class="task-mode">
 				<legend class="field-label">Task type</legend>
@@ -367,6 +426,43 @@
 		display: grid;
 		grid-template-columns: repeat(7, minmax(0, 1fr));
 		gap: 0.6rem;
+	}
+
+	.color-helper {
+		display: grid;
+		gap: 0.35rem;
+		margin-top: 0.95rem;
+		padding: 0.95rem 1rem;
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.78);
+		border: 1px solid rgba(64, 117, 166, 0.12);
+		box-shadow: 0 12px 26px rgba(44, 62, 80, 0.08);
+	}
+
+	.color-helper__title {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		margin: 0;
+		font-size: 0.92rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: rgba(13, 24, 36, 0.82);
+	}
+
+	.color-helper__dot {
+		width: 0.8rem;
+		height: 0.8rem;
+		border-radius: 999px;
+		background: var(--selected-color);
+		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 3px rgba(0, 0, 0, 0.08);
+	}
+
+	.color-helper__description {
+		margin: 0;
+		font-size: 0.95rem;
+		line-height: 1.45;
+		color: rgba(13, 24, 36, 0.72);
 	}
 
 	.color-option {
