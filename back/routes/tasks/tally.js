@@ -1,6 +1,6 @@
 const { ObjectId } = require('mongodb');
 
-const { collapseQueuePositionsAfter } = require('../../lib/task-queue');
+const { updateOpenTaskRunTally } = require('../../lib/task-runs');
 const { findOwnedTask, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const taskParamsSchema = {
@@ -11,12 +11,26 @@ const taskParamsSchema = {
 	}
 };
 
-async function unmapTaskRoute(app) {
+const tallyBodySchema = {
+	type: 'object',
+	required: ['delta'],
+	additionalProperties: false,
+	properties: {
+		delta: {
+			type: 'integer',
+			minimum: -1000,
+			maximum: 1000
+		}
+	}
+};
+
+async function updateTaskTallyRoute(app) {
 	app.post(
-		'/tasks/:taskId/unmap',
+		'/tasks/:taskId/tally',
 		{
 			schema: {
 				params: taskParamsSchema,
+				body: tallyBodySchema,
 				response: {
 					200: {
 						type: 'object',
@@ -48,34 +62,28 @@ async function unmapTaskRoute(app) {
 				});
 			}
 
-			if (task.activeToday) {
+			if (!task.activeToday || task.trackingType !== 'tally') {
 				return reply.code(409).send({
-					message: 'Active tasks must leave the table before they can be removed from the day map.'
+					message: 'Task tally cannot be updated.'
 				});
 			}
 
-			if (task.mappedToday !== true) {
-				return reply.code(409).send({
-					message: 'Task is already back in the inactive pool.'
-				});
-			}
-
+			const delta = request.body.delta;
+			const currentCount = Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0;
+			const nextCount = Math.max(0, currentCount + delta);
 			const updatedAt = new Date();
-			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
+
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
-					activeToday: false,
-					mappedToday: true
+					activeToday: true,
+					trackingType: 'tally'
 				},
 				{
 					$set: {
-						mappedToday: false,
-						mappedAt: null,
-						queuePosition: null,
-						activeTallyCount: 0,
+						activeTallyCount: nextCount,
 						updatedAt
 					}
 				},
@@ -86,13 +94,15 @@ async function unmapTaskRoute(app) {
 
 			if (!result) {
 				return reply.code(409).send({
-					message: 'Task could not be moved back to inactive.'
+					message: 'Task tally could not be updated.'
 				});
 			}
 
-			await collapseQueuePositionsAfter(app.mongo.db, {
+			await updateOpenTaskRunTally(app.mongo.db, {
 				userId: request.auth.userId,
-				queuePosition: previousQueuePosition
+				taskId,
+				tallyCount: nextCount,
+				updatedAt
 			});
 
 			return {
@@ -102,4 +112,4 @@ async function unmapTaskRoute(app) {
 	);
 }
 
-module.exports = unmapTaskRoute;
+module.exports = updateTaskTallyRoute;

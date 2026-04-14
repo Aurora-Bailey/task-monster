@@ -1,7 +1,13 @@
 <script>
 	import { onDestroy } from 'svelte';
 
-	import { formatMinutes, formatTaskMode } from '$lib/task-format';
+	import {
+		formatMinutes,
+		formatTaskMode,
+		formatTaskTrackingType,
+		formatTallyCount,
+		formatTallyProgress
+	} from '$lib/task-format';
 
 	const NOTE_SAVE_DEBOUNCE_MS = 1000;
 
@@ -13,6 +19,7 @@
 		activeDurationLabel = '',
 		alarmLabel = '',
 		doneDurationLabel = '',
+		doneTallyCount = null,
 		completedAtLabel = '',
 		ringing = false,
 		busyAction = null,
@@ -21,22 +28,36 @@
 		onActivate = () => {},
 		onArchive = () => {},
 		onQueueToggle = () => {},
+		onTally = () => {},
 		onUnmap = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
 		onSnooze = () => {}
 	} = $props();
 
-	const hasAlarm = $derived(task.alarmEnabled && task.durationMinutes && task.snoozeMinutes);
+	const isTallyTask = $derived(task.trackingType === 'tally');
+	const hasAlarm = $derived(
+		task.trackingType !== 'tally' && task.alarmEnabled && task.durationMinutes && task.snoozeMinutes
+	);
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
 	const isQueuedDaymapTask = $derived(isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0);
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
+	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
+	const activeTallyCountValue = $derived(Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0);
+	const resolvedDoneTallyCount = $derived(
+		Number.isInteger(doneTallyCount)
+			? doneTallyCount
+			: Number.isInteger(task.lastCompletedTallyCount)
+				? task.lastCompletedTallyCount
+				: 0
+	);
 	const visibleTitleChips = $derived([
 		variant === 'done' ? 'Completed' : null,
 		task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
+		task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null,
 		hasAlarm ? 'Alarm on' : null,
 		hasAlarm ? formatMinutes(task.durationMinutes) : null,
 		hasAlarm ? `Snooze ${formatMinutes(task.snoozeMinutes)}` : null
@@ -98,6 +119,16 @@
 		}
 
 		onQueueToggle(task);
+	}
+
+	function handleTallyClick(event, delta) {
+		event.stopPropagation();
+
+		if (variant !== 'active' || !isTallyTask || busyAction !== null) {
+			return;
+		}
+
+		onTally(task.id, delta);
 	}
 
 	function scheduleNoteSave() {
@@ -311,33 +342,85 @@
 	{/if}
 
 	{#if showsRuntime}
-		<div class="task-card__runtime">
-			<div class="runtime-stat">
-				<span>{variant === 'done' ? 'Worked for' : 'Active for'}</span>
-				<strong>{variant === 'done' ? doneDurationLabel : activeDurationLabel}</strong>
-			</div>
-
-			<div class="runtime-stat">
-				<span>{variant === 'done' ? 'Completed' : 'Alarm'}</span>
-				<strong>{variant === 'done' ? completedAtLabel : alarmLabel || 'Off'}</strong>
-			</div>
-		</div>
-
-		{#if variant === 'active' && hasAlarm && ringing}
-			<div class="alarm-panel">
-				<div>
-					<strong>Alarm ringing</strong>
-					<p>This task has hit its timer and will keep sounding until you snooze it.</p>
+		{#if isTallyTask}
+			<div class="task-card__runtime">
+				<div class="runtime-stat">
+					<span>{variant === 'done' ? 'Completed' : 'Current count'}</span>
+					<strong>
+						{formatTallyCount(
+							variant === 'done' ? resolvedDoneTallyCount : activeTallyCountValue,
+							tallyUnitLabel
+						)}
+					</strong>
 				</div>
-				<button
-					class="action-button warm-button"
-					type="button"
-					disabled={busyAction !== null}
-					onclick={() => onSnooze(task.id)}
-				>
-					{busyAction === 'snooze' ? 'Snoozing...' : `Snooze ${formatMinutes(task.snoozeMinutes)}`}
-				</button>
+
+				<div class="runtime-stat">
+					<span>{variant === 'done' ? 'Logged' : 'Target'}</span>
+					<strong>
+						{variant === 'done'
+							? completedAtLabel
+							: Number.isInteger(task.tallyTarget) && task.tallyTarget > 0
+								? formatTallyCount(task.tallyTarget, tallyUnitLabel)
+								: 'No target'}
+					</strong>
+				</div>
 			</div>
+
+			{#if variant === 'active'}
+				<div class="tally-panel">
+					<button
+						class="tally-button tally-button-minus"
+						type="button"
+						disabled={busyAction !== null || activeTallyCountValue <= 0}
+						onclick={(event) => handleTallyClick(event, -1)}
+					>
+						{busyAction === 'tally-down' ? '...' : '-'}
+					</button>
+
+					<div class="tally-readout">
+						<span>Progress</span>
+						<strong>{formatTallyProgress(activeTallyCountValue, task.tallyTarget, tallyUnitLabel)}</strong>
+					</div>
+
+					<button
+						class="tally-button tally-button-plus"
+						type="button"
+						disabled={busyAction !== null}
+						onclick={(event) => handleTallyClick(event, 1)}
+					>
+						{busyAction === 'tally-up' ? '...' : '+'}
+					</button>
+				</div>
+			{/if}
+		{:else}
+			<div class="task-card__runtime">
+				<div class="runtime-stat">
+					<span>{variant === 'done' ? 'Worked for' : 'Active for'}</span>
+					<strong>{variant === 'done' ? doneDurationLabel : activeDurationLabel}</strong>
+				</div>
+
+				<div class="runtime-stat">
+					<span>{variant === 'done' ? 'Completed' : 'Alarm'}</span>
+					<strong>{variant === 'done' ? completedAtLabel : alarmLabel || 'Off'}</strong>
+				</div>
+			</div>
+
+			{#if variant === 'active' && hasAlarm && ringing}
+				<div class="alarm-panel">
+					<div>
+						<strong>Alarm ringing</strong>
+						<p>This task has hit its timer and will keep sounding until you snooze it.</p>
+					</div>
+					<button
+						class="action-button warm-button"
+						type="button"
+						disabled={busyAction !== null}
+						onclick={() => onSnooze(task.id)}
+					>
+						{busyAction === 'snooze' ? 'Snoozing...' : `Snooze ${formatMinutes(task.snoozeMinutes)}`}
+					</button>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 
@@ -757,6 +840,78 @@
 		color: rgba(20, 28, 38, 0.66);
 	}
 
+	.tally-panel {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem;
+		border-radius: 18px;
+		background:
+			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
+			rgba(255, 255, 255, 0.88);
+		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
+	.tally-readout {
+		display: grid;
+		gap: 0.2rem;
+		text-align: center;
+	}
+
+	.tally-readout span {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(20, 28, 38, 0.46);
+	}
+
+	.tally-readout strong {
+		font-size: 1.05rem;
+		color: rgba(20, 28, 38, 0.84);
+	}
+
+	.tally-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 3rem;
+		min-height: 3rem;
+		padding: 0;
+		border: 0;
+		border-radius: 14px;
+		font-size: 1.2rem;
+		font-weight: 800;
+		cursor: pointer;
+		transition:
+			transform 0.15s ease,
+			box-shadow 0.15s ease,
+			filter 0.15s ease;
+	}
+
+	.tally-button:hover {
+		transform: translateY(-1px);
+	}
+
+	.tally-button:disabled {
+		cursor: wait;
+		opacity: 0.7;
+		transform: none;
+	}
+
+	.tally-button-plus {
+		background: linear-gradient(135deg, #4b9f67, #6cbc83);
+		color: white;
+		box-shadow: 0 12px 24px rgba(75, 159, 103, 0.2);
+	}
+
+	.tally-button-minus {
+		background: rgba(20, 28, 38, 0.08);
+		color: rgba(20, 28, 38, 0.76);
+		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
 	.task-card__actions {
 		display: grid;
 		gap: 0.7rem;
@@ -828,6 +983,10 @@
 
 		.task-card__runtime,
 		.split-actions {
+			grid-template-columns: 1fr;
+		}
+
+		.tally-panel {
 			grid-template-columns: 1fr;
 		}
 	}

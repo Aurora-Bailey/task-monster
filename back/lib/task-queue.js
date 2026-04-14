@@ -57,9 +57,13 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 		}
 
 		const alarmDueAt =
-			queuedTask.alarmEnabled && queuedTask.durationMinutes
+			queuedTask.trackingType !== 'tally' && queuedTask.alarmEnabled && queuedTask.durationMinutes
 				? new Date(activatedAt.getTime() + queuedTask.durationMinutes * 60 * 1000)
 				: null;
+		const activeTallyCount =
+			queuedTask.trackingType === 'tally' && Number.isInteger(queuedTask.activeTallyCount)
+				? queuedTask.activeTallyCount
+				: 0;
 		const activatedTask = await db.collection('tasks').findOneAndUpdate(
 			{
 				_id: queuedTask._id,
@@ -74,6 +78,7 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 					activeToday: true,
 					activatedAt,
 					alarmDueAt,
+					activeTallyCount,
 					queuePosition: null,
 					updatedAt: activatedAt
 				}
@@ -95,7 +100,12 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 		await openTaskRun(db, {
 			userId,
 			taskId: queuedTask._id,
-			startedAt: activatedAt
+			startedAt: activatedAt,
+			trackingType: queuedTask.trackingType || 'time',
+			tallyUnit: queuedTask.tallyUnit ?? null,
+			tallyTarget: Number.isInteger(queuedTask.tallyTarget) ? queuedTask.tallyTarget : null,
+			startTallyCount: queuedTask.trackingType === 'tally' ? activeTallyCount : null,
+			tallyCount: queuedTask.trackingType === 'tally' ? activeTallyCount : null
 		});
 
 		return activatedTask;

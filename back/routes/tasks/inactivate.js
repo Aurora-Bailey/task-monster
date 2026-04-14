@@ -102,7 +102,11 @@ async function inactivateTaskRoute(app) {
 				userId: request.auth.userId,
 				taskId,
 				endedAt: inactivatedAt,
-				endingReason: 'inactive'
+				endingReason: 'inactive',
+				tallyCount:
+					task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
+						? task.activeTallyCount
+						: undefined
 			});
 
 			if (activeCountBeforeUpdate < 2) {

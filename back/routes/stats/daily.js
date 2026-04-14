@@ -101,7 +101,9 @@ function getFallbackTask(taskId) {
 		name: 'Unknown task',
 		color: '#6f7d8b',
 		colorKey: 'unknown',
-		mode: 'repeatable'
+		mode: 'repeatable',
+		trackingType: 'time',
+		tallyUnit: null
 	};
 }
 
@@ -143,6 +145,7 @@ const dailyStatsSchema = {
 						'runCount',
 						'completedCount',
 						'pausedCount',
+						'tallyUnits',
 						'averageRunMilliseconds',
 						'longestRunMilliseconds'
 					],
@@ -153,6 +156,7 @@ const dailyStatsSchema = {
 						runCount: { type: 'integer' },
 						completedCount: { type: 'integer' },
 						pausedCount: { type: 'integer' },
+						tallyUnits: { type: 'integer' },
 						averageRunMilliseconds: { type: 'integer' },
 						longestRunMilliseconds: { type: 'integer' }
 					}
@@ -179,7 +183,10 @@ const dailyStatsSchema = {
 							'color',
 							'colorKey',
 							'mode',
+							'trackingType',
+							'tallyUnit',
 							'totalMilliseconds',
+							'totalTallyCount',
 							'runCount',
 							'completedCount'
 						],
@@ -189,7 +196,10 @@ const dailyStatsSchema = {
 							color: { type: 'string' },
 							colorKey: { type: 'string' },
 							mode: { type: 'string' },
+							trackingType: { type: 'string' },
+							tallyUnit: { type: ['string', 'null'] },
 							totalMilliseconds: { type: 'integer' },
+							totalTallyCount: { type: 'integer' },
 							runCount: { type: 'integer' },
 							completedCount: { type: 'integer' }
 						}
@@ -211,7 +221,19 @@ const dailyStatsSchema = {
 					type: 'array',
 					items: {
 						type: 'object',
-						required: ['id', 'taskId', 'name', 'color', 'colorKey', 'mode', 'completedAt', 'spentMilliseconds'],
+						required: [
+							'id',
+							'taskId',
+							'name',
+							'color',
+							'colorKey',
+							'mode',
+							'trackingType',
+							'tallyUnit',
+							'completedAt',
+							'spentMilliseconds',
+							'tallyCount'
+						],
 						properties: {
 							id: { type: 'string' },
 							taskId: { type: 'string' },
@@ -219,8 +241,11 @@ const dailyStatsSchema = {
 							color: { type: 'string' },
 							colorKey: { type: 'string' },
 							mode: { type: 'string' },
+							trackingType: { type: 'string' },
+							tallyUnit: { type: ['string', 'null'] },
 							completedAt: { type: 'string' },
-							spentMilliseconds: { type: 'integer' }
+							spentMilliseconds: { type: 'integer' },
+							tallyCount: { type: ['integer', 'null'] }
 						}
 					}
 				},
@@ -235,9 +260,12 @@ const dailyStatsSchema = {
 							'color',
 							'colorKey',
 							'mode',
+							'trackingType',
+							'tallyUnit',
 							'startedAt',
 							'endedAt',
 							'spentMilliseconds',
+							'tallyCount',
 							'outcome'
 						],
 						properties: {
@@ -247,9 +275,12 @@ const dailyStatsSchema = {
 							color: { type: 'string' },
 							colorKey: { type: 'string' },
 							mode: { type: 'string' },
+							trackingType: { type: 'string' },
+							tallyUnit: { type: ['string', 'null'] },
 							startedAt: { type: 'string' },
 							endedAt: { type: 'string' },
 							spentMilliseconds: { type: 'integer' },
+							tallyCount: { type: ['integer', 'null'] },
 							outcome: { type: 'string' }
 						}
 					}
@@ -330,7 +361,9 @@ async function dailyStatsRoute(app) {
 						name: task.name,
 						color: task.colorHex,
 						colorKey: task.colorKey,
-						mode: task.mode
+						mode: task.mode,
+						trackingType: task.trackingType || 'time',
+						tallyUnit: task.tallyUnit ?? null
 					}
 				])
 			);
@@ -341,11 +374,24 @@ async function dailyStatsRoute(app) {
 			let trackedMilliseconds = 0;
 			let completedCount = 0;
 			let pausedCount = 0;
+			let tallyUnits = 0;
 			let longestRunMilliseconds = 0;
 
 			for (const taskRun of taskRuns) {
 				const taskId = taskRun.taskId.toString();
 				const task = tasksById.get(taskId) || getFallbackTask(taskId);
+				const trackingType = taskRun.trackingType || task.trackingType || 'time';
+				const tallyUnit = taskRun.tallyUnit ?? task.tallyUnit ?? null;
+				const sessionTallyCount =
+					trackingType === 'tally'
+						? Math.max(
+								0,
+								(Number.isInteger(taskRun.tallyCount) ? taskRun.tallyCount : 0) -
+									(Number.isInteger(taskRun.startTallyCount) ? taskRun.startTallyCount : 0)
+							)
+						: 0;
+				const completedTallyCount =
+					trackingType === 'tally' && Number.isInteger(taskRun.tallyCount) ? taskRun.tallyCount : null;
 				const effectiveStartedAt = new Date(
 					Math.max(taskRun.startedAt.getTime(), startedAt.getTime())
 				);
@@ -382,6 +428,9 @@ async function dailyStatsRoute(app) {
 				if (pausedWithinDay) {
 					pausedCount += 1;
 				}
+				if ((completedWithinDay || pausedWithinDay) && sessionTallyCount > 0) {
+					tallyUnits += sessionTallyCount;
+				}
 
 				overlapEvents.push({
 					time: effectiveStartedAt.getTime(),
@@ -412,11 +461,17 @@ async function dailyStatsRoute(app) {
 						color: task.color,
 						colorKey: task.colorKey,
 						mode: task.mode,
+						trackingType,
+						tallyUnit,
 						totalMilliseconds: 0,
+						totalTallyCount: 0,
 						runCount: 0,
 						completedCount: 0
 					};
 				currentBreakdown.totalMilliseconds += spentMilliseconds;
+				if ((completedWithinDay || pausedWithinDay) && sessionTallyCount > 0) {
+					currentBreakdown.totalTallyCount += sessionTallyCount;
+				}
 				currentBreakdown.runCount += 1;
 				if (completedWithinDay) {
 					currentBreakdown.completedCount += 1;
@@ -430,9 +485,17 @@ async function dailyStatsRoute(app) {
 					color: task.color,
 					colorKey: task.colorKey,
 					mode: task.mode,
+					trackingType,
+					tallyUnit,
 					startedAt: effectiveStartedAt.toISOString(),
 					endedAt: effectiveEndedAt.toISOString(),
 					spentMilliseconds,
+					tallyCount:
+						trackingType === 'tally'
+							? Number.isInteger(completedTallyCount)
+								? completedTallyCount
+								: sessionTallyCount
+							: null,
 					outcome,
 					completedAt:
 						completedWithinDay && taskRun.endedAt ? taskRun.endedAt.toISOString() : null
@@ -487,6 +550,7 @@ async function dailyStatsRoute(app) {
 					runCount: clippedRuns.length,
 					completedCount,
 					pausedCount,
+					tallyUnits,
 					averageRunMilliseconds,
 					longestRunMilliseconds
 				},
@@ -514,8 +578,11 @@ async function dailyStatsRoute(app) {
 						color: taskRun.color,
 						colorKey: taskRun.colorKey,
 						mode: taskRun.mode,
+						trackingType: taskRun.trackingType,
+						tallyUnit: taskRun.tallyUnit,
 						completedAt: taskRun.completedAt,
-						spentMilliseconds: taskRun.spentMilliseconds
+						spentMilliseconds: taskRun.spentMilliseconds,
+						tallyCount: taskRun.tallyCount
 					})),
 				sessionLog: clippedRuns
 					.sort((left, right) => new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime())

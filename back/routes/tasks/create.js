@@ -5,10 +5,12 @@ const {
 	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
 	TASK_SNOOZE_VALUES,
+	TASK_TRACKING_TYPE_VALUES,
 	isAllowedTaskColor,
 	isAllowedTaskDuration,
 	isAllowedTaskMode,
 	isAllowedTaskSnooze,
+	isAllowedTaskTrackingType,
 	serializedTaskJsonSchema,
 	serializeTask
 } = require('../../lib/tasks');
@@ -32,6 +34,10 @@ const createTaskSchema = {
 				type: 'string',
 				enum: [...TASK_MODE_VALUES]
 			},
+			trackingType: {
+				type: 'string',
+				enum: [...TASK_TRACKING_TYPE_VALUES]
+			},
 			alarmEnabled: {
 				type: 'boolean'
 			},
@@ -42,6 +48,15 @@ const createTaskSchema = {
 			snoozeMinutes: {
 				type: ['integer', 'null'],
 				enum: [...TASK_SNOOZE_VALUES, null]
+			},
+			tallyUnit: {
+				type: ['string', 'null'],
+				maxLength: 60
+			},
+			tallyTarget: {
+				type: ['integer', 'null'],
+				minimum: 1,
+				maximum: 100000
 			},
 			note: {
 				type: ['string', 'null'],
@@ -72,6 +87,7 @@ async function createTaskRoute(app) {
 			const name = request.body.name.trim();
 			const color = request.body.color;
 			const mode = request.body.mode;
+			const trackingType = request.body.trackingType || 'time';
 			const alarmEnabled = request.body.alarmEnabled;
 			const note = typeof request.body.note === 'string' ? request.body.note.trim() : null;
 
@@ -93,10 +109,18 @@ async function createTaskRoute(app) {
 				});
 			}
 
+			if (!isAllowedTaskTrackingType(trackingType)) {
+				return reply.code(400).send({
+					message: 'Task tracking type is not supported.'
+				});
+			}
+
 			let durationMinutes = null;
 			let snoozeMinutes = null;
+			let tallyUnit = null;
+			let tallyTarget = null;
 
-			if (alarmEnabled) {
+			if (trackingType === 'time' && alarmEnabled) {
 				durationMinutes = request.body.durationMinutes;
 				snoozeMinutes = request.body.snoozeMinutes;
 
@@ -113,6 +137,29 @@ async function createTaskRoute(app) {
 				}
 			}
 
+			if (trackingType === 'tally') {
+				if (alarmEnabled) {
+					return reply.code(400).send({
+						message: 'Tally tasks do not use alarms.'
+					});
+				}
+
+				tallyUnit = typeof request.body.tallyUnit === 'string' ? request.body.tallyUnit.trim() : '';
+				tallyTarget = request.body.tallyTarget;
+
+				if (!tallyUnit) {
+					return reply.code(400).send({
+						message: 'Tally tasks need a unit label.'
+					});
+				}
+
+				if (!Number.isInteger(tallyTarget) || tallyTarget < 1) {
+					return reply.code(400).send({
+						message: 'Tally tasks need a valid target.'
+					});
+				}
+			}
+
 			const createdAt = new Date();
 			const task = {
 				userId: new ObjectId(request.auth.userId),
@@ -120,9 +167,14 @@ async function createTaskRoute(app) {
 				colorKey: color,
 				colorHex: TASK_COLOR_MAP[color],
 				mode,
-				alarmEnabled,
+				trackingType,
+				alarmEnabled: trackingType === 'time' ? alarmEnabled : false,
 				durationMinutes,
 				snoozeMinutes,
+				tallyUnit,
+				tallyTarget,
+				activeTallyCount: 0,
+				lastCompletedTallyCount: null,
 				note: note || null,
 				mappedToday: false,
 				mappedAt: null,

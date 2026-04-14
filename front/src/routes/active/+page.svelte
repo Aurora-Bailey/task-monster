@@ -12,6 +12,7 @@
 		inactivateTask,
 		loadActiveTasks,
 		snoozeTask,
+		updateTaskTally,
 		updateTaskNote
 	} from '$lib/tasks-client';
 
@@ -87,6 +88,20 @@
 		}
 
 		return `Overdue by ${formatElapsedDuration(Math.abs(delta))}`;
+	}
+
+	async function handleTally(taskId, delta) {
+		actionError = '';
+		setBusy(taskId, delta > 0 ? 'tally-up' : 'tally-down');
+
+		try {
+			const updatedTask = await updateTaskTally(taskId, delta);
+			tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
 	}
 
 	async function handleInactivate(taskId) {
@@ -326,6 +341,7 @@
 					onInactivate={handleInactivate}
 					onSaveNote={handleSaveNote}
 					onSnooze={handleSnooze}
+					onTally={handleTally}
 				/>
 			{/each}
 		</div>

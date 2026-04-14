@@ -61,6 +61,10 @@ async function doneTaskRoute(app) {
 				activeToday: true
 			});
 			const completedAt = new Date();
+			const completedTallyCount =
+				task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
+					? task.activeTallyCount
+					: null;
 			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
@@ -77,6 +81,8 @@ async function doneTaskRoute(app) {
 						activeToday: false,
 						activatedAt: null,
 						alarmDueAt: null,
+						activeTallyCount: 0,
+						lastCompletedTallyCount: completedTallyCount,
 						lastCompletedAt: completedAt,
 						lastInactivatedAt: completedAt,
 						archived: task.mode === 'one-time',
@@ -103,7 +109,8 @@ async function doneTaskRoute(app) {
 				userId: request.auth.userId,
 				taskId,
 				endedAt: completedAt,
-				endingReason: 'done'
+				endingReason: 'done',
+				tallyCount: completedTallyCount ?? undefined
 			});
 
 			if (activeCountBeforeUpdate < 2) {

@@ -19,6 +19,24 @@ export function formatTaskMode(mode) {
 	return mode === 'repeatable' ? 'Repeatable' : 'One-time';
 }
 
+export function formatTaskTrackingType(trackingType) {
+	return trackingType === 'tally' ? 'Tally' : 'Clock';
+}
+
+export function formatTallyCount(count, unit = 'units') {
+	return `${Math.max(0, Number.isFinite(count) ? count : 0)} ${unit || 'units'}`;
+}
+
+export function formatTallyProgress(count, target, unit = 'units') {
+	const safeCount = Math.max(0, Number.isFinite(count) ? count : 0);
+
+	if (Number.isInteger(target) && target > 0) {
+		return `${safeCount} / ${target} ${unit || 'units'}`;
+	}
+
+	return formatTallyCount(safeCount, unit);
+}
+
 export function formatElapsedDuration(milliseconds) {
 	const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
 	const hours = Math.floor(totalSeconds / 3600);

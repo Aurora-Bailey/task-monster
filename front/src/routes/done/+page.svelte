@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import TaskCard from '$lib/TaskCard.svelte';
-	import { formatElapsedDuration } from '$lib/task-format';
+	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
 	import { loadDoneHistory, updateTaskNote } from '$lib/tasks-client';
@@ -28,6 +28,14 @@
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
+	}
+
+	function formatDoneMeasure(task) {
+		if (task.trackingType === 'tally') {
+			return formatTallyCount(task.tallyCount ?? 0, task.tallyUnit || 'units');
+		}
+
+		return formatElapsedDuration(task.spentMilliseconds);
 	}
 
 	function formatDayLabel(day) {
@@ -208,7 +216,8 @@
 					task={task}
 					variant="done"
 					editableTaskId={task.taskId}
-					doneDurationLabel={formatElapsedDuration(task.spentMilliseconds)}
+					doneDurationLabel={formatDoneMeasure(task)}
+					doneTallyCount={task.tallyCount}
 					completedAtLabel={formatCompletedAt(task.completedAt)}
 					onSaveNote={handleSaveNote}
 				/>

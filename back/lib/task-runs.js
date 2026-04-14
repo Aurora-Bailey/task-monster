@@ -1,9 +1,26 @@
 const { toObjectId } = require('./tasks');
 
-async function openTaskRun(db, { userId, taskId, startedAt = new Date() }) {
+async function openTaskRun(
+	db,
+	{
+		userId,
+		taskId,
+		startedAt = new Date(),
+		trackingType = 'time',
+		tallyUnit = null,
+		tallyTarget = null,
+		startTallyCount = null,
+		tallyCount = null
+	}
+) {
 	await db.collection('task_runs').insertOne({
 		userId: toObjectId(userId),
 		taskId: toObjectId(taskId),
+		trackingType,
+		tallyUnit,
+		tallyTarget,
+		startTallyCount,
+		tallyCount,
 		startedAt,
 		endedAt: null,
 		endingReason: null,
@@ -14,7 +31,39 @@ async function openTaskRun(db, { userId, taskId, startedAt = new Date() }) {
 
 async function closeOpenTaskRun(
 	db,
-	{ userId, taskId, endedAt = new Date(), endingReason = 'inactive' }
+	{ userId, taskId, endedAt = new Date(), endingReason = 'inactive', tallyCount }
+) {
+	const update = {
+		endedAt,
+		endingReason,
+		updatedAt: endedAt
+	};
+
+	if (tallyCount !== undefined) {
+		update.tallyCount = tallyCount;
+	}
+
+	return db.collection('task_runs').findOneAndUpdate(
+		{
+			userId: toObjectId(userId),
+			taskId: toObjectId(taskId),
+			endedAt: null
+		},
+		{
+			$set: update
+		},
+		{
+			sort: {
+				startedAt: -1
+			},
+			returnDocument: 'after'
+		}
+	);
+}
+
+async function updateOpenTaskRunTally(
+	db,
+	{ userId, taskId, tallyCount = 0, updatedAt = new Date() }
 ) {
 	return db.collection('task_runs').findOneAndUpdate(
 		{
@@ -24,9 +73,8 @@ async function closeOpenTaskRun(
 		},
 		{
 			$set: {
-				endedAt,
-				endingReason,
-				updatedAt: endedAt
+				tallyCount,
+				updatedAt
 			}
 		},
 		{
@@ -40,5 +88,6 @@ async function closeOpenTaskRun(
 
 module.exports = {
 	closeOpenTaskRun,
-	openTaskRun
+	openTaskRun,
+	updateOpenTaskRunTally
 };

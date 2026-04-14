@@ -11,6 +11,7 @@ const TASK_COLOR_MAP = Object.freeze({
 });
 
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
+const TASK_TRACKING_TYPE_VALUES = Object.freeze(['time', 'tally']);
 const TASK_DURATION_VALUES = Object.freeze([5, 10, 15, 20, 30, 45, 60, 90, 120, 180]);
 const TASK_SNOOZE_VALUES = Object.freeze([5, 10, 15, 20, 30]);
 
@@ -22,9 +23,14 @@ const serializedTaskJsonSchema = {
 		'color',
 		'colorKey',
 		'mode',
+		'trackingType',
 		'alarmEnabled',
 		'durationMinutes',
 		'snoozeMinutes',
+		'tallyUnit',
+		'tallyTarget',
+		'activeTallyCount',
+		'lastCompletedTallyCount',
 		'note',
 		'mappedToday',
 		'mappedAt',
@@ -43,9 +49,14 @@ const serializedTaskJsonSchema = {
 		color: { type: 'string' },
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
+		trackingType: { type: 'string' },
 		alarmEnabled: { type: 'boolean' },
 		durationMinutes: { type: ['integer', 'null'] },
 		snoozeMinutes: { type: ['integer', 'null'] },
+		tallyUnit: { type: ['string', 'null'] },
+		tallyTarget: { type: ['integer', 'null'] },
+		activeTallyCount: { type: 'integer' },
+		lastCompletedTallyCount: { type: ['integer', 'null'] },
 		note: { type: ['string', 'null'] },
 		mappedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
@@ -69,9 +80,14 @@ const serializedCompletedTaskJsonSchema = {
 		'color',
 		'colorKey',
 		'mode',
+		'trackingType',
 		'alarmEnabled',
 		'durationMinutes',
 		'snoozeMinutes',
+		'tallyUnit',
+		'tallyTarget',
+		'activeTallyCount',
+		'lastCompletedTallyCount',
 		'note',
 		'mappedToday',
 		'mappedAt',
@@ -86,7 +102,8 @@ const serializedCompletedTaskJsonSchema = {
 		'completedAt',
 		'startedAt',
 		'endedAt',
-		'spentMilliseconds'
+		'spentMilliseconds',
+		'tallyCount'
 	],
 	properties: {
 		id: { type: 'string' },
@@ -95,9 +112,14 @@ const serializedCompletedTaskJsonSchema = {
 		color: { type: 'string' },
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
+		trackingType: { type: 'string' },
 		alarmEnabled: { type: 'boolean' },
 		durationMinutes: { type: ['integer', 'null'] },
 		snoozeMinutes: { type: ['integer', 'null'] },
+		tallyUnit: { type: ['string', 'null'] },
+		tallyTarget: { type: ['integer', 'null'] },
+		activeTallyCount: { type: 'integer' },
+		lastCompletedTallyCount: { type: ['integer', 'null'] },
 		note: { type: ['string', 'null'] },
 		mappedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
@@ -112,7 +134,8 @@ const serializedCompletedTaskJsonSchema = {
 		completedAt: { type: 'string' },
 		startedAt: { type: 'string' },
 		endedAt: { type: 'string' },
-		spentMilliseconds: { type: 'integer' }
+		spentMilliseconds: { type: 'integer' },
+		tallyCount: { type: ['integer', 'null'] }
 	}
 };
 
@@ -122,6 +145,10 @@ function isAllowedTaskColor(color) {
 
 function isAllowedTaskMode(mode) {
 	return TASK_MODE_VALUES.includes(mode);
+}
+
+function isAllowedTaskTrackingType(trackingType) {
+	return TASK_TRACKING_TYPE_VALUES.includes(trackingType);
 }
 
 function isAllowedTaskDuration(durationMinutes) {
@@ -150,9 +177,16 @@ function serializeTask(task) {
 		color: task.colorHex,
 		colorKey: task.colorKey,
 		mode: task.mode,
+		trackingType: task.trackingType || 'time',
 		alarmEnabled: task.alarmEnabled,
 		durationMinutes: task.durationMinutes ?? null,
 		snoozeMinutes: task.snoozeMinutes ?? null,
+		tallyUnit: task.tallyUnit ?? null,
+		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
+		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
+		lastCompletedTallyCount: Number.isInteger(task.lastCompletedTallyCount)
+			? task.lastCompletedTallyCount
+			: null,
 		note: task.note ?? null,
 		mappedToday: task.mappedToday === true,
 		mappedAt: task.mappedAt ? task.mappedAt.toISOString() : null,
@@ -172,11 +206,13 @@ module.exports = {
 	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
 	TASK_SNOOZE_VALUES,
+	TASK_TRACKING_TYPE_VALUES,
 	findOwnedTask,
 	isAllowedTaskColor,
 	isAllowedTaskDuration,
 	isAllowedTaskMode,
 	isAllowedTaskSnooze,
+	isAllowedTaskTrackingType,
 	serializedCompletedTaskJsonSchema,
 	serializedTaskJsonSchema,
 	toObjectId,

@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 
-	import { formatElapsedDuration } from '$lib/task-format';
+	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import { loadDailyStats } from '$lib/stats-client';
 
 	const overlapColors = {
@@ -42,6 +42,36 @@
 
 	function formatWindow(startedAt, endedAt) {
 		return `${formatClock(startedAt)} - ${formatClock(endedAt)}`;
+	}
+
+	function formatBreakdownMeta(item) {
+		const parts = [`${item.runCount} runs`];
+
+		if (item.completedCount) {
+			parts.push(`${item.completedCount} done`);
+		}
+
+		if (item.totalTallyCount > 0) {
+			parts.push(`${formatTallyCount(item.totalTallyCount, item.tallyUnit || 'units')} total`);
+		}
+
+		return parts.join(', ');
+	}
+
+	function formatDoneValue(item) {
+		if (item.trackingType === 'tally') {
+			return formatTallyCount(item.tallyCount ?? 0, item.tallyUnit || 'units');
+		}
+
+		return formatElapsedDuration(item.spentMilliseconds);
+	}
+
+	function formatLedgerValue(row) {
+		if (row.trackingType === 'tally') {
+			return formatTallyCount(row.tallyCount ?? 0, row.tallyUnit || 'units');
+		}
+
+		return formatElapsedDuration(row.spentMilliseconds);
 	}
 
 	function getCadenceTierPercent(milliseconds, tierIndex) {
@@ -171,6 +201,15 @@
 						value: `${summary.pausedCount}`,
 						note: 'Runs moved back off the table without being finished.'
 					},
+					...(summary.tallyUnits > 0
+						? [
+								{
+									label: 'Tallied',
+									value: formatTallyCount(summary.tallyUnits),
+									note: 'Units captured by tally sessions that closed on this day.'
+								}
+							]
+						: []),
 					{
 						label: 'Longest run',
 						value: formatElapsedDuration(summary.longestRunMilliseconds),
@@ -311,7 +350,7 @@
 							<div class="metric-row__meta">
 								<div>
 									<strong>{item.name}</strong>
-									<p>{item.runCount} runs{item.completedCount ? `, ${item.completedCount} done` : ''}</p>
+									<p>{formatBreakdownMeta(item)}</p>
 								</div>
 								<span>{formatElapsedDuration(item.totalMilliseconds)}</span>
 							</div>
@@ -390,7 +429,7 @@
 									<strong>{item.name}</strong>
 									<span>{formatClock(item.completedAt)}</span>
 								</div>
-								<p>{formatElapsedDuration(item.spentMilliseconds)}</p>
+								<p>{formatDoneValue(item)}</p>
 							</article>
 						{/each}
 					{/if}
@@ -410,7 +449,7 @@
 					<div class="ledger-head">
 						<span>Window</span>
 						<span>Task</span>
-						<span>Tracked</span>
+						<span>Tracked / tally</span>
 						<span>Outcome</span>
 					</div>
 
@@ -418,7 +457,7 @@
 						<article class="ledger-row">
 							<span>{formatWindow(row.startedAt, row.endedAt)}</span>
 							<strong>{row.name}</strong>
-							<span>{formatElapsedDuration(row.spentMilliseconds)}</span>
+							<span>{formatLedgerValue(row)}</span>
 							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span>
 						</article>
 					{/each}

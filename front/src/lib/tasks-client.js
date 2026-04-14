@@ -41,6 +41,22 @@ export async function updateTaskNote(taskId, note) {
 	return body?.task ?? null;
 }
 
+export async function updateTaskTally(taskId, delta) {
+	const response = await authorizedRequest(`/tasks/${taskId}/tally`, {
+		method: 'POST',
+		body: {
+			delta
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the tally.'));
+	}
+
+	const body = await readApiBody(response);
+	return body?.task ?? null;
+}
+
 export function loadActiveTasks() {
 	return loadTaskList('/tasks/active');
 }

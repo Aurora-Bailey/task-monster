@@ -36,9 +36,12 @@
 	let taskName = $state('');
 	let selectedColor = $state(taskColors[0].value);
 	let taskMode = $state('repeatable');
+	let trackingType = $state('time');
 	let alarmEnabled = $state(false);
 	let durationMinutes = $state(taskDurations[1].value);
 	let snoozeMinutes = $state(snoozeDurations[1].value);
+	let tallyUnit = $state('');
+	let tallyTarget = $state('10');
 	let notesEnabled = $state(false);
 	let note = $state('');
 	let isSubmitting = $state(false);
@@ -49,9 +52,12 @@
 		taskName = '';
 		selectedColor = taskColors[0].value;
 		taskMode = 'repeatable';
+		trackingType = 'time';
 		alarmEnabled = false;
 		durationMinutes = taskDurations[1].value;
 		snoozeMinutes = snoozeDurations[1].value;
+		tallyUnit = '';
+		tallyTarget = '10';
 		notesEnabled = false;
 		note = '';
 	}
@@ -69,9 +75,15 @@
 					name: taskName,
 					color: selectedColor,
 					mode: taskMode,
-					alarmEnabled,
-					durationMinutes: alarmEnabled ? Number.parseInt(durationMinutes, 10) : null,
-					snoozeMinutes: alarmEnabled ? Number.parseInt(snoozeMinutes, 10) : null,
+					trackingType,
+					alarmEnabled: trackingType === 'time' ? alarmEnabled : false,
+					durationMinutes:
+						trackingType === 'time' && alarmEnabled ? Number.parseInt(durationMinutes, 10) : null,
+					snoozeMinutes:
+						trackingType === 'time' && alarmEnabled ? Number.parseInt(snoozeMinutes, 10) : null,
+					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
+					tallyTarget:
+						trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
 					note: notesEnabled ? note : null
 				}
 			});
@@ -154,7 +166,33 @@
 				</div>
 			</fieldset>
 
-			<div class="alarm-stack">
+			<fieldset class="task-mode">
+				<legend class="field-label">How it tracks</legend>
+				<div class="mode-slider">
+					<input
+						id="tracking-time"
+						class="mode-input"
+						type="radio"
+						name="trackingType"
+						value="time"
+						bind:group={trackingType}
+					/>
+					<input
+						id="tracking-tally"
+						class="mode-input"
+						type="radio"
+						name="trackingType"
+						value="tally"
+						bind:group={trackingType}
+					/>
+					<span class="mode-indicator" aria-hidden="true"></span>
+					<label class="mode-option mode-option-once" for="tracking-time">Clock time</label>
+					<label class="mode-option mode-option-repeatable" for="tracking-tally">Tallies</label>
+				</div>
+			</fieldset>
+
+			{#if trackingType === 'time'}
+				<div class="alarm-stack">
 				<input
 					id="task-alarm"
 					bind:checked={alarmEnabled}
@@ -199,7 +237,35 @@
 						</div>
 					</fieldset>
 				</div>
-			</div>
+				</div>
+			{:else}
+				<div class="tally-fields">
+					<label class="field-label" for="task-tally-unit">Tally unit</label>
+					<input
+						id="task-tally-unit"
+						bind:value={tallyUnit}
+						class="text-input"
+						type="text"
+						name="tallyUnit"
+						placeholder="squats"
+						maxlength="60"
+						required={trackingType === 'tally'}
+					/>
+
+					<label class="field-label" for="task-tally-target">Target amount</label>
+					<input
+						id="task-tally-target"
+						bind:value={tallyTarget}
+						class="text-input"
+						type="number"
+						name="tallyTarget"
+						min="1"
+						max="100000"
+						step="1"
+						required={trackingType === 'tally'}
+					/>
+				</div>
+			{/if}
 
 			<div class="notes-stack">
 				<input
@@ -578,6 +644,15 @@
 		opacity: 1;
 		pointer-events: auto;
 		transform: translateY(0);
+	}
+
+	.tally-fields {
+		display: grid;
+		gap: 0.55rem;
+		padding: 1rem 1.1rem;
+		border-radius: 18px;
+		background: rgba(255, 255, 255, 0.7);
+		border: 1px solid rgba(64, 117, 166, 0.12);
 	}
 
 	.notes-input {

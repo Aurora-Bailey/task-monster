@@ -187,7 +187,18 @@ async function listDoneTasksRoute(app) {
 				days,
 				selectedDay,
 				tasks: taskRuns.map((taskRun) => {
-					const serializedTask = serializeTask(taskRun.task);
+					const serializedTask = serializeTask({
+						...taskRun.task,
+						trackingType: taskRun.trackingType ?? taskRun.task.trackingType,
+						tallyUnit: taskRun.tallyUnit ?? taskRun.task.tallyUnit,
+						tallyTarget:
+							Number.isInteger(taskRun.tallyTarget) ? taskRun.tallyTarget : taskRun.task.tallyTarget
+					});
+					const tallyCount = Number.isInteger(taskRun.tallyCount)
+						? taskRun.tallyCount
+						: Number.isInteger(taskRun.startTallyCount)
+							? taskRun.startTallyCount
+							: null;
 
 					return {
 						...serializedTask,
@@ -199,7 +210,8 @@ async function listDoneTasksRoute(app) {
 						spentMilliseconds: Math.max(
 							0,
 							taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
-						)
+						),
+						tallyCount
 					};
 				})
 			};

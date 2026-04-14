@@ -57,11 +57,15 @@ async function activateTaskRoute(app) {
 
 			const activatedAt = new Date();
 			const alarmDueAt =
-				task.alarmEnabled && task.durationMinutes
+				task.trackingType !== 'tally' && task.alarmEnabled && task.durationMinutes
 					? new Date(activatedAt.getTime() + task.durationMinutes * 60 * 1000)
 					: null;
 			const mappedAt = task.mappedAt || activatedAt;
 			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
+			const activeTallyCount =
+				task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
+					? task.activeTallyCount
+					: 0;
 
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
@@ -78,6 +82,7 @@ async function activateTaskRoute(app) {
 						activeToday: true,
 						activatedAt,
 						alarmDueAt,
+						activeTallyCount,
 						updatedAt: activatedAt
 					}
 				},
@@ -100,7 +105,12 @@ async function activateTaskRoute(app) {
 			await openTaskRun(app.mongo.db, {
 				userId: request.auth.userId,
 				taskId,
-				startedAt: activatedAt
+				startedAt: activatedAt,
+				trackingType: task.trackingType || 'time',
+				tallyUnit: task.tallyUnit ?? null,
+				tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
+				startTallyCount: task.trackingType === 'tally' ? activeTallyCount : null,
+				tallyCount: task.trackingType === 'tally' ? activeTallyCount : null
 			});
 
 			return {
