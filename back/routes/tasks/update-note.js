@@ -48,7 +48,7 @@ async function updateTaskNoteRoute(app) {
 			}
 
 			const rawNote = request.body.note;
-			const note = typeof rawNote === 'string' ? rawNote.trim() : null;
+			const note = typeof rawNote === 'string' ? rawNote : null;
 			const updatedAt = new Date();
 
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
@@ -58,7 +58,7 @@ async function updateTaskNoteRoute(app) {
 				},
 				{
 					$set: {
-						note: note || null,
+						note,
 						updatedAt
 					}
 				},

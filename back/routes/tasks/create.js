@@ -89,7 +89,7 @@ async function createTaskRoute(app) {
 			const mode = request.body.mode;
 			const trackingType = request.body.trackingType || 'time';
 			const alarmEnabled = request.body.alarmEnabled;
-			const note = typeof request.body.note === 'string' ? request.body.note.trim() : null;
+			const note = typeof request.body.note === 'string' ? request.body.note : null;
 
 			if (!name) {
 				return reply.code(400).send({
@@ -175,7 +175,7 @@ async function createTaskRoute(app) {
 				tallyTarget,
 				activeTallyCount: 0,
 				lastCompletedTallyCount: null,
-				note: note || null,
+				note,
 				mappedToday: false,
 				mappedAt: null,
 				queuePosition: null,
