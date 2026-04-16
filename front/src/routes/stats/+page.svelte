@@ -125,13 +125,13 @@
 			});
 
 			selectedDay = stats.selectedDay || getTodayDay();
-				summary = stats.summary;
-				overlapBands = stats.overlapBands;
-				breakdown = stats.breakdown;
-				cadence = stats.cadence;
-				panicLog = stats.panicLog;
-				doneLog = stats.doneLog;
-				sessionLog = stats.sessionLog;
+			summary = stats.summary;
+			overlapBands = stats.overlapBands ?? [];
+			breakdown = stats.breakdown ?? [];
+			cadence = stats.cadence ?? [];
+			panicLog = stats.panicLog ?? [];
+			doneLog = stats.doneLog ?? [];
+			sessionLog = stats.sessionLog ?? [];
 		} catch (error) {
 			loadError = error.message;
 		} finally {

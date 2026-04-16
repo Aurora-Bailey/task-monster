@@ -28,6 +28,7 @@ export async function loadDailyStats({ day, tzOffsetMinutes } = {}) {
 		overlapBands: body?.overlapBands ?? [],
 		breakdown: body?.breakdown ?? [],
 		cadence: body?.cadence ?? [],
+		panicLog: body?.panicLog ?? [],
 		doneLog: body?.doneLog ?? [],
 		sessionLog: body?.sessionLog ?? []
 	};
