@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 
 	import TaskCard from '$lib/TaskCard.svelte';
+	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
@@ -25,6 +26,7 @@
 	let audioReady = $state(false);
 	let audioSupported = $state(true);
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let panic = $state(null);
 
 	let clockIntervalId = null;
 	let alarmLoopId = null;
@@ -40,6 +42,14 @@
 			loadError = error.message;
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function loadPanic() {
+		try {
+			panic = await loadPanicStatus();
+		} catch (error) {
+			console.error(error);
 		}
 	}
 
@@ -88,6 +98,19 @@
 		}
 
 		return `Overdue by ${formatElapsedDuration(Math.abs(delta))}`;
+	}
+
+	function getPanicDurationLabel(task) {
+		const baseMilliseconds = Number.isInteger(task.panicMilliseconds) ? task.panicMilliseconds : 0;
+
+		if (!panic?.active || !task.panicMeasuredAt) {
+			return `Panic ${formatElapsedDuration(baseMilliseconds)}`;
+		}
+
+		const measuredAtMs = new Date(task.panicMeasuredAt).getTime();
+		const liveMilliseconds = baseMilliseconds + Math.max(0, nowMs - measuredAtMs);
+
+		return `Panic ${formatElapsedDuration(liveMilliseconds)}`;
 	}
 
 	async function handleTally(taskId, delta) {
@@ -237,6 +260,7 @@
 	onMount(() => {
 		sortMode = loadStoredTaskSort('active');
 		void loadTasks();
+		void loadPanic();
 
 		if (browser) {
 			clockIntervalId = window.setInterval(() => {
@@ -246,13 +270,23 @@
 			const resumeAudio = () => {
 				void unlockAudio();
 			};
+			const handlePanicUpdated = async (event) => {
+				try {
+					panic = event.detail ?? null;
+					tasks = await loadActiveTasks();
+				} catch (error) {
+					loadError = error.message;
+				}
+			};
 
 			window.addEventListener('pointerdown', resumeAudio);
 			window.addEventListener('keydown', resumeAudio);
+			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 			return () => {
 				window.removeEventListener('pointerdown', resumeAudio);
 				window.removeEventListener('keydown', resumeAudio);
+				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
 				stopAlarmLoop();
 
@@ -329,14 +363,15 @@
 
 		<div class="task-grid">
 			{#each sortedTasks as task}
-				<TaskCard
-					task={task}
-					variant="active"
-					editableTaskId={task.id}
-					activeDurationLabel={getActiveDurationLabel(task)}
-					alarmLabel={getAlarmLabel(task)}
-					ringing={isTaskRinging(task)}
-					busyAction={getBusyAction(task.id)}
+					<TaskCard
+						task={task}
+						variant="active"
+						editableTaskId={task.id}
+						activeDurationLabel={getActiveDurationLabel(task)}
+						alarmLabel={getAlarmLabel(task)}
+						panicDurationLabel={getPanicDurationLabel(task)}
+						ringing={isTaskRinging(task)}
+						busyAction={getBusyAction(task.id)}
 					onDone={handleDone}
 					onInactivate={handleInactivate}
 					onSaveNote={handleSaveNote}

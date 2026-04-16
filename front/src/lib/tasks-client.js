@@ -101,8 +101,17 @@ export async function loadDoneHistory({ day, tzOffsetMinutes } = {}) {
 	};
 }
 
-export function activateTask(taskId) {
-	return runTaskAction(taskId, 'activate');
+export async function activateTask(taskId) {
+	const response = await authorizedRequest(`/tasks/${taskId}/activate`, {
+		method: 'POST'
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the task.'));
+	}
+
+	const body = await readApiBody(response);
+	return body?.task ?? null;
 }
 
 export function archiveTask(taskId) {

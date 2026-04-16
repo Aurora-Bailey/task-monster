@@ -15,11 +15,12 @@
 		task,
 		variant = 'inactive',
 		editableTaskId = null,
-		clickActionLabel = 'Activate',
-		activeDurationLabel = '',
-		alarmLabel = '',
-		doneDurationLabel = '',
-		doneTallyCount = null,
+			clickActionLabel = 'Activate',
+			activeDurationLabel = '',
+			alarmLabel = '',
+			panicDurationLabel = '',
+			doneDurationLabel = '',
+			doneTallyCount = null,
 		completedAtLabel = '',
 		ringing = false,
 		busyAction = null,
@@ -422,10 +423,14 @@
 				</div>
 			{/if}
 		{/if}
-	{/if}
+		{/if}
 
-	{#if showsActions}
-		<div class="task-card__actions split-actions">
+		{#if panicDurationLabel}
+			<p class="task-card__panic-duration">{panicDurationLabel}</p>
+		{/if}
+
+		{#if showsActions}
+			<div class="task-card__actions split-actions">
 			{#if isDaymapCard}
 				<button
 					class="action-button subtle-button"
@@ -818,6 +823,15 @@
 	.runtime-stat strong {
 		font-size: 1rem;
 		color: rgba(20, 28, 38, 0.84);
+	}
+
+	.task-card__panic-duration {
+		margin: -0.45rem 0 0;
+		padding: 0 0.2rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		color: rgba(176, 79, 22, 0.82);
 	}
 
 	.alarm-panel {

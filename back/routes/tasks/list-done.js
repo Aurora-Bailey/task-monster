@@ -1,5 +1,9 @@
 const { ObjectId } = require('mongodb');
 
+const {
+	getPanicMillisecondsForWindow,
+	loadPanicRunsOverlappingWindow
+} = require('../../lib/panic');
 const { serializedCompletedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 const COMPLETED_TASK_LIMIT = 100;
@@ -148,8 +152,9 @@ async function listDoneTasksRoute(app) {
 				};
 			}
 
-			const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
-			const taskRuns = await app.mongo.db
+				const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
+				const measuredAt = new Date();
+				const taskRuns = await app.mongo.db
 				.collection('task_runs')
 				.aggregate([
 					{
@@ -181,9 +186,29 @@ async function listDoneTasksRoute(app) {
 						$unwind: '$task'
 					}
 				])
-				.toArray();
+					.toArray();
+				const earliestStartedAt = taskRuns.reduce(
+					(earliest, taskRun) =>
+						earliest === null || taskRun.startedAt.getTime() < earliest.getTime()
+							? taskRun.startedAt
+							: earliest,
+					null
+				);
+				const latestEndedAt = taskRuns.reduce(
+					(latest, taskRun) =>
+						latest === null || taskRun.endedAt.getTime() > latest.getTime() ? taskRun.endedAt : latest,
+					null
+				);
+				const panicRuns =
+					earliestStartedAt && latestEndedAt
+						? await loadPanicRunsOverlappingWindow(app.mongo.db, {
+								userId: request.auth.userId,
+								startedAt: earliestStartedAt,
+								endedAt: latestEndedAt
+							})
+						: [];
 
-			return {
+				return {
 				days,
 				selectedDay,
 				tasks: taskRuns.map((taskRun) => {
@@ -206,14 +231,20 @@ async function listDoneTasksRoute(app) {
 						taskId: serializedTask.id,
 						completedAt: taskRun.endedAt.toISOString(),
 						startedAt: taskRun.startedAt.toISOString(),
-						endedAt: taskRun.endedAt.toISOString(),
-						spentMilliseconds: Math.max(
-							0,
-							taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
-						),
-						tallyCount
-					};
-				})
+							endedAt: taskRun.endedAt.toISOString(),
+							spentMilliseconds: Math.max(
+								0,
+								taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
+							),
+							panicMilliseconds: getPanicMillisecondsForWindow({
+								panicRuns,
+								startedAt: taskRun.startedAt,
+								endedAt: taskRun.endedAt,
+								now: measuredAt
+							}),
+							tallyCount
+						};
+					})
 			};
 		}
 	);

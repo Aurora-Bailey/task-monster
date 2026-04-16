@@ -100,6 +100,20 @@ async function ensureDatabaseIndexes(db) {
 			name: 'task_runs_userId_endingReason_endedAt'
 		}
 	);
+
+	await db.collection('panic_runs').createIndex(
+		{ userId: 1, day: 1, startedAt: 1 },
+		{
+			name: 'panic_runs_userId_day_startedAt'
+		}
+	);
+
+	await db.collection('panic_runs').createIndex(
+		{ userId: 1, day: 1, endedAt: 1, startedAt: -1 },
+		{
+			name: 'panic_runs_userId_day_endedAt_startedAt'
+		}
+	);
 }
 
 module.exports = {

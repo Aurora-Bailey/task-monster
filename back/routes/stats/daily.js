@@ -1,5 +1,18 @@
 const { ObjectId } = require('mongodb');
 
+const {
+	buildPanicLog,
+	getPanicMillisecondsForWindow,
+	loadPanicRunsForDay,
+	serializedPanicLogItemJsonSchema
+} = require('../../lib/panic');
+const {
+	getCurrentLocalDay,
+	getUtcRangeForLocalDay,
+	isValidDayString,
+	parseTimezoneOffsetMinutes
+} = require('../../lib/local-days');
+
 const BREAKDOWN_LIMIT = 10;
 const DONE_LOG_LIMIT = 12;
 const SESSION_LOG_LIMIT = 100;
@@ -9,39 +22,6 @@ const OVERLAP_BANDS = [
 	{ key: 'triple', label: 'Triple' },
 	{ key: 'quadPlus', label: 'Quad+' }
 ];
-
-function parseTimezoneOffsetMinutes(value) {
-	if (value === undefined) {
-		return 0;
-	}
-
-	const parsed = Number.parseInt(value, 10);
-
-	if (!Number.isInteger(parsed) || parsed < -840 || parsed > 840) {
-		throw new Error('Invalid timezone offset.');
-	}
-
-	return parsed;
-}
-
-function isValidDayString(value) {
-	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function getCurrentLocalDay(timezoneOffsetMinutes) {
-	return new Date(Date.now() - timezoneOffsetMinutes * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function getUtcRangeForLocalDay(day, timezoneOffsetMinutes) {
-	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
-
-	return {
-		startedAt: new Date(Date.UTC(year, month - 1, date, 0, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000),
-		endedBefore: new Date(
-			Date.UTC(year, month - 1, date + 1, 0, 0, 0, 0) + timezoneOffsetMinutes * 60 * 1000
-		)
-	};
-}
 
 function buildCadenceBuckets(day, timezoneOffsetMinutes) {
 	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
@@ -123,44 +103,55 @@ const dailyStatsSchema = {
 	response: {
 		200: {
 			type: 'object',
-			required: [
-				'selectedDay',
-				'summary',
-				'overlapBands',
-				'breakdown',
-				'cadence',
-				'doneLog',
-				'sessionLog'
-			],
+				required: [
+					'selectedDay',
+					'summary',
+					'overlapBands',
+					'breakdown',
+					'cadence',
+					'panicLog',
+					'doneLog',
+					'sessionLog'
+				],
 			properties: {
 				selectedDay: {
 					type: 'string'
 				},
 				summary: {
 					type: 'object',
-					required: [
-						'trackedMilliseconds',
-						'wallClockMilliseconds',
-						'overlapMilliseconds',
-						'runCount',
-						'completedCount',
-						'pausedCount',
-						'tallyUnits',
-						'averageRunMilliseconds',
-						'longestRunMilliseconds'
-					],
-					properties: {
-						trackedMilliseconds: { type: 'integer' },
-						wallClockMilliseconds: { type: 'integer' },
-						overlapMilliseconds: { type: 'integer' },
-						runCount: { type: 'integer' },
-						completedCount: { type: 'integer' },
-						pausedCount: { type: 'integer' },
-						tallyUnits: { type: 'integer' },
-						averageRunMilliseconds: { type: 'integer' },
-						longestRunMilliseconds: { type: 'integer' }
-					}
-				},
+						required: [
+							'trackedMilliseconds',
+							'effectiveTrackedMilliseconds',
+							'taskPanicMilliseconds',
+							'wallClockMilliseconds',
+							'overlapMilliseconds',
+							'runCount',
+							'completedCount',
+							'pausedCount',
+							'panicMilliseconds',
+							'panicCount',
+							'longestPanicMilliseconds',
+							'tallyUnits',
+							'averageRunMilliseconds',
+							'longestRunMilliseconds'
+						],
+						properties: {
+							trackedMilliseconds: { type: 'integer' },
+							effectiveTrackedMilliseconds: { type: 'integer' },
+							taskPanicMilliseconds: { type: 'integer' },
+							wallClockMilliseconds: { type: 'integer' },
+							overlapMilliseconds: { type: 'integer' },
+							runCount: { type: 'integer' },
+							completedCount: { type: 'integer' },
+							pausedCount: { type: 'integer' },
+							panicMilliseconds: { type: 'integer' },
+							panicCount: { type: 'integer' },
+							longestPanicMilliseconds: { type: 'integer' },
+							tallyUnits: { type: 'integer' },
+							averageRunMilliseconds: { type: 'integer' },
+							longestRunMilliseconds: { type: 'integer' }
+						}
+					},
 				overlapBands: {
 					type: 'array',
 					items: {
@@ -205,21 +196,25 @@ const dailyStatsSchema = {
 						}
 					}
 				},
-				cadence: {
-					type: 'array',
-					items: {
-						type: 'object',
-						required: ['hour', 'label', 'milliseconds'],
+					cadence: {
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['hour', 'label', 'milliseconds'],
 						properties: {
 							hour: { type: 'integer' },
 							label: { type: 'string' },
 							milliseconds: { type: 'integer' }
+							}
 						}
-					}
-				},
-				doneLog: {
-					type: 'array',
-					items: {
+					},
+					panicLog: {
+						type: 'array',
+						items: serializedPanicLogItemJsonSchema
+					},
+					doneLog: {
+						type: 'array',
+						items: {
 						type: 'object',
 						required: [
 							'id',
@@ -314,13 +309,29 @@ async function dailyStatsRoute(app) {
 			}
 
 			const selectedDay = request.query.day || getCurrentLocalDay(timezoneOffsetMinutes);
-			const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
-			const now = new Date();
-			const cadenceBuckets = buildCadenceBuckets(selectedDay, timezoneOffsetMinutes);
-			const userId = new ObjectId(request.auth.userId);
+				const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
+				const now = new Date();
+				const cadenceBuckets = buildCadenceBuckets(selectedDay, timezoneOffsetMinutes);
+				const userId = new ObjectId(request.auth.userId);
+				const panicRuns = await loadPanicRunsForDay(app.mongo.db, {
+					userId,
+					day: selectedDay
+				});
+				const panicLog = buildPanicLog({
+					day: selectedDay,
+					panicRuns,
+					timezoneOffsetMinutes,
+					now
+				});
+				const panicMilliseconds = panicLog.reduce((total, item) => total + item.milliseconds, 0);
+				const panicCount = panicLog.length;
+				const longestPanicMilliseconds = panicLog.reduce(
+					(longest, item) => Math.max(longest, item.milliseconds),
+					0
+				);
 
-			const taskRuns = await app.mongo.db
-				.collection('task_runs')
+				const taskRuns = await app.mongo.db
+					.collection('task_runs')
 				.find({
 					userId,
 					startedAt: {
@@ -372,6 +383,7 @@ async function dailyStatsRoute(app) {
 			const breakdownByTaskId = new Map();
 			const overlapEvents = [];
 			let trackedMilliseconds = 0;
+			let taskPanicMilliseconds = 0;
 			let completedCount = 0;
 			let pausedCount = 0;
 			let tallyUnits = 0;
@@ -403,6 +415,12 @@ async function dailyStatsRoute(app) {
 					0,
 					effectiveEndedAt.getTime() - effectiveStartedAt.getTime()
 				);
+				const runPanicMilliseconds = getPanicMillisecondsForWindow({
+					panicRuns,
+					startedAt: effectiveStartedAt,
+					endedAt: effectiveEndedAt,
+					now
+				});
 
 				if (spentMilliseconds <= 0) {
 					continue;
@@ -421,6 +439,7 @@ async function dailyStatsRoute(app) {
 					taskRun.endedAt.getTime() < endedBefore.getTime();
 
 				trackedMilliseconds += spentMilliseconds;
+				taskPanicMilliseconds += runPanicMilliseconds;
 				longestRunMilliseconds = Math.max(longestRunMilliseconds, spentMilliseconds);
 				if (completedWithinDay) {
 					completedCount += 1;
@@ -490,6 +509,7 @@ async function dailyStatsRoute(app) {
 					startedAt: effectiveStartedAt.toISOString(),
 					endedAt: effectiveEndedAt.toISOString(),
 					spentMilliseconds,
+					panicMilliseconds: runPanicMilliseconds,
 					tallyCount:
 						trackingType === 'tally'
 							? Number.isInteger(completedTallyCount)
@@ -537,23 +557,29 @@ async function dailyStatsRoute(app) {
 				overlapTotals.double +
 				overlapTotals.triple +
 				overlapTotals.quadPlus;
+			const effectiveTrackedMilliseconds = Math.max(0, trackedMilliseconds - taskPanicMilliseconds);
 			const averageRunMilliseconds = clippedRuns.length
 				? Math.round(trackedMilliseconds / clippedRuns.length)
 				: 0;
 
 			return {
 				selectedDay,
-				summary: {
-					trackedMilliseconds,
-					wallClockMilliseconds,
-					overlapMilliseconds: Math.max(0, trackedMilliseconds - wallClockMilliseconds),
-					runCount: clippedRuns.length,
-					completedCount,
-					pausedCount,
-					tallyUnits,
-					averageRunMilliseconds,
-					longestRunMilliseconds
-				},
+					summary: {
+						trackedMilliseconds,
+						effectiveTrackedMilliseconds,
+						taskPanicMilliseconds,
+						wallClockMilliseconds,
+						overlapMilliseconds: Math.max(0, trackedMilliseconds - wallClockMilliseconds),
+						runCount: clippedRuns.length,
+						completedCount,
+						pausedCount,
+						panicMilliseconds,
+						panicCount,
+						longestPanicMilliseconds,
+						tallyUnits,
+						averageRunMilliseconds,
+						longestRunMilliseconds
+					},
 				overlapBands: OVERLAP_BANDS.map((band) => ({
 					key: band.key,
 					label: band.label,
@@ -562,12 +588,13 @@ async function dailyStatsRoute(app) {
 				breakdown: [...breakdownByTaskId.values()]
 					.sort((left, right) => right.totalMilliseconds - left.totalMilliseconds)
 					.slice(0, BREAKDOWN_LIMIT),
-				cadence: cadenceBuckets.map((bucket) => ({
-					hour: bucket.hour,
-					label: bucket.label,
-					milliseconds: bucket.milliseconds
-				})),
-				doneLog: clippedRuns
+					cadence: cadenceBuckets.map((bucket) => ({
+						hour: bucket.hour,
+						label: bucket.label,
+						milliseconds: bucket.milliseconds
+					})),
+					panicLog,
+					doneLog: clippedRuns
 					.filter((taskRun) => taskRun.completedAt)
 					.sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime())
 					.slice(0, DONE_LOG_LIMIT)

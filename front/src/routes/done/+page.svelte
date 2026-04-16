@@ -38,6 +38,10 @@
 		return formatElapsedDuration(task.spentMilliseconds);
 	}
 
+	function formatPanicDuration(task) {
+		return `Panic ${formatElapsedDuration(task.panicMilliseconds ?? 0)}`;
+	}
+
 	function formatDayLabel(day) {
 		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
 		return dayLabelFormatter.format(new Date(year, month - 1, date));
@@ -212,15 +216,16 @@
 
 		<div class="task-grid">
 			{#each sortedTasks as task}
-				<TaskCard
-					task={task}
-					variant="done"
-					editableTaskId={task.taskId}
-					doneDurationLabel={formatDoneMeasure(task)}
-					doneTallyCount={task.tallyCount}
-					completedAtLabel={formatCompletedAt(task.completedAt)}
-					onSaveNote={handleSaveNote}
-				/>
+					<TaskCard
+						task={task}
+						variant="done"
+						editableTaskId={task.taskId}
+						doneDurationLabel={formatDoneMeasure(task)}
+						doneTallyCount={task.tallyCount}
+						panicDurationLabel={formatPanicDuration(task)}
+						completedAtLabel={formatCompletedAt(task.completedAt)}
+						onSaveNote={handleSaveNote}
+					/>
 			{/each}
 		</div>
 	{/if}

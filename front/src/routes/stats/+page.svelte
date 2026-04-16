@@ -1,8 +1,9 @@
-<script>
-	import { onMount } from 'svelte';
+	<script>
+		import { onMount } from 'svelte';
 
-	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
-	import { loadDailyStats } from '$lib/stats-client';
+		import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
+		import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
+		import { loadDailyStats } from '$lib/stats-client';
 
 	const overlapColors = {
 		solo: '#6f7d8b',
@@ -23,10 +24,11 @@
 	let selectedDay = $state(null);
 	let summary = $state(null);
 	let overlapBands = $state([]);
-	let breakdown = $state([]);
-	let cadence = $state([]);
-	let doneLog = $state([]);
-	let sessionLog = $state([]);
+		let breakdown = $state([]);
+		let cadence = $state([]);
+		let panicLog = $state([]);
+		let doneLog = $state([]);
+		let sessionLog = $state([]);
 	let isLoading = $state(true);
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
@@ -123,12 +125,13 @@
 			});
 
 			selectedDay = stats.selectedDay || getTodayDay();
-			summary = stats.summary;
-			overlapBands = stats.overlapBands;
-			breakdown = stats.breakdown;
-			cadence = stats.cadence;
-			doneLog = stats.doneLog;
-			sessionLog = stats.sessionLog;
+				summary = stats.summary;
+				overlapBands = stats.overlapBands;
+				breakdown = stats.breakdown;
+				cadence = stats.cadence;
+				panicLog = stats.panicLog;
+				doneLog = stats.doneLog;
+				sessionLog = stats.sessionLog;
 		} catch (error) {
 			loadError = error.message;
 		} finally {
@@ -166,7 +169,7 @@
 	);
 	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
 	const canGoOlder = $derived(selectedDay !== null);
-	const hasStats = $derived(Boolean(summary) && summary.runCount > 0);
+	const hasStats = $derived(Boolean(summary) && (summary.runCount > 0 || summary.panicCount > 0));
 	const maxOverlapMilliseconds = $derived(
 		Math.max(...overlapBands.map((band) => band.milliseconds), 1)
 	);
@@ -176,6 +179,11 @@
 	const summaryCards = $derived(
 		summary
 			? [
+					{
+						label: 'Focused time',
+						value: formatElapsedDuration(summary.effectiveTrackedMilliseconds),
+						note: 'Tracked task time after subtracting panic overlap across active runs.'
+					},
 					{
 						label: 'Tracked time',
 						value: formatElapsedDuration(summary.trackedMilliseconds),
@@ -196,14 +204,38 @@
 						value: `${summary.completedCount}`,
 						note: 'Runs that closed with a done outcome on this day.'
 					},
-					{
-						label: 'Paused',
-						value: `${summary.pausedCount}`,
-						note: 'Runs moved back off the table without being finished.'
-					},
-					...(summary.tallyUnits > 0
-						? [
-								{
+						{
+							label: 'Paused',
+							value: `${summary.pausedCount}`,
+							note: 'Runs moved back off the table without being finished.'
+						},
+						...(summary.panicCount > 0
+							? [
+									{
+										label: 'On-task panic',
+										value: formatElapsedDuration(summary.taskPanicMilliseconds),
+										note: 'Tracked task time that overlapped with panic mode.'
+									},
+									{
+										label: 'Off rails',
+										value: formatElapsedDuration(summary.panicMilliseconds),
+										note: 'Time logged in panic mode on the selected day.'
+									},
+									{
+										label: 'Panic hits',
+										value: `${summary.panicCount}`,
+										note: 'Separate panic sessions started on this day.'
+									},
+									{
+										label: 'Longest panic',
+										value: formatElapsedDuration(summary.longestPanicMilliseconds),
+										note: 'Longest single off-the-rails stretch.'
+									}
+								]
+							: []),
+						...(summary.tallyUnits > 0
+							? [
+									{
 									label: 'Tallied',
 									value: formatTallyCount(summary.tallyUnits),
 									note: 'Units captured by tally sessions that closed on this day.'
@@ -219,11 +251,29 @@
 			: []
 	);
 
-	onMount(() => {
-		timezoneOffsetMinutes = new Date().getTimezoneOffset();
-		void loadStats();
-	});
-</script>
+		onMount(() => {
+			timezoneOffsetMinutes = new Date().getTimezoneOffset();
+			void loadStats();
+
+			if (typeof window === 'undefined') {
+				return;
+			}
+
+			const handlePanicUpdated = async () => {
+				try {
+					await loadStats(selectedDay);
+				} catch (error) {
+					loadError = error.message;
+				}
+			};
+
+			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+
+			return () => {
+				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+			};
+		});
+	</script>
 
 <svelte:head>
 	<title>Stats</title>
@@ -294,7 +344,7 @@
 	{:else if !hasStats}
 		<div class="message-card">
 			<strong>{selectedDay ? `No tracked activity on ${formatDayLabel(selectedDay)}` : 'No tracked activity yet'}</strong>
-			<p>Stats appear after a task enters active and creates at least one real run in the database.</p>
+			<p>Stats appear after a task creates a real run or panic mode logs time for that day.</p>
 		</div>
 	{:else}
 		<div class="summary-grid">
@@ -365,10 +415,10 @@
 				</div>
 			</section>
 
-			<section class="panel panel-wide">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Cadence</p>
+				<section class="panel panel-wide">
+					<div class="panel-header">
+						<div>
+							<p class="section-label">Cadence</p>
 						<h2>Hour by hour</h2>
 					</div>
 					<p>Each stacked tier represents another 60 minutes of tracked time inside the same hour.</p>
@@ -407,13 +457,38 @@
 							<span>{item.milliseconds ? formatElapsedDuration(item.milliseconds) : '0s'}</span>
 						</div>
 					{/each}
-				</div>
-			</section>
+					</div>
+				</section>
 
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Done</p>
+				<section class="panel">
+					<div class="panel-header">
+						<div>
+							<p class="section-label">Off Rails</p>
+							<h2>Panic log</h2>
+						</div>
+						<p>Every panic window recorded for the selected local day.</p>
+					</div>
+
+					<div class="done-log">
+						{#if panicLog.length === 0}
+							<p class="empty-note">No panic recorded on this day.</p>
+						{:else}
+							{#each panicLog as item}
+								<article class="panic-item">
+									<div class="done-item__top">
+										<strong>{formatWindow(item.startedAt, item.endedAt)}</strong>
+										<span>{formatElapsedDuration(item.milliseconds)}</span>
+									</div>
+								</article>
+							{/each}
+						{/if}
+					</div>
+				</section>
+
+				<section class="panel">
+					<div class="panel-header">
+						<div>
+							<p class="section-label">Done</p>
 						<h2>Completion log</h2>
 					</div>
 					<p>Runs that actually closed with a done result on this day.</p>
@@ -761,16 +836,27 @@
 		background: linear-gradient(180deg, #8a5bd1, #b88af0);
 	}
 
-	.done-item {
-		display: grid;
-		gap: 0.35rem;
-		padding: 0.95rem 1rem;
+		.done-item {
+			display: grid;
+			gap: 0.35rem;
+			padding: 0.95rem 1rem;
 		border-radius: 16px;
 		background:
 			linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 253, 0.92)),
 			linear-gradient(135deg, color-mix(in srgb, var(--task-accent) 14%, white), white 65%);
-		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
-	}
+			border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
+		}
+
+		.panic-item {
+			display: grid;
+			gap: 0.35rem;
+			padding: 0.95rem 1rem;
+			border-radius: 16px;
+			background:
+				linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 241, 238, 0.94)),
+				linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.14));
+			border: 1px solid rgba(242, 72, 57, 0.18);
+		}
 
 	.done-item__top {
 		display: flex;

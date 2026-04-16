@@ -1,12 +1,29 @@
 <script>
+	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+
+	import {
+		dispatchPanicUpdated,
+		getCurrentLocalDay,
+		loadPanicStatus,
+		startPanic,
+		stopPanic
+	} from '$lib/panic-client';
 	import { logoutAccount } from '$lib/session';
+	import { formatElapsedDuration } from '$lib/task-format';
 	import logo from '$lib/images/tm-logo-crop.png';
 
 	let { user = null } = $props();
 	let isLoggingOut = $state(false);
 	let logoutError = $state('');
+	let panic = $state(null);
+	let panicError = $state('');
+	let isPanicLoading = $state(true);
+	let isPanicBusy = $state(false);
+	let nowMs = $state(Date.now());
+	let currentLocalDay = $state(getCurrentLocalDay());
 
 	const navLinks = [
 		{ href: '/add', label: 'Add' },
@@ -21,6 +38,49 @@
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 	}
 
+	const panicIsActive = $derived(Boolean(panic?.active) && panic?.day === currentLocalDay);
+	const panicElapsedLabel = $derived(
+		panicIsActive && panic?.startedAt
+			? formatElapsedDuration(nowMs - new Date(panic.startedAt).getTime())
+			: ''
+	);
+	const panicButtonTitle = $derived(
+		panicIsActive ? `Panic active for ${panicElapsedLabel}` : 'Start tracking off-the-rails time'
+	);
+
+	async function loadPanic() {
+		isPanicLoading = true;
+
+		try {
+			panic = await loadPanicStatus();
+			panicError = '';
+		} catch (error) {
+			panicError = error.message;
+		} finally {
+			isPanicLoading = false;
+		}
+	}
+
+	async function handlePanicToggle() {
+		panicError = '';
+		isPanicBusy = true;
+
+		try {
+			if (panicIsActive) {
+				panic = await stopPanic();
+			} else {
+				const result = await startPanic();
+				panic = result.panic;
+			}
+
+			dispatchPanicUpdated(panic);
+		} catch (error) {
+			panicError = error.message;
+		} finally {
+			isPanicBusy = false;
+		}
+	}
+
 	async function handleLogout() {
 		logoutError = '';
 		isLoggingOut = true;
@@ -33,6 +93,28 @@
 			isLoggingOut = false;
 		}
 	}
+
+	onMount(() => {
+		void loadPanic();
+
+		if (!browser) {
+			return;
+		}
+
+		const intervalId = window.setInterval(() => {
+			nowMs = Date.now();
+			const nextLocalDay = getCurrentLocalDay();
+
+			if (nextLocalDay !== currentLocalDay) {
+				currentLocalDay = nextLocalDay;
+				void loadPanic();
+			}
+		}, 1000);
+
+		return () => {
+			window.clearInterval(intervalId);
+		};
+	});
 </script>
 
 <header>
@@ -44,15 +126,37 @@
 	</div>
 
 	<nav>
-		<ul>
-			{#each navLinks as link}
-				<li>
-					<a href={resolve(link.href)} aria-current={isCurrent(link.href) ? 'page' : undefined}>
-						{link.label}
-					</a>
-				</li>
-			{/each}
-		</ul>
+		<div class="nav-tools">
+			<ul>
+				{#each navLinks as link}
+					<li>
+						<a href={resolve(link.href)} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+							{link.label}
+						</a>
+					</li>
+				{/each}
+			</ul>
+
+			<button
+				class="panic-button"
+				class:is-active={panicIsActive}
+				type="button"
+				title={panicButtonTitle}
+				disabled={isPanicBusy || isPanicLoading}
+				onclick={handlePanicToggle}
+			>
+				<span class="panic-button__label">
+					{#if isPanicBusy}
+						{panicIsActive ? 'Stopping...' : 'Starting...'}
+					{:else}
+						Panic
+					{/if}
+				</span>
+				{#if panicIsActive && !isPanicBusy}
+					<span class="panic-button__time">{panicElapsedLabel}</span>
+				{/if}
+			</button>
+		</div>
 	</nav>
 
 	<div class="session-tools">
@@ -73,6 +177,10 @@
 
 {#if logoutError}
 	<p class="logout-error">{logoutError}</p>
+{/if}
+
+{#if panicError}
+	<p class="panic-error">{panicError}</p>
 {/if}
 
 <style>
@@ -118,6 +226,13 @@
 	.session-tools {
 		display: flex;
 		justify-content: center;
+	}
+
+	.nav-tools {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.7rem;
 	}
 
 	.session-tools {
@@ -170,6 +285,59 @@
 		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
 	}
 
+	.panic-button {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.1rem;
+		min-width: 7.2rem;
+		min-height: 3.2rem;
+		padding: 0.55rem 0.95rem;
+		border: 0;
+		border-radius: 999px;
+		background: linear-gradient(135deg, #ff9f3f, #ff7c21);
+		box-shadow: 0 14px 28px rgba(219, 119, 23, 0.28);
+		color: white;
+		cursor: pointer;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease,
+			filter 0.2s ease;
+	}
+
+	.panic-button:hover {
+		transform: translateY(-1px);
+		filter: brightness(1.03);
+	}
+
+	.panic-button:disabled {
+		cursor: wait;
+		opacity: 0.82;
+		transform: none;
+	}
+
+	.panic-button.is-active {
+		background: linear-gradient(135deg, #f24839, #bd1f1f);
+		box-shadow: 0 14px 28px rgba(190, 31, 31, 0.32);
+		animation: panic-flash 0.9s ease-in-out infinite alternate;
+	}
+
+	.panic-button__label {
+		font-size: 0.76rem;
+		font-weight: 900;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		line-height: 1;
+	}
+
+	.panic-button__time {
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		line-height: 1;
+	}
+
 	.user-pill,
 	.logout-button {
 		display: inline-flex;
@@ -217,6 +385,26 @@
 		text-align: right;
 	}
 
+	.panic-error {
+		margin: 0;
+		padding: 0 1rem 0.75rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		color: #b54d12;
+		text-align: center;
+	}
+
+	@keyframes panic-flash {
+		from {
+			filter: saturate(1) brightness(1);
+		}
+
+		to {
+			filter: saturate(1.18) brightness(1.18);
+			box-shadow: 0 0 0 3px rgba(242, 72, 57, 0.15), 0 16px 30px rgba(190, 31, 31, 0.38);
+		}
+	}
+
 	@media (max-width: 760px) {
 		header {
 			grid-template-columns: 1fr auto;
@@ -225,6 +413,10 @@
 		nav {
 			grid-column: 1 / -1;
 			order: 3;
+		}
+
+		.nav-tools {
+			flex-wrap: wrap;
 		}
 
 		.brand span {
@@ -251,6 +443,10 @@
 
 		nav a {
 			padding-inline: 0.7rem;
+		}
+
+		.panic-button {
+			width: 100%;
 		}
 	}
 </style>

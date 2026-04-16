@@ -1,5 +1,9 @@
 const { ObjectId } = require('mongodb');
 
+const {
+	getPanicMillisecondsForWindow,
+	loadPanicRunsOverlappingWindow
+} = require('../../lib/panic');
 const { serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 async function listActiveTasksRoute(app) {
@@ -21,10 +25,11 @@ async function listActiveTasksRoute(app) {
 				}
 			}
 		},
-		async (request) => {
-			const tasks = await app.mongo.db
-				.collection('tasks')
-				.find({
+			async (request) => {
+				const measuredAt = new Date();
+				const tasks = await app.mongo.db
+					.collection('tasks')
+					.find({
 					userId: new ObjectId(request.auth.userId),
 					archived: false,
 					activeToday: true
@@ -32,13 +37,42 @@ async function listActiveTasksRoute(app) {
 				.sort({
 					activatedAt: 1,
 					createdAt: 1
-				})
-				.toArray();
+					})
+					.toArray();
+				const activeTasksWithStart = tasks.filter((task) => task.activatedAt instanceof Date);
+				const earliestActivatedAt = activeTasksWithStart.reduce(
+					(earliest, task) =>
+						earliest === null || task.activatedAt.getTime() < earliest.getTime()
+							? task.activatedAt
+							: earliest,
+					null
+				);
+				const panicRuns = earliestActivatedAt
+					? await loadPanicRunsOverlappingWindow(app.mongo.db, {
+							userId: request.auth.userId,
+							startedAt: earliestActivatedAt,
+							endedAt: measuredAt
+						})
+					: [];
 
-			return {
-				tasks: tasks.map(serializeTask)
-			};
-		}
+				return {
+					tasks: tasks.map((task) =>
+						serializeTask({
+							...task,
+							panicMilliseconds:
+								task.activatedAt instanceof Date
+									? getPanicMillisecondsForWindow({
+											panicRuns,
+											startedAt: task.activatedAt,
+											endedAt: measuredAt,
+											now: measuredAt
+										})
+									: 0,
+							panicMeasuredAt: measuredAt
+						})
+					)
+				};
+			}
 	);
 }
 
