@@ -28,6 +28,19 @@ const serializedPanicLogItemJsonSchema = {
 	}
 };
 
+function serializePanicLogItem(panicRun, clippedWindow) {
+	return {
+		id: panicRun._id.toString(),
+		startedAt: clippedWindow.effectiveStartedAt.toISOString(),
+		endedAt: clippedWindow.effectiveEndedAt.toISOString(),
+		milliseconds: clippedWindow.milliseconds,
+		note: typeof panicRun.note === 'string' ? panicRun.note : null,
+		emotionalCharge: Number.isInteger(panicRun.emotionalCharge)
+			? panicRun.emotionalCharge
+			: null
+	};
+}
+
 function toObjectId(value) {
 	return value instanceof ObjectId ? value : new ObjectId(value);
 }
@@ -140,36 +153,64 @@ function buildPanicLog({ day, panicRuns, timezoneOffsetMinutes, now = new Date()
 				return null;
 			}
 
-			return {
-				id: panicRun._id.toString(),
-				startedAt: clippedWindow.effectiveStartedAt.toISOString(),
-				endedAt: clippedWindow.effectiveEndedAt.toISOString(),
-				milliseconds: clippedWindow.milliseconds,
-				note: typeof panicRun.note === 'string' ? panicRun.note : null,
-				emotionalCharge: Number.isInteger(panicRun.emotionalCharge)
-					? panicRun.emotionalCharge
-					: null
-			};
+			return serializePanicLogItem(panicRun, clippedWindow);
+		})
+		.filter(Boolean);
+}
+
+function buildPanicLogItemsForWindow({
+	panicRuns,
+	startedAt,
+	endedAt,
+	now = new Date(),
+	includeOpenRuns = true
+}) {
+	if (!startedAt || !endedAt || endedAt <= startedAt || panicRuns.length === 0) {
+		return [];
+	}
+
+	return panicRuns
+		.map((panicRun) => {
+			if (!includeOpenRuns && !panicRun.endedAt) {
+				return null;
+			}
+
+			const panicEndedAt = panicRun.endedAt || now;
+			const effectiveStartedAt = new Date(
+				Math.max(startedAt.getTime(), panicRun.startedAt.getTime())
+			);
+			const effectiveEndedAt = new Date(
+				Math.min(endedAt.getTime(), panicEndedAt.getTime())
+			);
+			const milliseconds = Math.max(
+				0,
+				effectiveEndedAt.getTime() - effectiveStartedAt.getTime()
+			);
+
+			if (milliseconds <= 0) {
+				return null;
+			}
+
+			return serializePanicLogItem(panicRun, {
+				effectiveStartedAt,
+				effectiveEndedAt,
+				milliseconds
+			});
 		})
 		.filter(Boolean);
 }
 
 function getPanicMillisecondsForWindow({ panicRuns, startedAt, endedAt, now = new Date() }) {
-	if (!startedAt || !endedAt || endedAt <= startedAt || panicRuns.length === 0) {
-		return 0;
-	}
-
-	return panicRuns.reduce((total, panicRun) => {
-		const panicEndedAt = panicRun.endedAt || now;
-
-		return (
-			total +
-			getWindowOverlapMilliseconds(startedAt, endedAt, panicRun.startedAt, panicEndedAt)
-		);
-	}, 0);
+	return buildPanicLogItemsForWindow({
+		panicRuns,
+		startedAt,
+		endedAt,
+		now
+	}).reduce((total, panicItem) => total + panicItem.milliseconds, 0);
 }
 
 module.exports = {
+	buildPanicLogItemsForWindow,
 	buildPanicLog,
 	buildPanicStatus,
 	getPanicMillisecondsForWindow,

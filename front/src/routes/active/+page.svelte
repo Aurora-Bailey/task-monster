@@ -67,7 +67,9 @@
 						...(preservePanic
 							? {
 									panicMilliseconds: task.panicMilliseconds,
-									panicMeasuredAt: task.panicMeasuredAt
+									panicMeasuredAt: task.panicMeasuredAt,
+									effectiveMilliseconds: task.effectiveMilliseconds,
+									taskPanicLog: task.taskPanicLog ?? []
 								}
 							: {}),
 						...(preserveInstanceNote
@@ -123,17 +125,30 @@
 		return `Overdue by ${formatElapsedDuration(Math.abs(delta))}`;
 	}
 
-	function getPanicDurationLabel(task) {
+	function getLivePanicMilliseconds(task) {
 		const baseMilliseconds = Number.isInteger(task.panicMilliseconds) ? task.panicMilliseconds : 0;
 
 		if (!panic?.active || !task.panicMeasuredAt) {
-			return `Panic ${formatElapsedDuration(baseMilliseconds)}`;
+			return baseMilliseconds;
 		}
 
 		const measuredAtMs = new Date(task.panicMeasuredAt).getTime();
-		const liveMilliseconds = baseMilliseconds + Math.max(0, nowMs - measuredAtMs);
+		return baseMilliseconds + Math.max(0, nowMs - measuredAtMs);
+	}
 
-		return `Panic ${formatElapsedDuration(liveMilliseconds)}`;
+	function getPanicDurationLabel(task) {
+		return `Panic ${formatElapsedDuration(getLivePanicMilliseconds(task))}`;
+	}
+
+	function getEffectiveDurationLabel(task) {
+		if (!task.activatedAt) {
+			return 'Effective 0s';
+		}
+
+		const activeMilliseconds = Math.max(0, nowMs - new Date(task.activatedAt).getTime());
+		const effectiveMilliseconds = Math.max(0, activeMilliseconds - getLivePanicMilliseconds(task));
+
+		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
 	}
 
 	async function handleTally(taskId, delta) {
@@ -410,6 +425,7 @@
 						activeDurationLabel={getActiveDurationLabel(task)}
 						alarmLabel={getAlarmLabel(task)}
 						panicDurationLabel={getPanicDurationLabel(task)}
+						effectiveDurationLabel={getEffectiveDurationLabel(task)}
 						onSaveInstanceNote={handleSaveInstanceNote}
 						ringing={isTaskRinging(task)}
 						busyAction={getBusyAction(task.id)}

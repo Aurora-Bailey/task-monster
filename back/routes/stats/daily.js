@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 
 const {
+	buildPanicLogItemsForWindow,
 	buildPanicLog,
 	getPanicMillisecondsForWindow,
 	loadPanicRunsForDay,
@@ -227,8 +228,10 @@ const dailyStatsSchema = {
 							'tallyUnit',
 							'completedAt',
 							'spentMilliseconds',
+							'effectiveMilliseconds',
 							'tallyCount',
-							'instanceNote'
+							'instanceNote',
+							'taskPanicLog'
 						],
 						properties: {
 							id: { type: 'string' },
@@ -241,8 +244,13 @@ const dailyStatsSchema = {
 							tallyUnit: { type: ['string', 'null'] },
 							completedAt: { type: 'string' },
 							spentMilliseconds: { type: 'integer' },
+							effectiveMilliseconds: { type: 'integer' },
 							tallyCount: { type: ['integer', 'null'] },
-							instanceNote: { type: ['string', 'null'] }
+							instanceNote: { type: ['string', 'null'] },
+							taskPanicLog: {
+								type: 'array',
+								items: serializedPanicLogItemJsonSchema
+							}
 						}
 					}
 				},
@@ -262,8 +270,10 @@ const dailyStatsSchema = {
 							'startedAt',
 							'endedAt',
 							'spentMilliseconds',
+							'effectiveMilliseconds',
 							'tallyCount',
 							'instanceNote',
+							'taskPanicLog',
 							'outcome'
 						],
 						properties: {
@@ -278,8 +288,13 @@ const dailyStatsSchema = {
 							startedAt: { type: 'string' },
 							endedAt: { type: 'string' },
 							spentMilliseconds: { type: 'integer' },
+							effectiveMilliseconds: { type: 'integer' },
 							tallyCount: { type: ['integer', 'null'] },
 							instanceNote: { type: ['string', 'null'] },
+							taskPanicLog: {
+								type: 'array',
+								items: serializedPanicLogItemJsonSchema
+							},
 							outcome: { type: 'string' }
 						}
 					}
@@ -425,6 +440,13 @@ async function dailyStatsRoute(app) {
 					endedAt: effectiveEndedAt,
 					now
 				});
+				const taskPanicLog = buildPanicLogItemsForWindow({
+					panicRuns,
+					startedAt: effectiveStartedAt,
+					endedAt: effectiveEndedAt,
+					now,
+					includeOpenRuns: false
+				});
 
 				if (spentMilliseconds <= 0) {
 					continue;
@@ -514,7 +536,9 @@ async function dailyStatsRoute(app) {
 					endedAt: effectiveEndedAt.toISOString(),
 					spentMilliseconds,
 					panicMilliseconds: runPanicMilliseconds,
+					effectiveMilliseconds: Math.max(0, spentMilliseconds - runPanicMilliseconds),
 					instanceNote: taskRun.instanceNote ?? null,
+					taskPanicLog,
 					tallyCount:
 						trackingType === 'tally'
 							? Number.isInteger(completedTallyCount)
@@ -614,8 +638,10 @@ async function dailyStatsRoute(app) {
 						tallyUnit: taskRun.tallyUnit,
 						completedAt: taskRun.completedAt,
 						spentMilliseconds: taskRun.spentMilliseconds,
+						effectiveMilliseconds: taskRun.effectiveMilliseconds,
 						tallyCount: taskRun.tallyCount,
-						instanceNote: taskRun.instanceNote ?? null
+						instanceNote: taskRun.instanceNote ?? null,
+						taskPanicLog: taskRun.taskPanicLog ?? []
 					})),
 				sessionLog: clippedRuns
 					.sort((left, right) => new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime())

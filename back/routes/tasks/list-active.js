@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 
 const {
+	buildPanicLogItemsForWindow,
 	getPanicMillisecondsForWindow,
 	loadPanicRunsOverlappingWindow
 } = require('../../lib/panic');
@@ -64,40 +65,71 @@ async function listActiveTasksRoute(app) {
 						openTaskRunsByTaskId.set(taskId, taskRun);
 					}
 				}
-				const activeTasksWithStart = tasks.filter((task) => task.activatedAt instanceof Date);
-				const earliestActivatedAt = activeTasksWithStart.reduce(
-					(earliest, task) =>
-						earliest === null || task.activatedAt.getTime() < earliest.getTime()
-							? task.activatedAt
+				const taskStartTimes = [
+					...tasks
+						.filter((task) => task.activatedAt instanceof Date)
+						.map((task) => task.activatedAt),
+					...openTaskRuns
+						.filter((taskRun) => taskRun.startedAt instanceof Date)
+						.map((taskRun) => taskRun.startedAt)
+				];
+				const earliestTaskStartedAt = taskStartTimes.reduce(
+					(earliest, taskStartedAt) =>
+						earliest === null || taskStartedAt.getTime() < earliest.getTime()
+							? taskStartedAt
 							: earliest,
 					null
 				);
-				const panicRuns = earliestActivatedAt
+				const panicRuns = earliestTaskStartedAt
 					? await loadPanicRunsOverlappingWindow(app.mongo.db, {
 							userId: request.auth.userId,
-							startedAt: earliestActivatedAt,
+							startedAt: earliestTaskStartedAt,
 							endedAt: measuredAt
 						})
 					: [];
 
-				return {
-						tasks: tasks.map((task) =>
-							serializeTask({
-								...task,
-								instanceNote: openTaskRunsByTaskId.get(task._id.toString())?.instanceNote ?? null,
-								panicMilliseconds:
-									task.activatedAt instanceof Date
-									? getPanicMillisecondsForWindow({
-											panicRuns,
-											startedAt: task.activatedAt,
-											endedAt: measuredAt,
-											now: measuredAt
-										})
-									: 0,
-							panicMeasuredAt: measuredAt
-						})
-					)
-				};
+			return {
+				tasks: tasks.map((task) => {
+					const openTaskRun = openTaskRunsByTaskId.get(task._id.toString());
+					const taskStartedAt =
+						openTaskRun?.startedAt instanceof Date ? openTaskRun.startedAt : task.activatedAt;
+					const panicMilliseconds =
+						taskStartedAt instanceof Date
+							? getPanicMillisecondsForWindow({
+									panicRuns,
+									startedAt: taskStartedAt,
+									endedAt: measuredAt,
+									now: measuredAt
+								})
+							: 0;
+					const effectiveMilliseconds =
+						taskStartedAt instanceof Date
+							? Math.max(
+									0,
+									measuredAt.getTime() - taskStartedAt.getTime() - panicMilliseconds
+								)
+							: 0;
+					const taskPanicLog =
+						taskStartedAt instanceof Date
+							? buildPanicLogItemsForWindow({
+									panicRuns,
+									startedAt: taskStartedAt,
+									endedAt: measuredAt,
+									now: measuredAt,
+									includeOpenRuns: false
+								})
+							: [];
+
+					return serializeTask({
+						...task,
+						instanceNote: openTaskRun?.instanceNote ?? null,
+						panicMilliseconds,
+						panicMeasuredAt: measuredAt,
+						effectiveMilliseconds,
+						taskPanicLog
+					});
+				})
+			};
 			}
 	);
 }

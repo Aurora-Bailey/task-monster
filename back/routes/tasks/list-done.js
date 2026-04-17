@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 
 const {
+	buildPanicLogItemsForWindow,
 	getPanicMillisecondsForWindow,
 	loadPanicRunsOverlappingWindow
 } = require('../../lib/panic');
@@ -208,7 +209,7 @@ async function listDoneTasksRoute(app) {
 							})
 						: [];
 
-				return {
+			return {
 				days,
 				selectedDay,
 				tasks: taskRuns.map((taskRun) => {
@@ -224,6 +225,23 @@ async function listDoneTasksRoute(app) {
 						: Number.isInteger(taskRun.startTallyCount)
 							? taskRun.startTallyCount
 							: null;
+					const spentMilliseconds = Math.max(
+						0,
+						taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
+					);
+					const panicMilliseconds = getPanicMillisecondsForWindow({
+						panicRuns,
+						startedAt: taskRun.startedAt,
+						endedAt: taskRun.endedAt,
+						now: measuredAt
+					});
+					const taskPanicLog = buildPanicLogItemsForWindow({
+						panicRuns,
+						startedAt: taskRun.startedAt,
+						endedAt: taskRun.endedAt,
+						now: measuredAt,
+						includeOpenRuns: false
+					});
 
 					return {
 						...serializedTask,
@@ -232,20 +250,14 @@ async function listDoneTasksRoute(app) {
 						instanceNote: taskRun.instanceNote ?? null,
 						completedAt: taskRun.endedAt.toISOString(),
 						startedAt: taskRun.startedAt.toISOString(),
-							endedAt: taskRun.endedAt.toISOString(),
-							spentMilliseconds: Math.max(
-								0,
-								taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
-							),
-							panicMilliseconds: getPanicMillisecondsForWindow({
-								panicRuns,
-								startedAt: taskRun.startedAt,
-								endedAt: taskRun.endedAt,
-								now: measuredAt
-							}),
-							tallyCount
-						};
-					})
+						endedAt: taskRun.endedAt.toISOString(),
+						spentMilliseconds,
+						panicMilliseconds,
+						effectiveMilliseconds: Math.max(0, spentMilliseconds - panicMilliseconds),
+						taskPanicLog,
+						tallyCount
+					};
+				})
 			};
 		}
 	);

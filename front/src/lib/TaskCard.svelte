@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 
 	import {
+		formatElapsedDuration,
 		formatMinutes,
 		formatTaskMode,
 		formatTaskTrackingType,
@@ -10,6 +11,10 @@
 	} from '$lib/task-format';
 
 	const NOTE_SAVE_DEBOUNCE_MS = 1000;
+	const panicTimeFormatter = new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit'
+	});
 
 	let {
 		task,
@@ -19,6 +24,7 @@
 		activeDurationLabel = '',
 		alarmLabel = '',
 		panicDurationLabel = '',
+		effectiveDurationLabel = '',
 		doneDurationLabel = '',
 		doneTallyCount = null,
 		completedAtLabel = '',
@@ -49,6 +55,8 @@
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const canEditInstanceNote = $derived(variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote));
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
+	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
+	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
 	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
 	const activeTallyCountValue = $derived(Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0);
 	const resolvedDoneTallyCount = $derived(
@@ -209,6 +217,14 @@
 
 	function handleNoteInput() {
 		scheduleNoteSave();
+	}
+
+	function formatPanicWindow(startedAt, endedAt) {
+		return `${panicTimeFormatter.format(new Date(startedAt))} - ${panicTimeFormatter.format(new Date(endedAt))}`;
+	}
+
+	function formatPanicCharge(value) {
+		return `${value}/10 pull`;
 	}
 
 	function scheduleInstanceNoteSave() {
@@ -567,6 +583,37 @@
 
 		{#if panicDurationLabel}
 			<p class="task-card__panic-duration">{panicDurationLabel}</p>
+		{/if}
+
+		{#if effectiveDurationLabel}
+			<p class="task-card__effective-duration">{effectiveDurationLabel}</p>
+		{/if}
+
+		{#if showsTaskPanicLog}
+			<div class="task-card__panic-log">
+				<div class="task-card__panic-log-header">
+					<span>Task Panic Log</span>
+				</div>
+
+				<div class="task-card__panic-log-list">
+					{#each taskPanicLog as panicItem}
+						<article class="task-card__panic-item">
+							<div class="task-card__panic-item-top">
+								<strong>{formatPanicWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
+								<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
+							</div>
+
+							{#if panicItem.emotionalCharge !== null}
+								<p class="task-card__panic-charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+							{/if}
+
+							{#if panicItem.note}
+								<p class="task-card__panic-note">{panicItem.note}</p>
+							{/if}
+						</article>
+					{/each}
+				</div>
+			</div>
 		{/if}
 
 		{#if showsActions}
@@ -979,6 +1026,87 @@
 		font-weight: 700;
 		letter-spacing: 0.02em;
 		color: rgba(176, 79, 22, 0.82);
+	}
+
+	.task-card__effective-duration {
+		margin: -0.6rem 0 0;
+		padding: 0 0.2rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		color: rgba(45, 112, 86, 0.84);
+	}
+
+	.task-card__panic-log {
+		display: grid;
+		gap: 0.65rem;
+		margin-top: -0.1rem;
+	}
+
+	.task-card__panic-log-header span {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(20, 28, 38, 0.48);
+	}
+
+	.task-card__panic-log-list {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.task-card__panic-item {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.9rem 0.95rem;
+		border-radius: 16px;
+		background:
+			linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 243, 238, 0.94)),
+			linear-gradient(135deg, rgba(255, 159, 63, 0.14), rgba(242, 72, 57, 0.1));
+		border: 1px solid rgba(242, 72, 57, 0.16);
+	}
+
+	.task-card__panic-item-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.task-card__panic-item-top strong {
+		font-size: 0.88rem;
+		color: rgba(20, 28, 38, 0.82);
+	}
+
+	.task-card__panic-item-top span {
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: rgba(163, 62, 20, 0.82);
+	}
+
+	.task-card__panic-charge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: fit-content;
+		margin: 0;
+		padding: 0.35rem 0.6rem;
+		border-radius: 999px;
+		background: rgba(242, 72, 57, 0.12);
+		color: #a33e14;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.task-card__panic-note {
+		margin: 0;
+		color: rgba(20, 28, 38, 0.76);
+		white-space: pre-wrap;
 	}
 
 	.alarm-panel {

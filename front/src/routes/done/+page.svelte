@@ -42,6 +42,14 @@
 		return `Panic ${formatElapsedDuration(task.panicMilliseconds ?? 0)}`;
 	}
 
+	function formatEffectiveDuration(task) {
+		const effectiveMilliseconds = Number.isInteger(task.effectiveMilliseconds)
+			? task.effectiveMilliseconds
+			: Math.max(0, (task.spentMilliseconds ?? 0) - (task.panicMilliseconds ?? 0));
+
+		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
+	}
+
 	function formatDayLabel(day) {
 		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
 		return dayLabelFormatter.format(new Date(year, month - 1, date));
@@ -223,6 +231,7 @@
 						doneDurationLabel={formatDoneMeasure(task)}
 						doneTallyCount={task.tallyCount}
 						panicDurationLabel={formatPanicDuration(task)}
+						effectiveDurationLabel={formatEffectiveDuration(task)}
 						completedAtLabel={formatCompletedAt(task.completedAt)}
 						onSaveNote={handleSaveNote}
 					/>

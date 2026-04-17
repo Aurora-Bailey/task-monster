@@ -518,6 +518,24 @@
 								{#if item.instanceNote}
 									<p class="done-item__instance-note">{item.instanceNote}</p>
 								{/if}
+								{#if item.taskPanicLog?.length}
+									<div class="task-panic-log">
+										{#each item.taskPanicLog as panicItem}
+											<article class="task-panic-entry">
+												<div class="task-panic-entry__top">
+													<strong>{formatWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
+													<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
+												</div>
+												{#if panicItem.emotionalCharge !== null}
+													<p class="panic-item__charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+												{/if}
+												{#if panicItem.note}
+													<p class="task-panic-entry__note">{panicItem.note}</p>
+												{/if}
+											</article>
+										{/each}
+									</div>
+								{/if}
 							</article>
 						{/each}
 					{/if}
@@ -549,6 +567,24 @@
 							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span>
 							{#if row.instanceNote}
 								<p class="ledger-note">{row.instanceNote}</p>
+							{/if}
+							{#if row.taskPanicLog?.length}
+								<div class="task-panic-log ledger-panic-log">
+									{#each row.taskPanicLog as panicItem}
+										<article class="task-panic-entry">
+											<div class="task-panic-entry__top">
+												<strong>{formatWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
+												<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
+											</div>
+											{#if panicItem.emotionalCharge !== null}
+												<p class="panic-item__charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+											{/if}
+											{#if panicItem.note}
+												<p class="task-panic-entry__note">{panicItem.note}</p>
+											{/if}
+										</article>
+									{/each}
+								</div>
 							{/if}
 						</article>
 					{/each}
@@ -901,6 +937,44 @@
 		white-space: pre-wrap;
 	}
 
+	.task-panic-log {
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.task-panic-entry {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.8rem 0.9rem;
+		border-radius: 14px;
+		background: rgba(255, 244, 238, 0.78);
+		border: 1px solid rgba(242, 72, 57, 0.14);
+	}
+
+	.task-panic-entry__top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.task-panic-entry__top strong {
+		font-size: 0.84rem;
+		color: rgba(20, 28, 38, 0.82);
+	}
+
+	.task-panic-entry__top span {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: rgba(163, 62, 20, 0.82);
+	}
+
+	.task-panic-entry__note {
+		margin: 0;
+		color: rgba(20, 28, 38, 0.74);
+		white-space: pre-wrap;
+	}
+
 	.done-item__top {
 		display: flex;
 		align-items: center;
@@ -942,6 +1016,10 @@
 		margin-top: -0.1rem;
 		color: rgba(20, 28, 38, 0.72);
 		white-space: pre-wrap;
+	}
+
+	.ledger-panic-log {
+		grid-column: 1 / -1;
 	}
 
 	.outcome-pill {

@@ -1,5 +1,7 @@
 const { ObjectId } = require('mongodb');
 
+const { serializedPanicLogItemJsonSchema } = require('./panic');
+
 const TASK_COLOR_MAP = Object.freeze({
 	red: '#c74a4a',
 	orange: '#de7d37',
@@ -41,6 +43,8 @@ const serializedTaskJsonSchema = {
 		'alarmDueAt',
 		'panicMilliseconds',
 		'panicMeasuredAt',
+		'effectiveMilliseconds',
+		'taskPanicLog',
 		'lastCompletedAt',
 		'lastInactivatedAt',
 		'createdAt',
@@ -70,6 +74,11 @@ const serializedTaskJsonSchema = {
 			alarmDueAt: { type: ['string', 'null'] },
 			panicMilliseconds: { type: 'integer' },
 			panicMeasuredAt: { type: ['string', 'null'] },
+			effectiveMilliseconds: { type: 'integer' },
+			taskPanicLog: {
+				type: 'array',
+				items: serializedPanicLogItemJsonSchema
+			},
 			lastCompletedAt: { type: ['string', 'null'] },
 			lastInactivatedAt: { type: ['string', 'null'] },
 			createdAt: { type: 'string' },
@@ -103,6 +112,8 @@ const serializedCompletedTaskJsonSchema = {
 			'activatedAt',
 			'alarmDueAt',
 			'panicMilliseconds',
+			'effectiveMilliseconds',
+			'taskPanicLog',
 			'lastCompletedAt',
 			'lastInactivatedAt',
 			'createdAt',
@@ -137,6 +148,11 @@ const serializedCompletedTaskJsonSchema = {
 			activatedAt: { type: ['string', 'null'] },
 			alarmDueAt: { type: ['string', 'null'] },
 			panicMilliseconds: { type: 'integer' },
+			effectiveMilliseconds: { type: 'integer' },
+			taskPanicLog: {
+				type: 'array',
+				items: serializedPanicLogItemJsonSchema
+			},
 			lastCompletedAt: { type: ['string', 'null'] },
 			lastInactivatedAt: { type: ['string', 'null'] },
 			createdAt: { type: 'string' },
@@ -207,6 +223,10 @@ function serializeTask(task) {
 			alarmDueAt: task.alarmDueAt ? task.alarmDueAt.toISOString() : null,
 			panicMilliseconds: Number.isInteger(task.panicMilliseconds) ? task.panicMilliseconds : 0,
 			panicMeasuredAt: task.panicMeasuredAt ? task.panicMeasuredAt.toISOString() : null,
+			effectiveMilliseconds: Number.isInteger(task.effectiveMilliseconds)
+				? task.effectiveMilliseconds
+				: 0,
+			taskPanicLog: Array.isArray(task.taskPanicLog) ? task.taskPanicLog : [],
 			lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
 			lastInactivatedAt: task.lastInactivatedAt ? task.lastInactivatedAt.toISOString() : null,
 		createdAt: task.createdAt.toISOString(),
