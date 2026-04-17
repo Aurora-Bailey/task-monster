@@ -61,6 +61,7 @@ async function doneTaskRoute(app) {
 				activeToday: true
 			});
 			const completedAt = new Date();
+			const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
 			const completedTallyCount =
 				task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
 					? task.activeTallyCount
@@ -75,8 +76,8 @@ async function doneTaskRoute(app) {
 				},
 				{
 					$set: {
-						mappedToday: false,
-						mappedAt: null,
+						mappedToday: remapToDaymap,
+						mappedAt: remapToDaymap ? completedAt : null,
 						queuePosition: null,
 						activeToday: false,
 						activatedAt: null,

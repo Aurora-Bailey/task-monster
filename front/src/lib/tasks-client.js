@@ -57,6 +57,22 @@ export async function updateTaskInstanceNote(taskId, instanceNote) {
 	return body?.task ?? null;
 }
 
+export async function updateTaskDaymapLock(taskId, daymapLocked) {
+	const response = await authorizedRequest(`/tasks/${taskId}/daymap-lock`, {
+		method: 'PATCH',
+		body: {
+			daymapLocked
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the daymap lock.'));
+	}
+
+	const body = await readApiBody(response);
+	return body?.task ?? null;
+}
+
 export async function updateTaskTally(taskId, delta) {
 	const response = await authorizedRequest(`/tasks/${taskId}/tally`, {
 		method: 'POST',

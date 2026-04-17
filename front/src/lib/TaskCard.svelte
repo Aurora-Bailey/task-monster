@@ -35,6 +35,7 @@
 		showArchiveButton = false,
 		onActivate = () => {},
 		onArchive = () => {},
+		onToggleDaymapLock = () => {},
 		onQueueToggle = () => {},
 		onTally = () => {},
 		onUnmap = () => {},
@@ -50,6 +51,7 @@
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
 	const isQueuedDaymapTask = $derived(isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0);
+	const showsDaymapLock = $derived(isDaymapCard && task.mode === 'repeatable');
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
@@ -144,6 +146,16 @@
 		}
 
 		onQueueToggle(task);
+	}
+
+	function handleDaymapLockClick(event) {
+		event.stopPropagation();
+
+		if (!showsDaymapLock || busyAction !== null) {
+			return;
+		}
+
+		onToggleDaymapLock(task);
 	}
 
 	function handleTallyClick(event, delta) {
@@ -354,6 +366,43 @@
 		</div>
 
 		<div class="task-card__header-actions">
+			{#if showsDaymapLock}
+				<button
+					class="daymap-lock-button"
+					class:is-locked={task.daymapLocked}
+					type="button"
+					aria-label={
+						task.daymapLocked
+							? `Unlock ${task.name} from looping back to daymap`
+							: `Lock ${task.name} to loop back to daymap`
+					}
+					title={
+						task.daymapLocked
+							? 'Locked to return to daymap after done'
+							: 'Return to inactive after done'
+					}
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleDaymapLockClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'lock' || busyAction === 'unlock'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M8 10V8a4 4 0 1 1 8 0v2m-9 0h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
+								fill="none"
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="1.8"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+
 			{#if isDaymapCard}
 				<button
 					class="queue-button"
@@ -754,7 +803,8 @@
 		min-width: 0;
 	}
 
-	.queue-button {
+	.queue-button,
+	.daymap-lock-button {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -765,14 +815,18 @@
 		border: 1px solid rgba(20, 28, 38, 0.1);
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.92);
-		color: rgba(20, 28, 38, 0.58);
 		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
 		cursor: pointer;
 		transition:
 			transform 0.15s ease,
 			box-shadow 0.15s ease,
 			color 0.15s ease,
-			background 0.15s ease;
+			background 0.15s ease,
+			border-color 0.15s ease;
+	}
+
+	.daymap-lock-button {
+		color: rgba(20, 28, 38, 0.58);
 	}
 
 	.queue-button span {
@@ -787,11 +841,31 @@
 		color: color-mix(in srgb, var(--task-accent) 68%, black);
 	}
 
+	.daymap-lock-button svg {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	.daymap-lock-button.is-locked {
+		background: linear-gradient(180deg, rgba(255, 251, 236, 0.98), rgba(255, 246, 214, 0.95));
+		border-color: rgba(200, 155, 43, 0.35);
+		color: #c89b2b;
+		box-shadow:
+			0 12px 24px rgba(44, 62, 80, 0.1),
+			0 0 0 1px rgba(200, 155, 43, 0.08);
+	}
+
+	.daymap-lock-button:not(.is-locked) {
+		color: rgba(20, 28, 38, 0.34);
+	}
+
+	.daymap-lock-button:hover,
 	.queue-button:hover {
 		transform: translateY(-1px);
 		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
 	}
 
+	.daymap-lock-button:disabled,
 	.queue-button:disabled {
 		cursor: wait;
 		opacity: 0.72;

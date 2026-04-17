@@ -9,6 +9,7 @@
 		activateTask,
 		loadDaymapTasks,
 		queueTask,
+		updateTaskDaymapLock,
 		unqueueTask,
 		unmapTask,
 		updateTaskNote
@@ -100,6 +101,20 @@
 		}
 	}
 
+	async function handleDaymapLockToggle(task) {
+		actionError = '';
+		setBusy(task.id, task.daymapLocked ? 'unlock' : 'lock');
+
+		try {
+			const updatedTask = await updateTaskDaymapLock(task.id, !task.daymapLocked);
+			tasks = tasks.map((currentTask) => (currentTask.id === task.id ? updatedTask : currentTask));
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(task.id);
+		}
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('daymap');
 		void loadTasks();
@@ -158,6 +173,7 @@
 					editableTaskId={task.id}
 					busyAction={busyTasks[task.id] || null}
 					onActivate={handleActivate}
+					onToggleDaymapLock={handleDaymapLockToggle}
 					onQueueToggle={handleQueueToggle}
 					onSaveNote={handleSaveNote}
 					onUnmap={handleUnmap}

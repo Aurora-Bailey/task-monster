@@ -176,6 +176,7 @@ async function createTaskRoute(app) {
 				activeTallyCount: 0,
 				lastCompletedTallyCount: null,
 				note,
+				daymapLocked: false,
 				mappedToday: false,
 				mappedAt: null,
 				queuePosition: null,
