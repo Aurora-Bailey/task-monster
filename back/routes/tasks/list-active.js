@@ -39,6 +39,31 @@ async function listActiveTasksRoute(app) {
 					createdAt: 1
 					})
 					.toArray();
+				const taskIds = tasks.map((task) => task._id);
+				const openTaskRuns = taskIds.length
+					? await app.mongo.db
+							.collection('task_runs')
+							.find({
+								userId: new ObjectId(request.auth.userId),
+								taskId: {
+									$in: taskIds
+								},
+								endedAt: null
+							})
+							.sort({
+								startedAt: -1
+							})
+							.toArray()
+					: [];
+				const openTaskRunsByTaskId = new Map();
+
+				for (const taskRun of openTaskRuns) {
+					const taskId = taskRun.taskId.toString();
+
+					if (!openTaskRunsByTaskId.has(taskId)) {
+						openTaskRunsByTaskId.set(taskId, taskRun);
+					}
+				}
 				const activeTasksWithStart = tasks.filter((task) => task.activatedAt instanceof Date);
 				const earliestActivatedAt = activeTasksWithStart.reduce(
 					(earliest, task) =>
@@ -56,11 +81,12 @@ async function listActiveTasksRoute(app) {
 					: [];
 
 				return {
-					tasks: tasks.map((task) =>
-						serializeTask({
-							...task,
-							panicMilliseconds:
-								task.activatedAt instanceof Date
+						tasks: tasks.map((task) =>
+							serializeTask({
+								...task,
+								instanceNote: openTaskRunsByTaskId.get(task._id.toString())?.instanceNote ?? null,
+								panicMilliseconds:
+									task.activatedAt instanceof Date
 									? getPanicMillisecondsForWindow({
 											panicRuns,
 											startedAt: task.activatedAt,

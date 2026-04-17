@@ -13,6 +13,7 @@
 		inactivateTask,
 		loadActiveTasks,
 		snoozeTask,
+		updateTaskInstanceNote,
 		updateTaskTally,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -55,6 +56,28 @@
 
 	function getBusyAction(taskId) {
 		return busyTasks[taskId] || null;
+	}
+
+	function mergeTaskUpdate(taskId, updatedTask, { preservePanic = false, preserveInstanceNote = false } = {}) {
+		tasks = tasks.map((task) =>
+			task.id === taskId
+				? {
+						...task,
+						...updatedTask,
+						...(preservePanic
+							? {
+									panicMilliseconds: task.panicMilliseconds,
+									panicMeasuredAt: task.panicMeasuredAt
+								}
+							: {}),
+						...(preserveInstanceNote
+							? {
+									instanceNote: task.instanceNote ?? null
+								}
+							: {})
+					}
+				: task
+		);
 	}
 
 	function setBusy(taskId, action) {
@@ -119,7 +142,10 @@
 
 		try {
 			const updatedTask = await updateTaskTally(taskId, delta);
-			tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+			mergeTaskUpdate(taskId, updatedTask, {
+				preservePanic: true,
+				preserveInstanceNote: true
+			});
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -175,7 +201,10 @@
 
 		try {
 			const updatedTask = await snoozeTask(taskId);
-			tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+			mergeTaskUpdate(taskId, updatedTask, {
+				preservePanic: true,
+				preserveInstanceNote: true
+			});
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -185,7 +214,18 @@
 
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
-		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+		mergeTaskUpdate(taskId, updatedTask, {
+			preservePanic: true,
+			preserveInstanceNote: true
+		});
+		return updatedTask;
+	}
+
+	async function handleSaveInstanceNote(taskId, instanceNote) {
+		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
+		mergeTaskUpdate(taskId, updatedTask, {
+			preservePanic: true
+		});
 		return updatedTask;
 	}
 
@@ -370,6 +410,7 @@
 						activeDurationLabel={getActiveDurationLabel(task)}
 						alarmLabel={getAlarmLabel(task)}
 						panicDurationLabel={getPanicDurationLabel(task)}
+						onSaveInstanceNote={handleSaveInstanceNote}
 						ringing={isTaskRinging(task)}
 						busyAction={getBusyAction(task.id)}
 					onDone={handleDone}

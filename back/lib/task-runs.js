@@ -10,7 +10,8 @@ async function openTaskRun(
 		tallyUnit = null,
 		tallyTarget = null,
 		startTallyCount = null,
-		tallyCount = null
+		tallyCount = null,
+		instanceNote = null
 	}
 ) {
 	await db.collection('task_runs').insertOne({
@@ -21,6 +22,7 @@ async function openTaskRun(
 		tallyTarget,
 		startTallyCount,
 		tallyCount,
+		instanceNote,
 		startedAt,
 		endedAt: null,
 		endingReason: null,
@@ -86,8 +88,34 @@ async function updateOpenTaskRunTally(
 	);
 }
 
+async function updateOpenTaskRunInstanceNote(
+	db,
+	{ userId, taskId, instanceNote = null, updatedAt = new Date() }
+) {
+	return db.collection('task_runs').findOneAndUpdate(
+		{
+			userId: toObjectId(userId),
+			taskId: toObjectId(taskId),
+			endedAt: null
+		},
+		{
+			$set: {
+				instanceNote,
+				updatedAt
+			}
+		},
+		{
+			sort: {
+				startedAt: -1
+			},
+			returnDocument: 'after'
+		}
+	);
+}
+
 module.exports = {
 	closeOpenTaskRun,
 	openTaskRun,
+	updateOpenTaskRunInstanceNote,
 	updateOpenTaskRunTally
 };

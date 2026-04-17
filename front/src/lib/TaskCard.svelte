@@ -15,16 +15,17 @@
 		task,
 		variant = 'inactive',
 		editableTaskId = null,
-			clickActionLabel = 'Activate',
-			activeDurationLabel = '',
-			alarmLabel = '',
-			panicDurationLabel = '',
-			doneDurationLabel = '',
-			doneTallyCount = null,
+		clickActionLabel = 'Activate',
+		activeDurationLabel = '',
+		alarmLabel = '',
+		panicDurationLabel = '',
+		doneDurationLabel = '',
+		doneTallyCount = null,
 		completedAtLabel = '',
 		ringing = false,
 		busyAction = null,
 		onSaveNote = null,
+		onSaveInstanceNote = null,
 		showArchiveButton = false,
 		onActivate = () => {},
 		onArchive = () => {},
@@ -46,6 +47,8 @@
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
+	const canEditInstanceNote = $derived(variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote));
+	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
 	const activeTallyCountValue = $derived(Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0);
 	const resolvedDoneTallyCount = $derived(
@@ -68,14 +71,27 @@
 	let lastCommittedNote = $state('');
 	let noteSaveStatus = $state('idle');
 	let noteSaveError = $state('');
+	let draftInstanceNote = $state('');
+	let lastCommittedInstanceNote = $state('');
+	let instanceNoteSaveStatus = $state('idle');
+	let instanceNoteSaveError = $state('');
 
 	let pendingSaveTimer = null;
 	let noteRevision = 0;
+	let pendingInstanceNoteSaveTimer = null;
+	let instanceNoteRevision = 0;
 
 	function clearPendingNoteSave() {
 		if (pendingSaveTimer !== null) {
 			clearTimeout(pendingSaveTimer);
 			pendingSaveTimer = null;
+		}
+	}
+
+	function clearPendingInstanceNoteSave() {
+		if (pendingInstanceNoteSaveTimer !== null) {
+			clearTimeout(pendingInstanceNoteSaveTimer);
+			pendingInstanceNoteSaveTimer = null;
 		}
 	}
 
@@ -195,6 +211,69 @@
 		scheduleNoteSave();
 	}
 
+	function scheduleInstanceNoteSave() {
+		if (!canEditInstanceNote) {
+			return;
+		}
+
+		clearPendingInstanceNoteSave();
+		instanceNoteSaveError = '';
+
+		if (draftInstanceNote === lastCommittedInstanceNote) {
+			instanceNoteSaveStatus = instanceNoteSaveStatus === 'saved' ? 'saved' : 'idle';
+			return;
+		}
+
+		instanceNoteRevision += 1;
+		const revision = instanceNoteRevision;
+		const noteToSave = draftInstanceNote;
+		instanceNoteSaveStatus = 'pending';
+		pendingInstanceNoteSaveTimer = setTimeout(() => {
+			pendingInstanceNoteSaveTimer = null;
+			void persistInstanceNote(revision, noteToSave);
+		}, NOTE_SAVE_DEBOUNCE_MS);
+	}
+
+	async function persistInstanceNote(revision, noteToSave) {
+		if (!canEditInstanceNote) {
+			return;
+		}
+
+		if (noteToSave === lastCommittedInstanceNote) {
+			if (revision === instanceNoteRevision) {
+				instanceNoteSaveStatus = 'saved';
+			}
+			return;
+		}
+
+		instanceNoteSaveStatus = 'saving';
+
+		try {
+			const updatedTask = await onSaveInstanceNote(editableTaskId, noteToSave);
+			const normalizedNote = updatedTask?.instanceNote ?? '';
+
+			lastCommittedInstanceNote = normalizedNote;
+
+			if (revision !== instanceNoteRevision) {
+				return;
+			}
+
+			draftInstanceNote = normalizedNote;
+			instanceNoteSaveStatus = 'saved';
+		} catch (error) {
+			if (revision !== instanceNoteRevision) {
+				return;
+			}
+
+			instanceNoteSaveStatus = 'error';
+			instanceNoteSaveError = error.message;
+		}
+	}
+
+	function handleInstanceNoteInput() {
+		scheduleInstanceNoteSave();
+	}
+
 	$effect(() => {
 		const incomingNote = task.note ?? '';
 
@@ -209,8 +288,23 @@
 		}
 	});
 
+	$effect(() => {
+		const incomingInstanceNote = task.instanceNote ?? '';
+
+		if (incomingInstanceNote === lastCommittedInstanceNote) {
+			return;
+		}
+
+		lastCommittedInstanceNote = incomingInstanceNote;
+
+		if (instanceNoteSaveStatus !== 'pending' && instanceNoteSaveStatus !== 'saving') {
+			draftInstanceNote = incomingInstanceNote;
+		}
+	});
+
 	onDestroy(() => {
 		clearPendingNoteSave();
+		clearPendingInstanceNoteSave();
 	});
 </script>
 
@@ -338,6 +432,52 @@
 				{/if}
 			{:else}
 				<p class="task-card__note">{task.note}</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if showsInstanceNote}
+		<div class="task-card__note-block task-card__note-block-instance">
+			<div
+				class="task-card__note-header"
+				role="presentation"
+				onpointerdown={stopEventPropagation}
+				onclick={stopEventPropagation}
+				onkeydown={stopEventPropagation}
+			>
+				<span class="task-card__note-label">Instance Notepad</span>
+
+				{#if canEditInstanceNote}
+					<div class="task-card__note-status" aria-live="polite">
+						{#if instanceNoteSaveStatus === 'pending' || instanceNoteSaveStatus === 'saving'}
+							<span class="note-spinner" aria-label="Waiting to save"></span>
+						{:else if instanceNoteSaveStatus === 'saved'}
+							<span class="note-check" aria-label="Saved">✓</span>
+						{:else if instanceNoteSaveStatus === 'error'}
+							<span class="note-error" aria-label="Save failed">!</span>
+						{/if}
+					</div>
+				{/if}
+			</div>
+
+			{#if canEditInstanceNote}
+				<textarea
+					bind:value={draftInstanceNote}
+					class="task-card__note-input"
+					rows="3"
+					placeholder="Add to this session..."
+					onpointerdown={stopEventPropagation}
+					onclick={stopEventPropagation}
+					onkeydown={stopEventPropagation}
+					onkeyup={stopEventPropagation}
+					oninput={handleInstanceNoteInput}
+				></textarea>
+
+				{#if instanceNoteSaveStatus === 'error' && instanceNoteSaveError}
+					<p class="task-card__note-error">{instanceNoteSaveError}</p>
+				{/if}
+			{:else}
+				<p class="task-card__note">{task.instanceNote}</p>
 			{/if}
 		</div>
 	{/if}
@@ -708,6 +848,13 @@
 			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
 			rgba(255, 255, 255, 0.88);
 		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+	}
+
+	.task-card__note-block-instance {
+		background:
+			linear-gradient(180deg, rgba(251, 249, 246, 0.98), rgba(247, 243, 238, 0.96)),
+			rgba(255, 255, 255, 0.88);
+		border-left-color: color-mix(in srgb, var(--task-accent) 24%, #dba86c);
 	}
 
 	.task-card__note-label {

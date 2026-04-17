@@ -229,6 +229,7 @@ async function listDoneTasksRoute(app) {
 						...serializedTask,
 						id: taskRun._id.toString(),
 						taskId: serializedTask.id,
+						instanceNote: taskRun.instanceNote ?? null,
 						completedAt: taskRun.endedAt.toISOString(),
 						startedAt: taskRun.startedAt.toISOString(),
 							endedAt: taskRun.endedAt.toISOString(),

@@ -515,6 +515,9 @@
 									<span>{formatClock(item.completedAt)}</span>
 								</div>
 								<p>{formatDoneValue(item)}</p>
+								{#if item.instanceNote}
+									<p class="done-item__instance-note">{item.instanceNote}</p>
+								{/if}
 							</article>
 						{/each}
 					{/if}
@@ -544,6 +547,9 @@
 							<strong>{row.name}</strong>
 							<span>{formatLedgerValue(row)}</span>
 							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span>
+							{#if row.instanceNote}
+								<p class="ledger-note">{row.instanceNote}</p>
+							{/if}
 						</article>
 					{/each}
 				</div>
@@ -889,6 +895,12 @@
 			white-space: pre-wrap;
 		}
 
+	.done-item__instance-note {
+		margin: 0;
+		color: rgba(20, 28, 38, 0.74);
+		white-space: pre-wrap;
+	}
+
 	.done-item__top {
 		display: flex;
 		align-items: center;
@@ -923,6 +935,13 @@
 		border-radius: 16px;
 		background: rgba(255, 255, 255, 0.82);
 		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
+	.ledger-note {
+		grid-column: 1 / -1;
+		margin-top: -0.1rem;
+		color: rgba(20, 28, 38, 0.72);
+		white-space: pre-wrap;
 	}
 
 	.outcome-pill {

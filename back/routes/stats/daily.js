@@ -227,7 +227,8 @@ const dailyStatsSchema = {
 							'tallyUnit',
 							'completedAt',
 							'spentMilliseconds',
-							'tallyCount'
+							'tallyCount',
+							'instanceNote'
 						],
 						properties: {
 							id: { type: 'string' },
@@ -240,7 +241,8 @@ const dailyStatsSchema = {
 							tallyUnit: { type: ['string', 'null'] },
 							completedAt: { type: 'string' },
 							spentMilliseconds: { type: 'integer' },
-							tallyCount: { type: ['integer', 'null'] }
+							tallyCount: { type: ['integer', 'null'] },
+							instanceNote: { type: ['string', 'null'] }
 						}
 					}
 				},
@@ -261,6 +263,7 @@ const dailyStatsSchema = {
 							'endedAt',
 							'spentMilliseconds',
 							'tallyCount',
+							'instanceNote',
 							'outcome'
 						],
 						properties: {
@@ -276,6 +279,7 @@ const dailyStatsSchema = {
 							endedAt: { type: 'string' },
 							spentMilliseconds: { type: 'integer' },
 							tallyCount: { type: ['integer', 'null'] },
+							instanceNote: { type: ['string', 'null'] },
 							outcome: { type: 'string' }
 						}
 					}
@@ -510,6 +514,7 @@ async function dailyStatsRoute(app) {
 					endedAt: effectiveEndedAt.toISOString(),
 					spentMilliseconds,
 					panicMilliseconds: runPanicMilliseconds,
+					instanceNote: taskRun.instanceNote ?? null,
 					tallyCount:
 						trackingType === 'tally'
 							? Number.isInteger(completedTallyCount)
@@ -609,7 +614,8 @@ async function dailyStatsRoute(app) {
 						tallyUnit: taskRun.tallyUnit,
 						completedAt: taskRun.completedAt,
 						spentMilliseconds: taskRun.spentMilliseconds,
-						tallyCount: taskRun.tallyCount
+						tallyCount: taskRun.tallyCount,
+						instanceNote: taskRun.instanceNote ?? null
 					})),
 				sessionLog: clippedRuns
 					.sort((left, right) => new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime())
