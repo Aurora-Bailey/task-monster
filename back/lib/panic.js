@@ -17,12 +17,14 @@ const serializedPanicStatusJsonSchema = {
 
 const serializedPanicLogItemJsonSchema = {
 	type: 'object',
-	required: ['id', 'startedAt', 'endedAt', 'milliseconds'],
+	required: ['id', 'startedAt', 'endedAt', 'milliseconds', 'note', 'emotionalCharge'],
 	properties: {
 		id: { type: 'string' },
 		startedAt: { type: 'string' },
 		endedAt: { type: 'string' },
-		milliseconds: { type: 'integer' }
+		milliseconds: { type: 'integer' },
+		note: { type: ['string', 'null'] },
+		emotionalCharge: { type: ['integer', 'null'] }
 	}
 };
 
@@ -142,7 +144,11 @@ function buildPanicLog({ day, panicRuns, timezoneOffsetMinutes, now = new Date()
 				id: panicRun._id.toString(),
 				startedAt: clippedWindow.effectiveStartedAt.toISOString(),
 				endedAt: clippedWindow.effectiveEndedAt.toISOString(),
-				milliseconds: clippedWindow.milliseconds
+				milliseconds: clippedWindow.milliseconds,
+				note: typeof panicRun.note === 'string' ? panicRun.note : null,
+				emotionalCharge: Number.isInteger(panicRun.emotionalCharge)
+					? panicRun.emotionalCharge
+					: null
 			};
 		})
 		.filter(Boolean);

@@ -59,10 +59,14 @@ export async function startPanic() {
 	};
 }
 
-export async function stopPanic() {
+export async function stopPanic({ note = '', emotionalCharge = null } = {}) {
 	const response = await authorizedRequest('/panic/stop', {
 		method: 'POST',
-		body: buildPanicPayload()
+		body: {
+			...buildPanicPayload(),
+			note,
+			...(Number.isInteger(emotionalCharge) ? { emotionalCharge } : {})
+		}
 	});
 
 	if (!response.ok) {

@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	import {
 		dispatchPanicUpdated,
@@ -24,6 +24,10 @@
 	let isPanicBusy = $state(false);
 	let nowMs = $state(Date.now());
 	let currentLocalDay = $state(getCurrentLocalDay());
+	let showPanicReturnModal = $state(false);
+	let panicReturnNote = $state('');
+	let panicReturnCharge = $state(5);
+	let panicReturnNoteInput = $state(null);
 
 	const navLinks = [
 		{ href: '/add', label: 'Add' },
@@ -61,18 +65,58 @@
 		}
 	}
 
+	async function openPanicReturnModal() {
+		showPanicReturnModal = true;
+		await tick();
+		panicReturnNoteInput?.focus();
+	}
+
 	async function handlePanicToggle() {
 		panicError = '';
+
+		if (panicIsActive) {
+			await openPanicReturnModal();
+			return;
+		}
+
 		isPanicBusy = true;
 
 		try {
-			if (panicIsActive) {
-				panic = await stopPanic();
-			} else {
-				const result = await startPanic();
-				panic = result.panic;
-			}
+			const result = await startPanic();
+			panic = result.panic;
 
+			dispatchPanicUpdated(panic);
+		} catch (error) {
+			panicError = error.message;
+		} finally {
+			isPanicBusy = false;
+		}
+	}
+
+	function closePanicReturnModal() {
+		if (isPanicBusy) {
+			return;
+		}
+
+		showPanicReturnModal = false;
+		panicReturnNote = '';
+		panicReturnCharge = 5;
+	}
+
+	async function handlePanicReturnSubmit(event) {
+		event.preventDefault();
+		panicError = '';
+		isPanicBusy = true;
+		const emotionalCharge = Number.parseInt(String(panicReturnCharge), 10);
+
+		try {
+			panic = await stopPanic({
+				note: panicReturnNote,
+				emotionalCharge: Number.isInteger(emotionalCharge) ? emotionalCharge : 5
+			});
+			showPanicReturnModal = false;
+			panicReturnNote = '';
+			panicReturnCharge = 5;
 			dispatchPanicUpdated(panic);
 		} catch (error) {
 			panicError = error.message;
@@ -181,6 +225,64 @@
 
 {#if panicError}
 	<p class="panic-error">{panicError}</p>
+{/if}
+
+{#if showPanicReturnModal}
+	<div class="panic-modal-backdrop">
+		<form class="panic-modal" onsubmit={handlePanicReturnSubmit}>
+			<div class="panic-modal__header">
+				<div>
+					<p class="panic-modal__eyebrow">Return From Panic</p>
+					<h2>What pulled you off focus?</h2>
+				</div>
+				<button
+					class="panic-modal__close"
+					type="button"
+					aria-label="Cancel panic return"
+					disabled={isPanicBusy}
+					onclick={closePanicReturnModal}
+				>
+					×
+				</button>
+			</div>
+
+			<label class="panic-modal__field">
+				<span>What was the panic?</span>
+				<textarea
+					bind:this={panicReturnNoteInput}
+					bind:value={panicReturnNote}
+					rows="4"
+					placeholder="What grabbed your attention or pulled you away?"
+				></textarea>
+			</label>
+
+			<div class="panic-modal__field">
+				<div class="panic-modal__charge-row">
+					<span>How strong was the pull?</span>
+					<strong>{panicReturnCharge}/10</strong>
+				</div>
+				<input bind:value={panicReturnCharge} type="range" min="1" max="10" step="1" />
+				<div class="panic-modal__charge-scale" aria-hidden="true">
+					<span>1 low</span>
+					<span>10 high</span>
+				</div>
+			</div>
+
+			<div class="panic-modal__actions">
+				<button
+					class="panic-modal__button panic-modal__button-secondary"
+					type="button"
+					disabled={isPanicBusy}
+					onclick={closePanicReturnModal}
+				>
+					Keep panic on
+				</button>
+				<button class="panic-modal__button panic-modal__button-primary" type="submit" disabled={isPanicBusy}>
+					{isPanicBusy ? 'Saving...' : 'Return to focus'}
+				</button>
+			</div>
+		</form>
+	</div>
 {/if}
 
 <style>
@@ -394,6 +496,160 @@
 		text-align: center;
 	}
 
+	.panic-modal-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		display: grid;
+		place-items: center;
+		padding: 1.25rem;
+		background: rgba(12, 18, 26, 0.4);
+		backdrop-filter: blur(10px);
+	}
+
+	.panic-modal {
+		width: min(100%, 34rem);
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem;
+		border-radius: 24px;
+		background:
+			linear-gradient(180deg, rgba(255, 252, 249, 0.98), rgba(255, 245, 240, 0.95)),
+			linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.12));
+		border: 1px solid rgba(242, 72, 57, 0.16);
+		box-shadow:
+			0 30px 70px rgba(20, 28, 38, 0.28),
+			inset 0 1px 0 rgba(255, 255, 255, 0.8);
+	}
+
+	.panic-modal__header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.panic-modal__eyebrow {
+		margin: 0 0 0.3rem;
+		font-size: 0.74rem;
+		font-weight: 800;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: #bd5a18;
+	}
+
+	.panic-modal h2 {
+		margin: 0;
+		font-size: 1.55rem;
+		letter-spacing: -0.04em;
+		color: rgba(18, 26, 36, 0.92);
+	}
+
+	.panic-modal__close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.4rem;
+		height: 2.4rem;
+		border: 0;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.75);
+		color: rgba(18, 26, 36, 0.62);
+		font-size: 1.45rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.panic-modal__field {
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.panic-modal__field span {
+		font-size: 0.82rem;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+		color: rgba(18, 26, 36, 0.76);
+	}
+
+	.panic-modal textarea,
+	.panic-modal input[type='range'] {
+		width: 100%;
+	}
+
+	.panic-modal textarea {
+		padding: 0.9rem 1rem;
+		border-radius: 18px;
+		border: 1px solid rgba(18, 26, 36, 0.12);
+		background: rgba(255, 255, 255, 0.82);
+		box-shadow: inset 0 1px 2px rgba(18, 26, 36, 0.04);
+		font: inherit;
+		color: rgba(18, 26, 36, 0.88);
+		resize: vertical;
+	}
+
+	.panic-modal textarea:focus,
+	.panic-modal input[type='range']:focus {
+		outline: none;
+		box-shadow:
+			0 0 0 3px rgba(242, 72, 57, 0.14),
+			inset 0 1px 2px rgba(18, 26, 36, 0.04);
+	}
+
+	.panic-modal__charge-row,
+	.panic-modal__charge-scale,
+	.panic-modal__actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+	}
+
+	.panic-modal__charge-row strong {
+		font-size: 1rem;
+		letter-spacing: -0.02em;
+		color: #b44718;
+	}
+
+	.panic-modal__charge-scale {
+		font-size: 0.74rem;
+		font-weight: 700;
+		color: rgba(18, 26, 36, 0.52);
+	}
+
+	.panic-modal__button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 3rem;
+		padding: 0.75rem 1rem;
+		border: 0;
+		border-radius: 999px;
+		font-size: 0.8rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.panic-modal__button:disabled,
+	.panic-modal__close:disabled {
+		cursor: wait;
+		opacity: 0.72;
+	}
+
+	.panic-modal__button-secondary {
+		background: rgba(255, 255, 255, 0.75);
+		color: rgba(18, 26, 36, 0.7);
+		border: 1px solid rgba(18, 26, 36, 0.1);
+	}
+
+	.panic-modal__button-primary {
+		background: linear-gradient(135deg, #f24839, #bd1f1f);
+		box-shadow: 0 14px 28px rgba(190, 31, 31, 0.26);
+		color: white;
+	}
+
 	@keyframes panic-flash {
 		from {
 			filter: saturate(1) brightness(1);
@@ -446,6 +702,14 @@
 		}
 
 		.panic-button {
+			width: 100%;
+		}
+
+		.panic-modal__actions {
+			flex-direction: column-reverse;
+		}
+
+		.panic-modal__button {
 			width: 100%;
 		}
 	}

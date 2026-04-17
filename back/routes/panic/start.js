@@ -71,12 +71,14 @@ async function startPanicRoute(app) {
 					await app.mongo.db.collection('panic_runs').insertOne({
 						userId,
 						day,
-					timezoneOffsetMinutes,
-					startedAt,
-					endedAt: null,
-					createdAt: startedAt,
-					updatedAt: startedAt
-				});
+						timezoneOffsetMinutes,
+						startedAt,
+						endedAt: null,
+						note: null,
+						emotionalCharge: null,
+						createdAt: startedAt,
+						updatedAt: startedAt
+					});
 			}
 
 			const panicRuns = await loadPanicRunsForDay(app.mongo.db, {

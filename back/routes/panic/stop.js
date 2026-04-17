@@ -20,6 +20,15 @@ const panicActionBodySchema = {
 		},
 		tzOffsetMinutes: {
 			type: ['integer', 'string']
+		},
+		note: {
+			type: 'string',
+			maxLength: 4000
+		},
+		emotionalCharge: {
+			type: 'integer',
+			minimum: 1,
+			maximum: 10
 		}
 	}
 };
@@ -61,6 +70,10 @@ async function stopPanicRoute(app) {
 			const day = request.body?.day || getCurrentLocalDay(timezoneOffsetMinutes);
 			const userId = new ObjectId(request.auth.userId);
 			const stoppedAt = new Date();
+			const note = request.body?.note === '' ? null : request.body?.note ?? null;
+			const emotionalCharge = Number.isInteger(request.body?.emotionalCharge)
+				? request.body.emotionalCharge
+				: null;
 
 			await app.mongo.db.collection('panic_runs').findOneAndUpdate(
 				{
@@ -71,6 +84,8 @@ async function stopPanicRoute(app) {
 				{
 					$set: {
 						endedAt: stoppedAt,
+						note,
+						emotionalCharge,
 						updatedAt: stoppedAt
 					}
 				},

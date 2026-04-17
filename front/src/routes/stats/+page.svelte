@@ -46,6 +46,10 @@
 		return `${formatClock(startedAt)} - ${formatClock(endedAt)}`;
 	}
 
+	function formatPanicCharge(value) {
+		return `${value}/10 pull`;
+	}
+
 	function formatBreakdownMeta(item) {
 		const parts = [`${item.runCount} runs`];
 
@@ -479,6 +483,12 @@
 										<strong>{formatWindow(item.startedAt, item.endedAt)}</strong>
 										<span>{formatElapsedDuration(item.milliseconds)}</span>
 									</div>
+									{#if item.emotionalCharge !== null}
+										<p class="panic-item__charge">{formatPanicCharge(item.emotionalCharge)}</p>
+									{/if}
+									{#if item.note}
+										<p class="panic-item__note">{item.note}</p>
+									{/if}
 								</article>
 							{/each}
 						{/if}
@@ -856,6 +866,27 @@
 				linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 241, 238, 0.94)),
 				linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.14));
 			border: 1px solid rgba(242, 72, 57, 0.18);
+		}
+
+		.panic-item__charge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: fit-content;
+			padding: 0.38rem 0.62rem;
+			border-radius: 999px;
+			background: rgba(242, 72, 57, 0.12);
+			color: #a33e14;
+			font-size: 0.72rem;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+		}
+
+		.panic-item__note {
+			margin: 0;
+			color: rgba(20, 28, 38, 0.78);
+			white-space: pre-wrap;
 		}
 
 	.done-item__top {
