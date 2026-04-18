@@ -15,6 +15,15 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
+	const lastDoneDateFormatter = new Intl.DateTimeFormat(undefined, {
+		month: 'long',
+		day: 'numeric',
+		year: '2-digit'
+	});
+	const lastDoneTimeFormatter = new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit'
+	});
 
 	let {
 		task,
@@ -56,6 +65,7 @@
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const canEditInstanceNote = $derived(variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote));
+	const showsLastDone = $derived(Boolean(task.lastCompletedAt));
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
 	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
@@ -233,6 +243,14 @@
 
 	function formatPanicWindow(startedAt, endedAt) {
 		return `${panicTimeFormatter.format(new Date(startedAt))} - ${panicTimeFormatter.format(new Date(endedAt))}`;
+	}
+
+	function formatLastDone(value) {
+		const date = new Date(value);
+		const dateLabel = lastDoneDateFormatter.format(date);
+		const timeLabel = lastDoneTimeFormatter.format(date).replace(' AM', 'am').replace(' PM', 'pm');
+
+		return `${dateLabel} @ ${timeLabel}`;
 	}
 
 	function formatPanicCharge(value) {
@@ -454,6 +472,10 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if showsLastDone}
+		<p class="task-card__last-done">Last done: {formatLastDone(task.lastCompletedAt)}</p>
+	{/if}
 
 	{#if task.note || canEditNote}
 		<div class="task-card__note-block">
@@ -958,6 +980,15 @@
 	.task-card__title-chips span.highlight-chip {
 		border-bottom-color: color-mix(in srgb, var(--task-accent) 48%, white);
 		color: color-mix(in srgb, var(--task-accent) 65%, black);
+	}
+
+	.task-card__last-done {
+		margin: -0.2rem 0 0;
+		padding-left: 0.55rem;
+		font-size: 0.78rem;
+		font-weight: 500;
+		letter-spacing: 0.01em;
+		color: rgba(20, 28, 38, 0.34);
 	}
 
 	.task-card__note-block {
