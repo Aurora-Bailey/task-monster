@@ -1,5 +1,6 @@
 <script>
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
@@ -40,6 +41,26 @@
 
 	function isCurrent(href) {
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
+
+	function getCurrentNavIndex(pathname) {
+		return navLinks.findIndex(
+			(link) => pathname === link.href || pathname.startsWith(`${link.href}/`)
+		);
+	}
+
+	function isTypingTarget(target) {
+		if (!(target instanceof HTMLElement)) {
+			return false;
+		}
+
+		if (target.isContentEditable) {
+			return true;
+		}
+
+		const closestEditable = target.closest('input, textarea, select, [contenteditable="true"]');
+
+		return Boolean(closestEditable);
 	}
 
 	const panicIsActive = $derived(Boolean(panic?.active) && panic?.day === currentLocalDay);
@@ -145,6 +166,36 @@
 			return;
 		}
 
+		const handleArrowNavigation = async (event) => {
+			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+				return;
+			}
+
+			if (showPanicReturnModal || isTypingTarget(event.target)) {
+				return;
+			}
+
+			if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+				return;
+			}
+
+			const currentIndex = getCurrentNavIndex(page.url.pathname);
+
+			if (currentIndex === -1) {
+				return;
+			}
+
+			const nextIndex = event.key === 'ArrowLeft' ? currentIndex - 1 : currentIndex + 1;
+			const nextLink = navLinks[nextIndex];
+
+			if (!nextLink) {
+				return;
+			}
+
+			event.preventDefault();
+			await goto(resolve(nextLink.href));
+		};
+
 		const intervalId = window.setInterval(() => {
 			nowMs = Date.now();
 			const nextLocalDay = getCurrentLocalDay();
@@ -155,7 +206,10 @@
 			}
 		}, 1000);
 
+		window.addEventListener('keydown', handleArrowNavigation);
+
 		return () => {
+			window.removeEventListener('keydown', handleArrowNavigation);
 			window.clearInterval(intervalId);
 		};
 	});
