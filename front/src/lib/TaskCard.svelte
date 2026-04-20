@@ -719,7 +719,10 @@
 					class="action-button success-button"
 					type="button"
 					disabled={busyAction !== null}
-					onclick={() => onDone(task.id)}
+					onclick={() =>
+						onDone(task.id, {
+							instanceNote: canEditInstanceNote ? draftInstanceNote : task.instanceNote ?? ''
+						})}
 				>
 					{busyAction === 'done' ? 'Closing...' : 'Done'}
 				</button>

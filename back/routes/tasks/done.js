@@ -12,22 +12,38 @@ const taskParamsSchema = {
 	}
 };
 
+const doneTaskSchema = {
+	params: taskParamsSchema,
+	body: {
+		type: 'object',
+		additionalProperties: false,
+		properties: {
+			completedAt: {
+				type: ['string', 'null'],
+				format: 'date-time'
+			},
+			instanceNote: {
+				type: ['string', 'null'],
+				maxLength: 4000
+			}
+		}
+	},
+	response: {
+		200: {
+			type: 'object',
+			required: ['task'],
+			properties: {
+				task: serializedTaskJsonSchema
+			}
+		}
+	}
+};
+
 async function doneTaskRoute(app) {
 	app.post(
 		'/tasks/:taskId/done',
 		{
-			schema: {
-				params: taskParamsSchema,
-				response: {
-					200: {
-						type: 'object',
-						required: ['task'],
-						properties: {
-							task: serializedTaskJsonSchema
-						}
-					}
-				}
-			}
+			schema: doneTaskSchema
 		},
 		async (request, reply) => {
 			const { taskId } = request.params;
@@ -55,18 +71,62 @@ async function doneTaskRoute(app) {
 				});
 			}
 
+			const openTaskRun = await app.mongo.db.collection('task_runs').findOne(
+				{
+					userId: task.userId,
+					taskId: task._id,
+					endedAt: null
+				},
+				{
+					sort: {
+						startedAt: -1
+					}
+				}
+			);
+
+			if (!openTaskRun || !(openTaskRun.startedAt instanceof Date)) {
+				return reply.code(409).send({
+					message: 'Task must be active before it can be marked done.'
+				});
+			}
+
 			const activeCountBeforeUpdate = await app.mongo.db.collection('tasks').countDocuments({
 				userId: task.userId,
 				archived: false,
 				activeToday: true
 			});
-			const completedAt = new Date();
+			const actionedAt = new Date();
+			const requestedCompletedAt = request.body?.completedAt;
+			let completedAt = actionedAt;
+
+			if (typeof requestedCompletedAt === 'string') {
+				const parsedCompletedAt = new Date(requestedCompletedAt);
+
+				if (Number.isNaN(parsedCompletedAt.getTime())) {
+					return reply.code(400).send({
+						message: 'Invalid completion time.'
+					});
+				}
+
+				completedAt = new Date(
+					Math.max(
+						openTaskRun.startedAt.getTime(),
+						Math.min(parsedCompletedAt.getTime(), actionedAt.getTime())
+					)
+				);
+			}
+
 			const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
 			const completedTallyCount =
 				task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
 					? task.activeTallyCount
 					: null;
 			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
+			const instanceNote = Object.hasOwn(request.body || {}, 'instanceNote')
+				? typeof request.body.instanceNote === 'string'
+					? request.body.instanceNote
+					: null
+				: undefined;
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
@@ -77,7 +137,7 @@ async function doneTaskRoute(app) {
 				{
 					$set: {
 						mappedToday: remapToDaymap,
-						mappedAt: remapToDaymap ? completedAt : null,
+						mappedAt: remapToDaymap ? actionedAt : null,
 						queuePosition: null,
 						activeToday: false,
 						activatedAt: null,
@@ -87,7 +147,7 @@ async function doneTaskRoute(app) {
 						lastCompletedAt: completedAt,
 						lastInactivatedAt: completedAt,
 						archived: task.mode === 'one-time',
-						updatedAt: completedAt
+						updatedAt: actionedAt
 					}
 				},
 				{
@@ -111,13 +171,14 @@ async function doneTaskRoute(app) {
 				taskId,
 				endedAt: completedAt,
 				endingReason: 'done',
-				tallyCount: completedTallyCount ?? undefined
+				tallyCount: completedTallyCount ?? undefined,
+				instanceNote
 			});
 
 			if (activeCountBeforeUpdate < 2) {
 				await activateNextQueuedTask(app.mongo.db, {
 					userId: request.auth.userId,
-					activatedAt: completedAt
+					activatedAt: actionedAt
 				});
 			}
 

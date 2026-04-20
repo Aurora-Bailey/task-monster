@@ -12,17 +12,18 @@ async function loadTaskList(path) {
 	return body?.tasks ?? [];
 }
 
-async function runTaskAction(taskId, action) {
+async function runTaskAction(taskId, action, body) {
 	const response = await authorizedRequest(`/tasks/${taskId}/${action}`, {
-		method: 'POST'
+		method: 'POST',
+		body
 	});
 
 	if (!response.ok) {
 		throw new Error(await readApiError(response, 'Unable to update the task.'));
 	}
 
-	const body = await readApiBody(response);
-	return body?.task ?? null;
+	const responseBody = await readApiBody(response);
+	return responseBody?.task ?? null;
 }
 
 export async function updateTaskNote(taskId, note) {
@@ -170,8 +171,16 @@ export function unqueueTask(taskId) {
 	return runTaskAction(taskId, 'unqueue');
 }
 
-export function doneTask(taskId) {
-	return runTaskAction(taskId, 'done');
+export function doneTask(taskId, { instanceNote, completedAt } = {}) {
+	const body =
+		instanceNote !== undefined || completedAt !== undefined
+			? {
+					instanceNote,
+					completedAt
+				}
+			: undefined;
+
+	return runTaskAction(taskId, 'done', body);
 }
 
 export function snoozeTask(taskId) {
