@@ -180,7 +180,15 @@
 	}
 
 	function getClampedDoneModalAdjustmentMs(task, adjustmentMs) {
-		return Math.max(getDoneModalMinAdjustmentMs(task), Math.min(0, adjustmentMs));
+		return Math.max(getDoneModalMinAdjustmentMs(task), adjustmentMs);
+	}
+
+	function getDoneModalStartedAtMs(task) {
+		if (!task?.activatedAt) {
+			return 0;
+		}
+
+		return new Date(task.activatedAt).getTime() - Math.max(0, doneModalAdjustmentMs);
 	}
 
 	function getDoneModalCompletedAtMs(task) {
@@ -188,15 +196,15 @@
 			return 0;
 		}
 
-		return doneModalBaseCompletedAtMs + getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs);
+		return doneModalBaseCompletedAtMs + Math.min(0, getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs));
 	}
 
 	function getDoneModalTrackedMilliseconds(task) {
-		if (!task?.activatedAt) {
+		if (!task) {
 			return 0;
 		}
 
-		return Math.max(0, getDoneModalCompletedAtMs(task) - new Date(task.activatedAt).getTime());
+		return Math.max(0, getDoneModalCompletedAtMs(task) - getDoneModalStartedAtMs(task));
 	}
 
 	function canAdjustDoneModal(task, deltaMs) {
@@ -204,9 +212,15 @@
 			return false;
 		}
 
-		return (
-			getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs + deltaMs) !== doneModalAdjustmentMs
-		);
+		if (deltaMs > 0) {
+			return true;
+		}
+
+		return getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs + deltaMs) !== doneModalAdjustmentMs;
+	}
+
+	function formatDoneModalStartedAt(task) {
+		return doneModalDateFormatter.format(new Date(getDoneModalStartedAtMs(task)));
 	}
 
 	function formatDoneModalCompletedAt(task) {
@@ -218,11 +232,17 @@
 			return 'No time removed';
 		}
 
-		const removedMilliseconds = Math.max(0, doneModalBaseCompletedAtMs - getDoneModalCompletedAtMs(task));
+		const adjustedMilliseconds = getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs);
 
-		return removedMilliseconds > 0
-			? `Removing ${formatElapsedDuration(removedMilliseconds)}`
-			: 'No time removed';
+		if (adjustedMilliseconds > 0) {
+			return `Adding ${formatElapsedDuration(adjustedMilliseconds)}`;
+		}
+
+		if (adjustedMilliseconds < 0) {
+			return `Removing ${formatElapsedDuration(Math.abs(adjustedMilliseconds))}`;
+		}
+
+		return 'No time change';
 	}
 
 	async function openDoneModal(taskId, { instanceNote = '' } = {}) {
@@ -323,6 +343,7 @@
 		try {
 			await doneTask(task.id, {
 				instanceNote: doneModalInstanceNote,
+				startedAt: new Date(getDoneModalStartedAtMs(task)).toISOString(),
 				completedAt: new Date(getDoneModalCompletedAtMs(task)).toISOString()
 			});
 			closeDoneModal();
@@ -560,9 +581,13 @@
 
 				<div class="done-modal__field">
 					<div class="done-modal__field-header">
-						<span>Adjust finish time</span>
+						<span>Adjust tracked time</span>
 						<strong>{formatDoneModalAdjustment(selectedDoneTask)}</strong>
 					</div>
+
+					<p class="done-modal__adjust-note">
+						Use `+` to move the start earlier. Use `-` to move the finish earlier.
+					</p>
 
 					<div class="done-modal__adjust-controls">
 						<button
@@ -600,6 +625,10 @@
 					</div>
 
 					<div class="done-modal__summary">
+						<div>
+							<span>Start time</span>
+							<strong>{formatDoneModalStartedAt(selectedDoneTask)}</strong>
+						</div>
 						<div>
 							<span>Finish time</span>
 							<strong>{formatDoneModalCompletedAt(selectedDoneTask)}</strong>
@@ -807,6 +836,12 @@
 		color: rgba(20, 28, 38, 0.5);
 	}
 
+	.done-modal__adjust-note {
+		margin: -0.1rem 0 0;
+		font-size: 0.86rem;
+		color: rgba(20, 28, 38, 0.6);
+	}
+
 	.done-modal__field strong {
 		font-size: 0.86rem;
 		color: rgba(20, 28, 38, 0.74);
@@ -861,7 +896,7 @@
 
 	.done-modal__summary {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 0.8rem;
 	}
 

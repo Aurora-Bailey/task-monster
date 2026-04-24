@@ -18,6 +18,10 @@ const doneTaskSchema = {
 		type: 'object',
 		additionalProperties: false,
 		properties: {
+			startedAt: {
+				type: ['string', 'null'],
+				format: 'date-time'
+			},
 			completedAt: {
 				type: ['string', 'null'],
 				format: 'date-time'
@@ -96,8 +100,22 @@ async function doneTaskRoute(app) {
 				activeToday: true
 			});
 			const actionedAt = new Date();
+			const requestedStartedAt = request.body?.startedAt;
 			const requestedCompletedAt = request.body?.completedAt;
+			let startedAt = openTaskRun.startedAt;
 			let completedAt = actionedAt;
+
+			if (typeof requestedStartedAt === 'string') {
+				const parsedStartedAt = new Date(requestedStartedAt);
+
+				if (Number.isNaN(parsedStartedAt.getTime())) {
+					return reply.code(400).send({
+						message: 'Invalid start time.'
+					});
+				}
+
+				startedAt = parsedStartedAt;
+			}
 
 			if (typeof requestedCompletedAt === 'string') {
 				const parsedCompletedAt = new Date(requestedCompletedAt);
@@ -108,13 +126,11 @@ async function doneTaskRoute(app) {
 					});
 				}
 
-				completedAt = new Date(
-					Math.max(
-						openTaskRun.startedAt.getTime(),
-						Math.min(parsedCompletedAt.getTime(), actionedAt.getTime())
-					)
-				);
+				completedAt = new Date(Math.min(parsedCompletedAt.getTime(), actionedAt.getTime()));
 			}
+
+			completedAt = new Date(Math.max(startedAt.getTime(), completedAt.getTime()));
+			startedAt = new Date(Math.min(startedAt.getTime(), completedAt.getTime()));
 
 			const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
 			const completedTallyCount =
@@ -169,6 +185,7 @@ async function doneTaskRoute(app) {
 			await closeOpenTaskRun(app.mongo.db, {
 				userId: request.auth.userId,
 				taskId,
+				startedAt,
 				endedAt: completedAt,
 				endingReason: 'done',
 				tallyCount: completedTallyCount ?? undefined,

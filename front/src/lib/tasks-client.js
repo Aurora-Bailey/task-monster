@@ -171,11 +171,12 @@ export function unqueueTask(taskId) {
 	return runTaskAction(taskId, 'unqueue');
 }
 
-export function doneTask(taskId, { instanceNote, completedAt } = {}) {
+export function doneTask(taskId, { instanceNote, startedAt, completedAt } = {}) {
 	const body =
-		instanceNote !== undefined || completedAt !== undefined
+		instanceNote !== undefined || startedAt !== undefined || completedAt !== undefined
 			? {
 					instanceNote,
+					startedAt,
 					completedAt
 				}
 			: undefined;

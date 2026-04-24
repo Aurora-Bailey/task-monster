@@ -33,7 +33,15 @@ async function openTaskRun(
 
 async function closeOpenTaskRun(
 	db,
-	{ userId, taskId, endedAt = new Date(), endingReason = 'inactive', tallyCount, instanceNote }
+	{
+		userId,
+		taskId,
+		startedAt,
+		endedAt = new Date(),
+		endingReason = 'inactive',
+		tallyCount,
+		instanceNote
+	}
 ) {
 	const update = {
 		endedAt,
@@ -47,6 +55,10 @@ async function closeOpenTaskRun(
 
 	if (instanceNote !== undefined) {
 		update.instanceNote = instanceNote;
+	}
+
+	if (startedAt instanceof Date) {
+		update.startedAt = startedAt;
 	}
 
 	return db.collection('task_runs').findOneAndUpdate(
