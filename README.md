@@ -32,31 +32,41 @@ It also supports timed tasks, tally tasks, session management, and a `panic` ove
 - `db/`: scratch area, not a runtime surface
 - `AGENTS.md`: canonical handoff for future coding agents
 
+## Environment source of truth
+
+The repo now treats the root `.env` file as the canonical runtime env file for the current frontend and backend.
+
+- tracked template: `.env.example`
+- local runtime file: `.env`
+- backend loads env from the root `.env`
+- frontend Vite env loading points at the repo root, so `PUBLIC_*` vars also come from the root `.env`
+
+If you are setting up a new machine, start by copying `.env.example` to `.env` and then replace placeholders as needed.
+
 ## Quick start
 
 1. Start MongoDB on `127.0.0.1:27017`, or set `MONGO_URL` to another instance.
-2. Start the backend:
+2. Create a root `.env` from `.env.example`.
+3. Start the backend:
    - `cd back && npm install`
-   - optional: copy values from `.env.example`
    - `npm run dev`
-3. Start the frontend:
+4. Start the frontend:
    - `cd front && npm install`
-   - optional: set `PUBLIC_API_BASE_URL` if the API is not at `http://127.0.0.1:3001`
    - `npm run dev`
-4. Open the Vite dev server in your browser.
+5. Open the Vite dev server in your browser.
 
 Creating an account currently requires alpha code `gyarados`.
 
 ## Backend config
 
-Backend defaults come from `back/lib/config.js`:
+Backend defaults come from the root `.env`, with fallback defaults defined in `back/lib/config.js`:
 
 - `HOST=127.0.0.1`
 - `PORT=3001`
 - `MONGO_URL=mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME=task-monster`
 
-Frontend API requests use `PUBLIC_API_BASE_URL`, defaulting to `http://127.0.0.1:3001`.
+Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset.
 
 ## Core runtime model
 

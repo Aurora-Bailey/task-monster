@@ -3,8 +3,11 @@ const { join } = require('node:path');
 
 const { authenticateRequest } = require('./lib/auth');
 const { loadConfig } = require('./lib/config');
+const { loadRootEnv } = require('./lib/load-env');
 const { connectToMongo, ensureDatabaseIndexes } = require('./lib/mongo');
 const { registerRoutes } = require('./lib/register-routes');
+
+loadRootEnv();
 
 async function buildServer() {
 	const config = loadConfig();

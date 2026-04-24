@@ -18,7 +18,13 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 
 ## Config
 
-Environment variables are loaded directly from `process.env` in `lib/config.js`.
+The backend now treats the repo root `.env` as the canonical env source.
+
+- canonical runtime env file: `../.env`
+- tracked template: `../.env.example`
+- backend-local env files are no longer the source of truth
+
+At startup, the backend loads the root `.env` and then reads from `process.env` in `lib/config.js`.
 
 - `HOST`
   - default: `127.0.0.1`
@@ -28,8 +34,6 @@ Environment variables are loaded directly from `process.env` in `lib/config.js`.
   - default: `mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME`
   - default: `task-monster`
-
-`.env.example` contains the expected local defaults.
 
 ## Structure
 

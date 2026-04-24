@@ -7,7 +7,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `front/src/routes/+layout.js` sets `ssr = false`
 - page components fetch real data from the backend from the browser
 - the default API base is `http://127.0.0.1:3001`
-- override with `PUBLIC_API_BASE_URL`
+- `PUBLIC_API_BASE_URL` is now read from the repo root `.env`
+- Vite env loading is configured to use the repo root as `envDir`
 
 ## Commands
 
@@ -15,6 +16,13 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Dev: `npm run dev`
 - Build check: `npm run build`
 - Preview build: `npm run preview`
+
+## Environment
+
+- canonical runtime env file: `../.env`
+- tracked template: `../.env.example`
+- frontend values should not be duplicated inside `front/`
+- public browser-facing env vars must still use the `PUBLIC_` prefix
 
 ## Main routes
 

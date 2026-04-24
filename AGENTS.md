@@ -22,6 +22,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend is client-rendered only.
   - `front/src/routes/+layout.js` sets `ssr = false`
   - every current page route sets `csr = true`
+- Root `.env` is the env source of truth for the current frontend and backend runtime
+  - tracked template: `.env.example`
+  - backend loads `../.env` at startup
+  - frontend Vite config points `envDir` at the repo root
 - `/` redirects to `/active`
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
