@@ -1,42 +1,91 @@
-# sv
+# task-monster frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+## Overview
 
-## Creating a project
+The frontend is a client-rendered SvelteKit app that talks directly to the Fastify backend.
 
-If you're seeing this, you've probably already done this step. Congrats!
+- `front/src/routes/+layout.js` sets `ssr = false`
+- page components fetch real data from the backend from the browser
+- the default API base is `http://127.0.0.1:3001`
+- override with `PUBLIC_API_BASE_URL`
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## Commands
 
-To recreate this project with the same configuration:
+- Install: `npm install`
+- Dev: `npm run dev`
+- Build check: `npm run build`
+- Preview build: `npm run preview`
 
-```sh
-# recreate this project
-deno run npm:sv@0.15.0 create --template demo --no-types --add prettier tailwindcss="plugins:none" --install deno .
-```
+## Main routes
 
-## Developing
+- `/`
+  - redirects to `/active`
+- `/auth`
+  - login and account creation
+- `/inactive`
+  - backlog tasks not selected for today yet
+- `/daymap`
+  - tasks selected for today but not active yet
+- `/active`
+  - current active tasks
+- `/done`
+  - real completion history by local day
+- `/stats`
+  - real daily stats derived from backend data
+- `/add`
+  - task creation form
+- `/profile`
+  - active sessions and recent login attempts
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Important files
 
-```sh
-npm run dev
+- `src/routes/+layout.svelte`
+  - session boot gate and redirect logic
+- `src/lib/session.js`
+  - token persistence, authorized requests, logout/revoke helpers
+- `src/lib/api.js`
+  - low-level fetch wrapper
+- `src/lib/tasks-client.js`
+  - task API wrapper
+- `src/lib/stats-client.js`
+  - stats API wrapper
+- `src/lib/panic-client.js`
+  - panic API wrapper and event dispatch
+- `src/lib/TaskCard.svelte`
+  - shared card UI for inactive, daymap, active, and done variants
+- `src/routes/Header.svelte`
+  - top nav, panic control, logout, and arrow-key page navigation
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+## Current UI behavior
 
-## Building
+- Inactive cards use the full card as the action target
+  - clicking the card moves the task to daymap
+- Task notes autosave with a debounce in `TaskCard.svelte`
+- Active-task instance notes also autosave with a debounce
+- Daymap cards support queueing and daymap locking
+- Active tasks support:
+  - inactivate
+  - done
+  - snooze for timed tasks
+  - tally increment/decrement for tally tasks
+- Marking a task done from `/active` opens a modal that can:
+  - adjust the run start time
+  - adjust the completion time
+  - attach an instance note
+- Active alarms use browser audio
+  - some browsers require user interaction before audio can play
+- Panic mode is controlled from the header, not from the active page itself
 
-To create a production version of your app:
+## Data source notes
 
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- The following pages are real backend-driven screens:
+  - `/auth`
+  - `/inactive`
+  - `/daymap`
+  - `/active`
+  - `/done`
+  - `/stats`
+  - `/add`
+  - `/profile`
+- `src/lib/task-catalog.js` is still filler/reference data only
+- Old docs that described `/stats` as filler are no longer accurate
