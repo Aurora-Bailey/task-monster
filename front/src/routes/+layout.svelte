@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 
@@ -8,18 +9,23 @@
 	import './layout.css';
 
 	let { children } = $props();
+	const PUBLIC_ROUTE_PATHS = new Set(['/auth', '/privacy', '/terms']);
 
 	onMount(() => {
 		initializeSession();
 	});
 
 	const isAuthRoute = $derived(page.url.pathname === '/auth');
+	const isLegalRoute = $derived(
+		page.url.pathname === '/privacy' || page.url.pathname === '/terms'
+	);
+	const allowsGuest = $derived(PUBLIC_ROUTE_PATHS.has(page.url.pathname));
 	const isSessionReady = $derived(
 		$session.status === 'guest' || $session.status === 'authenticated'
 	);
 
 	$effect(() => {
-		if (isSessionReady && $session.status === 'guest' && !isAuthRoute) {
+		if (isSessionReady && $session.status === 'guest' && !allowsGuest) {
 			goto('/auth', { replaceState: true });
 		}
 
@@ -39,13 +45,31 @@
 	</div>
 {:else if isAuthRoute}
 	<main class="auth-main">{@render children()}</main>
+{:else if isLegalRoute}
+	<div class="public-page">
+		<main class="public-main">{@render children()}</main>
+
+		<footer class="site-footer">
+			<p>task monster</p>
+
+			<nav aria-label="Legal">
+				<a href={resolve('/privacy')}>Privacy Policy</a>
+				<a href={resolve('/terms')}>Terms &amp; Conditions</a>
+			</nav>
+		</footer>
+	</div>
 {:else}
 	<div class="app">
 		<Header user={$session.user} />
 		<main>{@render children()}</main>
 
-		<footer>
+		<footer class="site-footer">
 			<p>task monster</p>
+
+			<nav aria-label="Legal">
+				<a href={resolve('/privacy')}>Privacy Policy</a>
+				<a href={resolve('/terms')}>Terms &amp; Conditions</a>
+			</nav>
 		</footer>
 	</div>
 {/if}
@@ -55,6 +79,12 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
+	}
+
+	.public-page {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
 	}
 
 	main {
@@ -69,7 +99,8 @@
 	}
 
 	.auth-main,
-	.boot-shell {
+	.boot-shell,
+	.public-main {
 		min-height: 100vh;
 		width: 100%;
 		max-width: 64rem;
@@ -112,11 +143,12 @@
 		color: rgba(0, 0, 0, 0.62);
 	}
 
-	footer {
+	.site-footer {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
+		gap: 0.45rem;
 		padding: 12px;
 		color: rgba(0, 0, 0, 0.45);
 		font-size: 0.82rem;
@@ -124,8 +156,31 @@
 		text-transform: uppercase;
 	}
 
+	.site-footer p {
+		margin: 0;
+	}
+
+	.site-footer nav {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.9rem;
+		letter-spacing: normal;
+		text-transform: none;
+	}
+
+	.site-footer a {
+		color: rgba(10, 20, 30, 0.62);
+		text-decoration: none;
+		font-weight: 700;
+	}
+
+	.site-footer a:hover {
+		color: var(--color-theme-2);
+	}
+
 	@media (min-width: 480px) {
-		footer {
+		.site-footer {
 			padding: 12px 0;
 		}
 	}

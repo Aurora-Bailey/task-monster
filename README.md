@@ -56,6 +56,7 @@ If you are setting up a new machine, start by copying `.env.example` to `.env` a
 5. Open the Vite dev server in your browser.
 
 Creating an account currently requires alpha code `gyarados`.
+Creating an account also requires agreeing to the current Privacy Policy and Terms & Conditions.
 
 ## Backend config
 
@@ -86,6 +87,12 @@ Public routes:
 - `GET /ping`
 - `POST /users`
 - `POST /sessions/login`
+
+Public frontend routes:
+
+- `/auth`
+- `/privacy`
+- `/terms`
 
 Auth/session routes:
 

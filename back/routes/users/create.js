@@ -4,11 +4,12 @@ const { hashPassword } = require('../../lib/passwords');
 const { normalizeUsername, validateUsername } = require('../../lib/users');
 
 const PRERELEASE_ALPHA_CODE = 'gyarados';
+const LEGAL_DOCUMENTS_VERSION = '2026-04-24';
 
 const createUserSchema = {
 	body: {
 		type: 'object',
-		required: ['username', 'password', 'alphaCode'],
+		required: ['username', 'password', 'alphaCode', 'acceptedLegalTerms'],
 		additionalProperties: false,
 		properties: {
 			username: {
@@ -25,6 +26,9 @@ const createUserSchema = {
 				type: 'string',
 				minLength: 1,
 				maxLength: 64
+			},
+			acceptedLegalTerms: {
+				type: 'boolean'
 			}
 		}
 	},
@@ -60,6 +64,7 @@ async function createUserRoute(app) {
 			const username = request.body.username.trim();
 			const password = request.body.password;
 			const alphaCode = request.body.alphaCode.trim().toLowerCase();
+			const acceptedLegalTerms = request.body.acceptedLegalTerms;
 			const usernameLower = normalizeUsername(username);
 
 			if (username.length < 3 || username.length > 32) {
@@ -86,6 +91,12 @@ async function createUserRoute(app) {
 				});
 			}
 
+			if (acceptedLegalTerms !== true) {
+				return reply.code(400).send({
+					message: 'You must agree to the Privacy Policy and Terms & Conditions.'
+				});
+			}
+
 			const passwordHash = await hashPassword(password);
 			const createdAt = new Date();
 
@@ -94,6 +105,10 @@ async function createUserRoute(app) {
 					username,
 					usernameLower,
 					passwordHash,
+					legalAcceptance: {
+						acceptedAt: createdAt,
+						version: LEGAL_DOCUMENTS_VERSION
+					},
 					createdAt,
 					updatedAt: createdAt
 				});

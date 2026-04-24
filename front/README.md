@@ -30,6 +30,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - redirects to `/active`
 - `/auth`
   - login and account creation
+- `/privacy`
+  - public legal page
+- `/terms`
+  - public legal page
 - `/inactive`
   - backlog tasks not selected for today yet
 - `/daymap`
@@ -68,6 +72,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 
 - Inactive cards use the full card as the action target
   - clicking the card moves the task to daymap
+- Account creation on `/auth` now requires:
+  - prerelease alpha code
+  - password confirmation
+  - checking agreement to the Privacy Policy and Terms & Conditions
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
 - Daymap cards support queueing and daymap locking
@@ -88,6 +96,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 
 - The following pages are real backend-driven screens:
   - `/auth`
+  - `/privacy`
+  - `/terms`
   - `/inactive`
   - `/daymap`
   - `/active`

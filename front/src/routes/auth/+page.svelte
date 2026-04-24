@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	import { createAccount, loginAccount } from '$lib/session';
 
@@ -8,6 +9,7 @@
 	let password = '';
 	let confirmPassword = '';
 	let alphaCode = '';
+	let acceptedLegalTerms = false;
 	let errorMessage = '';
 	let isSubmitting = false;
 
@@ -29,11 +31,16 @@
 			return;
 		}
 
+		if (mode === 'create' && !acceptedLegalTerms) {
+			errorMessage = 'You must agree to the Privacy Policy and Terms & Conditions.';
+			return;
+		}
+
 		isSubmitting = true;
 
 		try {
 			if (mode === 'create') {
-				await createAccount({ username, password, alphaCode });
+				await createAccount({ username, password, alphaCode, acceptedLegalTerms });
 			} else {
 				await loginAccount({ username, password });
 			}
@@ -137,6 +144,24 @@
 					required
 				/>
 				<p class="field-note">Account creation is locked behind the prerelease alpha code.</p>
+
+				<div class="consent-card">
+					<input
+						id="auth-legal-acceptance"
+						bind:checked={acceptedLegalTerms}
+						class="checkbox-input"
+						type="checkbox"
+						name="acceptedLegalTerms"
+					/>
+					<label class="consent-copy" for="auth-legal-acceptance">
+						I agree to the <a href={resolve('/privacy')}>Privacy Policy</a> and
+						<a href={resolve('/terms')}>Terms &amp; Conditions</a>, including the rules that
+						govern the full app and the optional SMS Assistant.
+					</label>
+				</div>
+				<p class="field-note">
+					Creating an account records your acceptance of the current legal terms.
+				</p>
 			{/if}
 
 			{#if errorMessage}
@@ -153,6 +178,11 @@
 				{/if}
 			</button>
 		</form>
+
+		<div class="legal-links">
+			<a href={resolve('/privacy')}>Privacy Policy</a>
+			<a href={resolve('/terms')}>Terms &amp; Conditions</a>
+		</div>
 	</div>
 </section>
 
@@ -242,6 +272,23 @@
 		gap: 0.9rem;
 	}
 
+	.legal-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.9rem;
+	}
+
+	.legal-links a {
+		color: var(--color-theme-2);
+		text-decoration: none;
+		font-size: 0.92rem;
+		font-weight: 700;
+	}
+
+	.legal-links a:hover {
+		text-decoration: underline;
+	}
+
 	.field-label {
 		display: block;
 		font-size: 0.78rem;
@@ -255,6 +302,39 @@
 		margin: -0.25rem 0 0.2rem;
 		font-size: 0.88rem;
 		color: rgba(10, 20, 30, 0.56);
+	}
+
+	.consent-card {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 0.8rem;
+		padding: 0.95rem 1rem;
+		border-radius: 16px;
+		background: rgba(64, 117, 166, 0.06);
+		border: 1px solid rgba(64, 117, 166, 0.14);
+	}
+
+	.checkbox-input {
+		width: 1.05rem;
+		height: 1.05rem;
+		margin: 0.2rem 0 0;
+		accent-color: var(--color-theme-2);
+	}
+
+	.consent-copy {
+		font-size: 0.94rem;
+		line-height: 1.55;
+		color: rgba(10, 20, 30, 0.72);
+	}
+
+	.consent-copy a {
+		color: var(--color-theme-2);
+		text-decoration: none;
+		font-weight: 700;
+	}
+
+	.consent-copy a:hover {
+		text-decoration: underline;
 	}
 
 	.text-input {

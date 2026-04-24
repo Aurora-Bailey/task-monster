@@ -67,6 +67,10 @@ Indexes are created on startup in `lib/mongo.js`.
 - Session tokens are not stored raw
   - only SHA-256 token hashes are stored
 - Account creation currently requires alpha code `gyarados`
+- Account creation also requires `acceptedLegalTerms === true`
+- New users currently store legal acceptance metadata on `users.legalAcceptance`:
+  - `acceptedAt`
+  - `version`
 - Failed login attempts are rate-limited and written to `login_attempts`
 - Login outcomes are written to `login_events`
 

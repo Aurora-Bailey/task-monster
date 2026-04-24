@@ -61,6 +61,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `POST /users`
   - `POST /sessions/login`
 - Account creation currently requires prerelease alpha code `gyarados`
+- Account creation also requires explicit acceptance of the current Privacy Policy and Terms & Conditions
+- New user records currently store legal acceptance metadata:
+  - `users.legalAcceptance.acceptedAt`
+  - `users.legalAcceptance.version`
 - Session verification route:
   - `GET /whoami`
 - Session management routes:
@@ -236,6 +240,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - `/auth`
   - login and account creation
+- `/privacy`
+  - public legal page, accessible without authentication
+- `/terms`
+  - public legal page, accessible without authentication
 - `/inactive`
   - inactive backlog
 - `/daymap`
@@ -255,6 +263,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Inactive cards use the whole card as the action target
   - click or keyboard activation moves the task to daymap, not directly to active
+- Account creation on `/auth` now requires:
+  - alpha code entry
+  - password confirmation
+  - checking agreement to the Privacy Policy and Terms & Conditions
 - The inactive card intentionally uses a `svelte-ignore a11y_no_noninteractive_tabindex` comment because the card itself carries button semantics
 - Task note autosave is debounced in `TaskCard.svelte`
 - Active-task instance note autosave is also debounced in `TaskCard.svelte`

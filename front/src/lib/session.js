@@ -209,13 +209,14 @@ export async function loginAccount({ username, password }) {
 	return body.user;
 }
 
-export async function createAccount({ username, password, alphaCode }) {
+export async function createAccount({ username, password, alphaCode, acceptedLegalTerms }) {
 	const createResponse = await requestApi('/users', {
 		method: 'POST',
 		body: {
 			username,
 			password,
-			alphaCode
+			alphaCode,
+			acceptedLegalTerms
 		}
 	});
 
