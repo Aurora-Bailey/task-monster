@@ -27,7 +27,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 ## Main routes
 
 - `/`
-  - redirects to `/active`
+  - public landing page with product positioning and signup/login CTA
+- `/demo-board`
+  - public product tour using real app screenshots
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -53,6 +55,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 
 - `src/routes/+layout.svelte`
   - session boot gate and redirect logic
+- `static/images/marketing/`
+  - screenshots used by the public landing page and `/demo-board`
 - `src/lib/session.js`
   - token persistence, authorized requests, logout/revoke helpers
 - `src/lib/api.js`
@@ -94,7 +98,13 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 
 ## Data source notes
 
-- The following pages are real backend-driven screens:
+- The app no longer uses a filler homepage redirect
+  - `/` is now a real public marketing page
+- The simulated board preview was split out of the homepage hero
+  - `/demo-board` now carries the public screenshot-led product tour
+- The following routes are live app surfaces, not placeholder screens:
+  - `/`
+  - `/demo-board`
   - `/auth`
   - `/privacy`
   - `/terms`

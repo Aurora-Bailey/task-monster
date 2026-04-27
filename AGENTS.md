@@ -26,7 +26,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - tracked template: `.env.example`
   - backend loads `../.env` at startup
   - frontend Vite config points `envDir` at the repo root
-- `/` redirects to `/active`
+- `/` is now a public marketing landing page
+- `/demo-board` is also public and currently acts as a screenshot-led product tour without requiring auth
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
 - Backend config is in `back/lib/config.js`
@@ -219,6 +220,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Auth gate and boot splash:
   - `front/src/routes/+layout.svelte`
+  - public routes are currently `/`, `/demo-board`, `/auth`, `/privacy`, and `/terms`
+  - protected routes still wait for session initialization before redirecting guests
+- Marketing screenshots used by the public landing/product-tour pages live in:
+  - `front/static/images/marketing/`
 - Session storage and authorized fetch helpers:
   - `front/src/lib/session.js`
 - Raw API helper:
@@ -238,6 +243,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 ## Main frontend routes
 
+- `/`
+  - public landing page with marketing copy and signup/login CTA
+- `/demo-board`
+  - public product-tour page using real app screenshots
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -261,6 +270,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 ## Current UI behavior worth knowing
 
+- `/` is a public landing page, not a redirect anymore
+- `/demo-board` now holds the screenshot-led product tour that replaced the old simulated board demo
 - Inactive cards use the whole card as the action target
   - click or keyboard activation moves the task to daymap, not directly to active
 - Account creation on `/auth` now requires:

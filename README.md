@@ -12,8 +12,12 @@ It also supports timed tasks, tally tasks, session management, and a `panic` ove
 
 ## Current app status
 
-- Frontend pages are real and backend-driven:
+- Frontend routes currently exposed:
+  - `/`
+  - `/demo-board`
   - `/auth`
+  - `/privacy`
+  - `/terms`
   - `/inactive`
   - `/daymap`
   - `/active`
@@ -90,6 +94,9 @@ Public routes:
 
 Public frontend routes:
 
+- `/`
+- `/demo-board`
+  - public product tour page using real app screenshots
 - `/auth`
 - `/privacy`
 - `/terms`

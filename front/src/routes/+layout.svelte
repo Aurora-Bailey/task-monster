@@ -9,12 +9,15 @@
 	import './layout.css';
 
 	let { children } = $props();
-	const PUBLIC_ROUTE_PATHS = new Set(['/auth', '/privacy', '/terms']);
+	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
 
 	onMount(() => {
 		initializeSession();
 	});
 
+	const isMarketingRoute = $derived(
+		page.url.pathname === '/' || page.url.pathname === '/demo-board'
+	);
 	const isAuthRoute = $derived(page.url.pathname === '/auth');
 	const isLegalRoute = $derived(
 		page.url.pathname === '/privacy' || page.url.pathname === '/terms'
@@ -23,6 +26,7 @@
 	const isSessionReady = $derived(
 		$session.status === 'guest' || $session.status === 'authenticated'
 	);
+	const shouldShowBoot = $derived(!allowsGuest && !isSessionReady);
 
 	$effect(() => {
 		if (isSessionReady && $session.status === 'guest' && !allowsGuest) {
@@ -35,7 +39,7 @@
 	});
 </script>
 
-{#if !isSessionReady}
+{#if shouldShowBoot}
 	<div class="boot-shell">
 		<div class="boot-card">
 			<p class="boot-kicker">Task Monster</p>
@@ -45,9 +49,9 @@
 	</div>
 {:else if isAuthRoute}
 	<main class="auth-main">{@render children()}</main>
-{:else if isLegalRoute}
+{:else if isLegalRoute || isMarketingRoute}
 	<div class="public-page">
-		<main class="public-main">{@render children()}</main>
+		<main class:marketing-main={isMarketingRoute} class="public-main">{@render children()}</main>
 
 		<footer class="site-footer">
 			<p>task monster</p>
@@ -107,6 +111,10 @@
 		margin: 0 auto;
 		padding: 1rem;
 		box-sizing: border-box;
+	}
+
+	.marketing-main {
+		padding-top: 0;
 	}
 
 	.boot-shell {
