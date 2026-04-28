@@ -36,6 +36,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `MONGO_URL` default: `mongodb://127.0.0.1:27017`
   - `MONGO_DB_NAME` default: `task-monster`
   - `OPENAI_MODEL` default: `gpt-5.4-mini`
+    - if blank or still set to `your_model_name_here`, config falls back to `gpt-5.4-mini`
   - `OPENAI_API_KEY` is required for the authenticated in-app assistant
 - MongoDB is expected locally unless env vars override it
 
@@ -68,6 +69,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - New user records currently store legal acceptance metadata:
   - `users.legalAcceptance.acceptedAt`
   - `users.legalAcceptance.version`
+- `back/routes/users/create.js` currently hardcodes:
+  - `PRERELEASE_ALPHA_CODE = 'gyarados'`
+  - `LEGAL_DOCUMENTS_VERSION = '2026-04-24'`
+- if the legal page content materially changes, bump `LEGAL_DOCUMENTS_VERSION`
 - Session verification route:
   - `GET /whoami`
 - Assistant route:
@@ -245,6 +250,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/lib/assistant-markdown.js`
 - Assistant drawer:
   - `front/src/lib/AssistantDrawer.svelte`
+  - conversation state is local component state only; page reload clears it
 - Shared task card:
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
@@ -307,10 +313,13 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The header now also exposes an `AI` button next to `Panic`
   - it opens a right-side assistant drawer
+  - `Esc` opens the drawer and focuses the input
+  - pressing `Esc` again closes it
   - assistant replies are rendered through a local safe markdown renderer, not a third-party package
   - assistant-triggered changes dispatch `taskmonster:assistant-refresh`
   - active/daymap/inactive/done/stats listen for that event and reload as needed
   - arrow-key navigation is intentionally disabled while the drawer is open
+  - the drawer only sends the most recent 12 messages to the backend on each request
 - Panic controls live in the header, not on the active page itself
 
 ## In-app assistant
@@ -318,6 +327,18 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - The authenticated assistant is backend-mediated only; the OpenAI key stays on the server.
 - Backend route:
   - `POST /assistant/chat`
+- Request body currently includes:
+  - `messages`
+  - `timezoneOffsetMinutes`
+  - `currentPath`
+- Validation and history window:
+  - route schema currently accepts up to 64 inbound messages
+  - backend sanitization then trims to the most recent 12 `user` / `assistant` messages
+  - there is no server-side chat persistence or transcript collection right now
+  - the drawer thread is a frontend-only in-memory session
+- Backend implementation:
+  - `back/lib/assistant.js`
+  - currently uses the OpenAI Chat Completions API, not the Responses API
 - Current v1 tool surface:
   - list or search tasks by board state
   - summarize a local day from real stats
@@ -331,14 +352,25 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - update active tally counts
   - snooze alarms
   - start or stop panic mode
+- Current prompt/behavior policy:
+  - tools are required for all task-specific facts and all mutations
+  - ambiguous requests should trigger a short clarification instead of a guess
+  - `"pause"` and similar language should resolve toward daymap
+  - `"inactive"` and `"backlog"` should resolve toward fully unmapping back to inactive
+  - structured replies should use markdown when it helps
+  - raw millisecond values should usually be converted into human-readable durations
+  - the intended tone is calm, sharp, concise, and slightly futuristic
 - Task creation guard:
   - `create_task` now checks for close existing matches in `inactive` and `daymap` before creating
   - if a close match exists, the backend returns `requiresChoice: true` with `errorCode: duplicate_task_guard`
+  - when that happens, the backend immediately asks the model for a no-tools follow-up reply so the user sees a choice prompt instead of raw tool output
   - the assistant should present exactly three options:
     - `1.` reuse the closest existing task
     - `2.` create a clearer, more specific variant
     - `3.` create the exact requested task with `allowDuplicate: true`
   - a bare follow-up `1`, `2`, or `3` should be interpreted as selecting that last duplicate-task choice
+  - that bare follow-up only works while the relevant prior choice is still present in the drawer's in-memory conversation history
+  - current matching is intentionally stricter for single-word loose matches so things like `work` do not too eagerly collide with `homework`
 
 ## Filler vs real data
 

@@ -39,6 +39,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
   - required for the authenticated in-app assistant
 - `OPENAI_MODEL`
   - default: `gpt-5.4-mini`
+  - if blank or left as `your_model_name_here`, `lib/config.js` falls back to `gpt-5.4-mini`
 
 ## Structure
 
@@ -82,6 +83,7 @@ Indexes are created on startup in `lib/mongo.js`.
 - New users currently store legal acceptance metadata on `users.legalAcceptance`:
   - `acceptedAt`
   - `version`
+- if the legal pages materially change, bump `LEGAL_DOCUMENTS_VERSION` in `routes/users/create.js`
 - Failed login attempts are rate-limited and written to `login_attempts`
 - Login outcomes are written to `login_events`
 
@@ -218,15 +220,48 @@ The current in-app assistant can:
 - snooze active alarms
 - start or stop panic mode
 
+Assistant request model:
+
+- route: `POST /assistant/chat`
+- body fields:
+  - `messages`
+  - `timezoneOffsetMinutes`
+  - `currentPath`
+- request validation currently allows up to 64 inbound messages
+- the backend then sanitizes and trims to the most recent 12 `user` / `assistant` messages before calling OpenAI
+- there is no server-side conversation persistence
+  - the drawer owns the visible thread state in the browser
+- the backend currently uses the Chat Completions API shape, not the Responses API
+
+Assistant prompt policy:
+
+- use tools for all task-specific facts and all mutations
+- do not guess task state or stats
+- ambiguous requests should get a short clarification question
+- `"pause"` or `"take it off active"` should resolve toward daymap
+- `"inactive"` or `"backlog"` should resolve toward fully unmapping back to inactive
+- replies are encouraged to use markdown when structured output helps
+- raw millisecond values should usually be converted into human-readable durations
+- the current voice target is calm, sharp, concise, and slightly futuristic
+
+Assistant UI/runtime coupling:
+
+- the frontend only sends the most recent 12 messages on each request
+- the current drawer has no durable history store
+- `currentPath` is included so the system prompt knows which page the user is viewing
+
 Assistant create-task guard:
 
 - before creating a task, the backend checks for close matches already in `inactive` or `daymap`
 - if it finds one, `create_task` returns a guarded `requiresChoice` payload instead of mutating state
+- when that happens, the backend chat loop immediately asks the model for a no-tools follow-up response so the user gets the `1 / 2 / 3` choice instead of a raw tool blob
 - the assistant should then offer:
   - `1.` reuse the existing task
   - `2.` create a clearer, more specific version
   - `3.` create the exact requested task anyway
 - exact duplicate creation now requires the tool argument `allowDuplicate: true`, which should only be used after the user explicitly chooses option `3`
+- the current matcher intentionally guards more aggressively on exact, prefix, and strong token matches than on loose one-word substring overlap
+- because there is no durable server-side chat state, a bare follow-up `1`, `2`, or `3` only works while the relevant prior assistant choice is still present in the drawer conversation history
 
 ## Current quirk
 

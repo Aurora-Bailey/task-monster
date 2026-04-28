@@ -2,6 +2,12 @@
 
 This folder is a planning area for a future SMS assistant that talks to Task Monster without being tightly coupled to the main app.
 
+Important current context:
+
+- the main app already has an authenticated in-app AI assistant through `POST /assistant/chat`
+- the SMS bridge should stay separate anyway because SMS transport, phone-linking, delivery rules, and safety policy are different from the web drawer
+- where reasonable, the SMS bridge should mirror the main assistant's task semantics instead of inventing a conflicting second interpretation layer
+
 For now, this is a spec and design brief, not a started implementation.
 
 ## Goal
@@ -29,7 +35,7 @@ The main app already has a working backend and frontend. The SMS assistant shoul
 Benefits of a separate `sms-bridge` service:
 
 - keeps SMS provider logic out of the main backend
-- keeps OpenAI integration separate from core task logic
+- keeps SMS-specific prompting, rate limits, and delivery policy separate from the in-app assistant
 - allows different deployment, secrets, rate limits, and logging
 - reduces risk to the main app while the idea is still being refined
 - makes it easier to iterate on prompts, matching rules, and safety policy
@@ -96,6 +102,11 @@ Suggested deferred actions:
 - edit task metadata beyond small notes
 - multi-step planning conversations
 - natural-language analytics questions
+
+Reason for deferring SMS task creation:
+
+- the web assistant now has a duplicate-task guard against close matches in `inactive` and `daymap`
+- if SMS task creation is ever enabled, it should reuse the same safety idea instead of creating silent duplicates from short text commands
 
 ## How intent should work
 
@@ -191,6 +202,7 @@ Recommended rules:
 - ask before risky or irreversible actions
 - do not guess if multiple tasks are plausible
 - keep an audit log of inbound message, chosen action, backend call, and reply
+- if SMS task creation is later allowed, require the same kind of explicit reuse-vs-create choice the web assistant now uses
 
 Actions that should likely require extra caution:
 

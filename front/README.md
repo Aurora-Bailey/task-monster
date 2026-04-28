@@ -74,6 +74,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - local safe markdown renderer used by assistant replies
 - `src/lib/AssistantDrawer.svelte`
   - right-side authenticated chat drawer with themed markdown response rendering
+  - local in-memory conversation state only; page reload clears the thread
 - `src/lib/TaskCard.svelte`
   - shared card UI for inactive, daymap, active, and done variants
 - `src/routes/Header.svelte`
@@ -104,8 +105,18 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Panic mode is controlled from the header, not from the active page itself
 - The header AI drawer talks to `POST /assistant/chat`
   - the key stays on the backend
+  - `Esc` opens the drawer and focuses the input
+  - `Esc` closes it again
+  - arrow-key page navigation is disabled while the drawer is open
+  - the thread is bottom-scrolled and newest-message-oriented
+  - replies are rendered through the local markdown renderer, not raw text
+  - the drawer only sends the most recent 12 messages to the backend
+  - there is no durable history store; reloading the page clears the current assistant thread
   - assistant-triggered task or panic changes dispatch `taskmonster:assistant-refresh`
   - active, daymap, inactive, done, and stats pages listen for that refresh event
+- Assistant create behavior now has a duplicate guard
+  - if the backend sees a close match already in `inactive` or `daymap`, the assistant should present a `1 / 2 / 3` choice instead of silently creating another task
+  - that follow-up choice depends on the current thread still being present in the drawer
 
 ## Data source notes
 

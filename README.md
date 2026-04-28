@@ -14,12 +14,13 @@ Authenticated app pages now also expose an AI assistant drawer in the header. It
 
 ## Current app status
 
-- Frontend routes currently exposed:
+- Public frontend routes:
   - `/`
   - `/demo-board`
   - `/auth`
   - `/privacy`
   - `/terms`
+- Authenticated frontend routes:
   - `/inactive`
   - `/daymap`
   - `/active`
@@ -30,12 +31,15 @@ Authenticated app pages now also expose an AI assistant drawer in the header. It
 - Frontend rendering is client-only
 - MongoDB is required for the backend runtime
 - There is no automated test suite yet
+- Account creation is gated by the prerelease alpha code and a required legal-acceptance checkbox
+- `sms-bridge/` is still planning-only, not an implemented runtime service
 
 ## Repo layout
 
 - `front/`: SvelteKit frontend
 - `back/`: Fastify API and Mongo-backed business logic
 - `db/`: scratch area, not a runtime surface
+- `sms-bridge/`: design/spec area for a future SMS bridge service
 - `AGENTS.md`: canonical handoff for future coding agents
 
 ## Environment source of truth
@@ -74,6 +78,7 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `MONGO_DB_NAME=task-monster`
 - `OPENAI_API_KEY=...`
 - `OPENAI_MODEL=gpt-5.4-mini`
+  - if blank or still set to `your_model_name_here`, the backend falls back to `gpt-5.4-mini`
 
 Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset.
 
@@ -117,6 +122,13 @@ Assistant route:
 
 - `POST /assistant/chat`
   - authenticated assistant route used by the header drawer
+  - request body currently includes:
+    - `messages`
+    - `timezoneOffsetMinutes`
+    - `currentPath`
+  - the frontend only sends the most recent 12 conversation messages
+  - the backend accepts a larger payload window, then sanitizes/trims to the most recent 12 user/assistant messages before calling OpenAI
+  - there is no server-side conversation persistence; the visible thread lives in the client drawer state
   - current v1 actions include:
     - list/search tasks
     - create tasks
@@ -129,6 +141,10 @@ Assistant route:
     - snooze alarms
     - start or stop panic
     - summarize a local day from real stats
+  - duplicate-task guard behavior:
+    - create checks only `inactive` and `daymap` for close matches
+    - if a close match exists, the assistant should stop and present options `1`, `2`, and `3`
+    - option `3` is the explicit duplicate override path
 
 Task routes:
 
@@ -163,6 +179,7 @@ Panic and stats routes:
 - `AGENTS.md`: agent-oriented handoff and current repo reality
 - `front/README.md`: frontend-specific notes
 - `back/README.md`: backend-specific notes
+- `sms-bridge/README.md`: planning document for the future SMS assistant service
 - `db/readme.md`: what the `db/` folder is and is not
 
 ## Verification
