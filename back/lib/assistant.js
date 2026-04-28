@@ -16,9 +16,12 @@ const {
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const TOOL_LOOP_LIMIT = 8;
+const MAX_CONVERSATION_MESSAGES = 12;
 const DEFAULT_LIST_LIMIT = 12;
 const MAX_LIST_LIMIT = 20;
 const DEFAULT_DAY_SUMMARY_LIMIT = 5;
+const CREATE_TASK_GUARD_MIN_SCORE = 620;
+const CREATE_TASK_GUARD_MAX_MATCHES = 3;
 
 const TASK_CATEGORY_DETAILS = Object.freeze({
 	red: { category: 'System' },
@@ -50,7 +53,7 @@ const assistantChatSchema = {
 			messages: {
 				type: 'array',
 				minItems: 1,
-				maxItems: 16,
+				maxItems: 64,
 				items: {
 					type: 'object',
 					required: ['role', 'content'],
@@ -241,6 +244,120 @@ function summarizeTaskCandidate(task) {
 			: '';
 
 	return `${task.name} (${state}${queueLabel})`;
+}
+
+function summarizeDuplicateGuardTask(task) {
+	return {
+		id: task._id.toString(),
+		name: task.name,
+		state: buildTaskState(task),
+		category: TASK_CATEGORY_DETAILS[task.colorKey]?.category || task.colorKey,
+		colorKey: task.colorKey,
+		notePreview: truncateText(task.note ?? null, 180),
+		queuePosition:
+			Number.isInteger(task.queuePosition) && task.queuePosition > 0 ? task.queuePosition : null,
+		daymapLocked: task.daymapLocked === true
+	};
+}
+
+function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked }) {
+	return {
+		name: body.name,
+		category: TASK_CATEGORY_DETAILS[body.color]?.category || body.color,
+		colorKey: body.color,
+		mode: body.mode,
+		trackingType: body.trackingType,
+		note: body.note ?? null,
+		startState,
+		queued,
+		daymapLocked,
+		alarmEnabled: body.alarmEnabled === true,
+		durationMinutes: body.durationMinutes ?? null,
+		snoozeMinutes: body.snoozeMinutes ?? null,
+		tallyUnit: body.tallyUnit ?? null,
+		tallyTarget: body.tallyTarget ?? null
+	};
+}
+
+function compareCreateGuardMatches(left, right) {
+	if (right.score !== left.score) {
+		return right.score - left.score;
+	}
+
+	const leftState = buildTaskState(left.task);
+	const rightState = buildTaskState(right.task);
+
+	if (leftState !== rightState) {
+		return leftState === 'daymap' ? -1 : 1;
+	}
+
+	const leftUpdatedAt = left.task.updatedAt instanceof Date ? left.task.updatedAt.getTime() : 0;
+	const rightUpdatedAt = right.task.updatedAt instanceof Date ? right.task.updatedAt.getTime() : 0;
+
+	if (rightUpdatedAt !== leftUpdatedAt) {
+		return rightUpdatedAt - leftUpdatedAt;
+	}
+
+	return left.task.createdAt instanceof Date && right.task.createdAt instanceof Date
+		? right.task.createdAt.getTime() - left.task.createdAt.getTime()
+		: 0;
+}
+
+function shouldGuardCreateTaskMatch(task, queryTokens, queryNormalized) {
+	const taskNormalized = normalizeText(task.name);
+
+	if (!taskNormalized) {
+		return false;
+	}
+
+	if (taskNormalized === queryNormalized || taskNormalized.startsWith(queryNormalized)) {
+		return true;
+	}
+
+	const taskTokens = tokenizeText(task.name);
+	const matchedTokenCount = queryTokens.filter((token) => taskTokens.includes(token)).length;
+
+	if (queryTokens.length === 1) {
+		return matchedTokenCount === 1 && taskTokens.length <= 3;
+	}
+
+	return matchedTokenCount === queryTokens.length || taskNormalized.includes(queryNormalized);
+}
+
+function findCreateTaskGuard(tasks, requestedName) {
+	const queryNormalized = normalizeText(requestedName);
+
+	if (!queryNormalized) {
+		return null;
+	}
+
+	const queryTokens = tokenizeText(requestedName);
+	const matches = tasks
+		.filter((task) => {
+			const state = buildTaskState(task);
+			return state === 'inactive' || state === 'daymap';
+		})
+		.map((task) => ({
+			task,
+			score: scoreTaskMatch(task, queryTokens, queryNormalized)
+		}))
+		.filter(
+			(entry) =>
+				entry.score >= CREATE_TASK_GUARD_MIN_SCORE &&
+				shouldGuardCreateTaskMatch(entry.task, queryTokens, queryNormalized)
+		)
+		.sort(compareCreateGuardMatches);
+
+	if (matches.length === 0) {
+		return null;
+	}
+
+	return {
+		closestTask: summarizeDuplicateGuardTask(matches[0].task),
+		otherCloseTasks: matches
+			.slice(1, CREATE_TASK_GUARD_MAX_MATCHES)
+			.map((entry) => summarizeDuplicateGuardTask(entry.task))
+	};
 }
 
 async function loadOpenTaskRunMap(db, { userId, taskIds }) {
@@ -484,19 +601,47 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		`You are helping the authenticated user ${username}.`,
 		`The user local day is ${localDay}.`,
 		currentPath ? `The user is currently viewing ${currentPath}.` : null,
-		'Task Monster has four relevant task states: inactive, daymap, active, and done/archive outcomes.',
-		'Use tools for all task-specific facts and all mutations. Never guess task state or stats.',
-		'If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
-		'Interpret "pause" or "take it off active" as moving a task to daymap, not fully back to inactive, unless the user explicitly says backlog or inactive.',
-		'Interpret "inactive" or "backlog" as fully removing a task from the daymap.',
-		'Category/color mapping: red=System, orange=World, gold=Home, green=Body, teal=Reset, blue=Craft, violet=Becoming.',
-		'Persistent task notes live on the task note. Active-run notes live on the instance note.',
-		'Format structured replies in markdown with headings, bullets, emphasis, and short sections when useful.',
-		'Convert raw milliseconds into human-readable durations unless the user explicitly asks for millisecond values.',
-		'Keep replies concise, natural, and action-oriented. Confirm what changed after successful tool use.'
+		'',
+		'Operating context:',
+		'- Task Monster is a constrained task board, not a generic to-do dump.',
+		'- Inactive means backlog. Daymap means on today\'s table but not currently running. Active means currently on the table. Done or archive depends on the task mode.',
+		'- Prefer reusing, moving, or updating an existing task over creating near-duplicates.',
+		'- Category/color mapping: red=System, orange=World, gold=Home, green=Body, teal=Reset, blue=Craft, violet=Becoming.',
+		'- Persistent task notes live on the task note. Active-run notes live on the instance note.',
+		'',
+		'Action policy:',
+		'- Use tools for all task-specific facts and all mutations. Never guess task state, stats, or IDs.',
+		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
+		'- Interpret "pause" or "take it off active" as moving a task to daymap, not fully back to inactive, unless the user explicitly says backlog or inactive.',
+		'- Interpret "inactive" or "backlog" as fully removing a task from the daymap.',
+		'- If a tool result includes requiresChoice=true or errorCode=duplicate_task_guard, do not call any more mutation tools in that response. Present the choice and wait.',
+		'- For duplicate-task creation guards, present exactly three numbered options:',
+		'1. Use the closest existing task and say what you will do with it.',
+		'2. Create an improved, more specific version and show the improved task name.',
+		'3. Create the exact requested task anyway.',
+		'- If the user replies with only "1", "2", or "3", treat that as the selection for the most recent duplicate-task choice and act on it.',
+		'',
+		'Style:',
+		'- Sound calm, sharp, and slightly futuristic. More operator than cheerleader.',
+		'- Format structured replies in markdown with headings, bullets, emphasis, and short sections when useful.',
+		'- Convert raw milliseconds into human-readable durations unless the user explicitly asks for millisecond values.',
+		'- Keep replies concise, natural, and action-oriented. Confirm what changed after successful tool use.'
 	]
 		.filter(Boolean)
 		.join('\n');
+}
+
+function buildChoiceResolutionPrompt() {
+	return [
+		'The latest tool result requires user choice before any further mutation.',
+		'Do not call any more tools in this response.',
+		'Use the tool payload to present exactly three numbered options.',
+		'Option 1 must reuse the closest existing task and describe the reuse action.',
+		'Option 2 must recommend a clearer, more specific task variant and show the improved name.',
+		'Option 3 must state that it will create the exact requested task anyway.',
+		'If other close tasks are present, mention them after the numbered options in one short line.',
+		'End by asking the user to reply with 1, 2, or 3.'
+	].join('\n');
 }
 
 async function callOpenAiChatCompletion({
@@ -512,20 +657,25 @@ async function callOpenAiChatCompletion({
 	}, 45000);
 
 	try {
+		const requestBody = {
+			model,
+			messages,
+			user: userTag
+		};
+
+		if (Array.isArray(tools) && tools.length > 0) {
+			requestBody.tools = tools;
+			requestBody.tool_choice = 'auto';
+			requestBody.parallel_tool_calls = false;
+		}
+
 		const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
 			method: 'POST',
 			headers: {
 				authorization: `Bearer ${apiKey}`,
 				'content-type': 'application/json'
 			},
-			body: JSON.stringify({
-				model,
-				messages,
-				tools,
-				tool_choice: 'auto',
-				parallel_tool_calls: false,
-				user: userTag
-			}),
+			body: JSON.stringify(requestBody),
 			signal: abortController.signal
 		});
 		const responseBody = await response.json().catch(() => null);
@@ -684,6 +834,7 @@ async function executeCreateTaskTool(app, request, args) {
 	const startState = args.startState || 'inactive';
 	const queued = args.queued === true;
 	const daymapLocked = args.daymapLocked === true;
+	const allowDuplicate = args.allowDuplicate === true;
 
 	if (!TASK_COLOR_KEYS.includes(colorKey)) {
 		return {
@@ -828,6 +979,47 @@ async function executeCreateTaskTool(app, request, args) {
 		body.alarmEnabled = false;
 		body.tallyUnit = args.tallyUnit.trim();
 		body.tallyTarget = args.tallyTarget;
+	}
+
+	if (!allowDuplicate) {
+		const duplicateGuard = findCreateTaskGuard(
+			await loadUserTasks(app.mongo.db, {
+				userId: request.auth.userId
+			}),
+			body.name
+		);
+
+		if (duplicateGuard) {
+			return {
+				output: {
+					ok: false,
+					errorCode: 'duplicate_task_guard',
+					requiresChoice: true,
+					message: `A close task match already exists for "${body.name}".`,
+					closestTask: duplicateGuard.closestTask,
+					otherCloseTasks: duplicateGuard.otherCloseTasks,
+					requestedTask: buildCreateTaskDraftPreview(body, {
+						startState,
+						queued,
+						daymapLocked
+					}),
+					optionOnePlan: {
+						useExistingTaskId: duplicateGuard.closestTask.id,
+						useExistingTaskName: duplicateGuard.closestTask.name,
+						moveTo: startState,
+						queued,
+						daymapLocked,
+						note: body.note ?? null
+					}
+				},
+				actions: [],
+				refresh: {
+					tasks: false,
+					stats: false,
+					panic: false
+				}
+			};
+		}
 	}
 
 	const createResponse = await injectUserRoute(app, request, {
@@ -2088,6 +2280,11 @@ const ASSISTANT_TOOLS = [
 					},
 					daymapLocked: {
 						type: 'boolean'
+					},
+					allowDuplicate: {
+						type: 'boolean',
+						description:
+							'Only set this true if the user explicitly chose to create the exact requested task after a duplicate-task warning.'
 					}
 				}
 			}
@@ -2386,7 +2583,7 @@ function sanitizeConversation(messages) {
 			content: String(message.content || '').trim()
 		}))
 		.filter((message) => message.content.length > 0)
-		.slice(-12);
+		.slice(-MAX_CONVERSATION_MESSAGES);
 }
 
 async function runAssistantChat(app, request, body) {
@@ -2480,6 +2677,31 @@ async function runAssistantChat(app, request, body) {
 				tool_call_id: toolCall.id,
 				content: JSON.stringify(toolResult.output)
 			});
+
+			if (toolResult.output?.requiresChoice === true) {
+				const followupCompletion = await callOpenAiChatCompletion({
+					apiKey: app.config.openaiApiKey,
+					model: app.config.openaiModel,
+					messages: [
+						...openAiMessages,
+						{
+							role: 'system',
+							content: buildChoiceResolutionPrompt()
+						}
+					],
+					tools: [],
+					userTag: `taskmonster:${request.auth.userId}`
+				});
+				const followupAssistantMessage = followupCompletion?.choices?.[0]?.message;
+
+				return {
+					reply:
+						extractMessageText(followupAssistantMessage?.content) ||
+						'I found a close existing task, so I need you to choose 1, 2, or 3 before I create anything.',
+					actions,
+					refresh
+				};
+			}
 		}
 	}
 

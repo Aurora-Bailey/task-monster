@@ -18,6 +18,7 @@
 	let isSending = $state(false);
 	let scrollViewport = $state(null);
 	let draftInput = $state(null);
+	const MAX_CONVERSATION_MESSAGES = 12;
 
 	function closeDrawer() {
 		onClose();
@@ -29,17 +30,13 @@
 		}
 	}
 
-	function handleBackdropKeydown(event) {
-		if (event.key === 'Escape') {
-			closeDrawer();
-		}
-	}
-
 	function buildConversationPayload(nextMessages) {
-		return nextMessages.map((message) => ({
-			role: message.role,
-			content: message.content
-		}));
+		return nextMessages
+			.slice(-MAX_CONVERSATION_MESSAGES)
+			.map((message) => ({
+				role: message.role,
+				content: message.content
+			}));
 	}
 
 	async function focusInput() {
@@ -114,12 +111,6 @@
 		}
 	}
 
-	function handleWindowKeydown(event) {
-		if (event.key === 'Escape' && !isSending) {
-			closeDrawer();
-		}
-	}
-
 	$effect(() => {
 		if (!open) {
 			return;
@@ -143,16 +134,8 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleWindowKeydown} />
-
 {#if open}
-	<div
-		class="assistant-backdrop"
-		role="presentation"
-		tabindex="-1"
-		onclick={handleBackdropClick}
-		onkeydown={handleBackdropKeydown}
-	>
+	<div class="assistant-backdrop" role="presentation" tabindex="-1" onclick={handleBackdropClick}>
 		<aside class="assistant-drawer" aria-label="Task Monster AI assistant">
 			<button
 				class="assistant-close"

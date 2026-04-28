@@ -180,8 +180,24 @@
 			return;
 		}
 
-		const handleArrowNavigation = async (event) => {
+		const handleGlobalKeydown = async (event) => {
 			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+				return;
+			}
+
+			if (event.key === 'Escape') {
+				if (showPanicReturnModal) {
+					return;
+				}
+
+				event.preventDefault();
+
+				if (showAssistantDrawer) {
+					closeAssistantDrawer();
+					return;
+				}
+
+				openAssistantDrawer();
 				return;
 			}
 
@@ -225,11 +241,11 @@
 			}
 		};
 
-		window.addEventListener('keydown', handleArrowNavigation);
+		window.addEventListener('keydown', handleGlobalKeydown);
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 
 		return () => {
-			window.removeEventListener('keydown', handleArrowNavigation);
+			window.removeEventListener('keydown', handleGlobalKeydown);
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.clearInterval(intervalId);
 		};

@@ -331,6 +331,14 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - update active tally counts
   - snooze alarms
   - start or stop panic mode
+- Task creation guard:
+  - `create_task` now checks for close existing matches in `inactive` and `daymap` before creating
+  - if a close match exists, the backend returns `requiresChoice: true` with `errorCode: duplicate_task_guard`
+  - the assistant should present exactly three options:
+    - `1.` reuse the closest existing task
+    - `2.` create a clearer, more specific variant
+    - `3.` create the exact requested task with `allowDuplicate: true`
+  - a bare follow-up `1`, `2`, or `3` should be interpreted as selecting that last duplicate-task choice
 
 ## Filler vs real data
 

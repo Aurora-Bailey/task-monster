@@ -218,6 +218,16 @@ The current in-app assistant can:
 - snooze active alarms
 - start or stop panic mode
 
+Assistant create-task guard:
+
+- before creating a task, the backend checks for close matches already in `inactive` or `daymap`
+- if it finds one, `create_task` returns a guarded `requiresChoice` payload instead of mutating state
+- the assistant should then offer:
+  - `1.` reuse the existing task
+  - `2.` create a clearer, more specific version
+  - `3.` create the exact requested task anyway
+- exact duplicate creation now requires the tool argument `allowDuplicate: true`, which should only be used after the user explicitly chooses option `3`
+
 ## Current quirk
 
 Fastify/Ajv currently emits strict-mode warnings at startup for schemas that use `type: ['integer', 'string']` around `tzOffsetMinutes`. The app still boots.

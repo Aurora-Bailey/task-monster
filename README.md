@@ -10,7 +10,7 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, snooze alarms, adjust tally counts, control panic mode, and summarize the day from real stats data.
+Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, snooze alarms, adjust tally counts, control panic mode, and summarize the day from real stats data. New task creation now has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate.
 
 ## Current app status
 
