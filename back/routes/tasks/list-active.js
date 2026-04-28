@@ -115,8 +115,7 @@ async function listActiveTasksRoute(app) {
 									panicRuns,
 									startedAt: taskStartedAt,
 									endedAt: measuredAt,
-									now: measuredAt,
-									includeOpenRuns: false
+									now: measuredAt
 								})
 							: [];
 

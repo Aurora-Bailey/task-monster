@@ -58,6 +58,19 @@ async function loadPanicRunsForDay(db, { userId, day }) {
 		.toArray();
 }
 
+async function loadOpenPanicRuns(db, { userId }) {
+	return db
+		.collection('panic_runs')
+		.find({
+			userId: toObjectId(userId),
+			endedAt: null
+		})
+		.sort({
+			startedAt: 1
+		})
+		.toArray();
+}
+
 async function loadPanicRunsOverlappingWindow(db, { userId, startedAt, endedAt }) {
 	return db
 		.collection('panic_runs')
@@ -83,6 +96,19 @@ async function loadPanicRunsOverlappingWindow(db, { userId, startedAt, endedAt }
 		.toArray();
 }
 
+async function loadPanicRunsOverlappingLocalDay(
+	db,
+	{ userId, day, timezoneOffsetMinutes }
+) {
+	const { startedAt, endedBefore } = getUtcRangeForLocalDay(day, timezoneOffsetMinutes);
+
+	return loadPanicRunsOverlappingWindow(db, {
+		userId,
+		startedAt,
+		endedAt: endedBefore
+	});
+}
+
 function getWindowOverlapMilliseconds(startedAt, endedAt, leftStartedAt, leftEndedAt) {
 	return Math.max(
 		0,
@@ -104,23 +130,65 @@ function getClippedPanicWindow(panicRun, { day, timezoneOffsetMinutes, now = new
 	};
 }
 
-function buildPanicStatus({ day, panicRuns, timezoneOffsetMinutes, now = new Date() }) {
-	let activeRun = null;
-	let totalMilliseconds = 0;
-
-	for (const panicRun of panicRuns) {
-		const clippedWindow = getClippedPanicWindow(panicRun, {
-			day,
-			timezoneOffsetMinutes,
-			now
-		});
-
-		totalMilliseconds += clippedWindow.milliseconds;
-
-		if (!panicRun.endedAt && activeRun === null) {
-			activeRun = panicRun;
-		}
+function mergeWindowSegments(segments) {
+	if (segments.length === 0) {
+		return [];
 	}
+
+	const sortedSegments = [...segments].sort(
+		(left, right) => left.effectiveStartedAt.getTime() - right.effectiveStartedAt.getTime()
+	);
+	const mergedSegments = [];
+
+	for (const segment of sortedSegments) {
+		const lastSegment = mergedSegments.at(-1);
+
+		if (
+			lastSegment &&
+			segment.effectiveStartedAt.getTime() <= lastSegment.effectiveEndedAt.getTime()
+		) {
+			if (segment.effectiveEndedAt.getTime() > lastSegment.effectiveEndedAt.getTime()) {
+				lastSegment.effectiveEndedAt = segment.effectiveEndedAt;
+				lastSegment.milliseconds = Math.max(
+					0,
+					lastSegment.effectiveEndedAt.getTime() - lastSegment.effectiveStartedAt.getTime()
+				);
+			}
+
+			continue;
+		}
+
+		mergedSegments.push({
+			effectiveStartedAt: segment.effectiveStartedAt,
+			effectiveEndedAt: segment.effectiveEndedAt,
+			milliseconds: segment.milliseconds
+		});
+	}
+
+	return mergedSegments;
+}
+
+function buildPanicStatus({ day, panicRuns, timezoneOffsetMinutes, now = new Date() }) {
+	const clippedWindows = panicRuns
+		.map((panicRun) => ({
+			panicRun,
+			clippedWindow: getClippedPanicWindow(panicRun, {
+				day,
+				timezoneOffsetMinutes,
+				now
+			})
+		}))
+		.filter(({ clippedWindow }) => clippedWindow.milliseconds > 0);
+	const mergedWindows = mergeWindowSegments(
+		clippedWindows.map(({ clippedWindow }) => clippedWindow)
+	);
+	const totalMilliseconds = mergedWindows.reduce(
+		(total, clippedWindow) => total + clippedWindow.milliseconds,
+		0
+	);
+	const activeRun = panicRuns
+		.filter((panicRun) => !panicRun.endedAt)
+		.sort((left, right) => right.startedAt.getTime() - left.startedAt.getTime())[0] ?? null;
 
 	const activeMilliseconds = activeRun
 		? getClippedPanicWindow(activeRun, {
@@ -158,7 +226,7 @@ function buildPanicLog({ day, panicRuns, timezoneOffsetMinutes, now = new Date()
 		.filter(Boolean);
 }
 
-function buildPanicLogItemsForWindow({
+function getPanicWindowSegmentsForWindow({
 	panicRuns,
 	startedAt,
 	endedAt,
@@ -191,22 +259,47 @@ function buildPanicLogItemsForWindow({
 				return null;
 			}
 
-			return serializePanicLogItem(panicRun, {
+			return {
+				panicRun,
 				effectiveStartedAt,
 				effectiveEndedAt,
 				milliseconds
-			});
+			};
 		})
 		.filter(Boolean);
 }
 
+function buildPanicLogItemsForWindow({
+	panicRuns,
+	startedAt,
+	endedAt,
+	now = new Date(),
+	includeOpenRuns = true
+}) {
+	return getPanicWindowSegmentsForWindow({
+		panicRuns,
+		startedAt,
+		endedAt,
+		now,
+		includeOpenRuns
+	}).map(({ panicRun, effectiveStartedAt, effectiveEndedAt, milliseconds }) =>
+		serializePanicLogItem(panicRun, {
+			effectiveStartedAt,
+			effectiveEndedAt,
+			milliseconds
+		})
+	);
+}
+
 function getPanicMillisecondsForWindow({ panicRuns, startedAt, endedAt, now = new Date() }) {
-	return buildPanicLogItemsForWindow({
+	return mergeWindowSegments(
+		getPanicWindowSegmentsForWindow({
 		panicRuns,
 		startedAt,
 		endedAt,
 		now
-	}).reduce((total, panicItem) => total + panicItem.milliseconds, 0);
+		})
+	).reduce((total, panicItem) => total + panicItem.milliseconds, 0);
 }
 
 module.exports = {
@@ -214,7 +307,9 @@ module.exports = {
 	buildPanicLog,
 	buildPanicStatus,
 	getPanicMillisecondsForWindow,
+	loadOpenPanicRuns,
 	loadPanicRunsForDay,
+	loadPanicRunsOverlappingLocalDay,
 	loadPanicRunsOverlappingWindow,
 	serializedPanicLogItemJsonSchema,
 	serializedPanicStatusJsonSchema

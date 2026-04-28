@@ -2,7 +2,7 @@ const { ObjectId } = require('mongodb');
 
 const {
 	buildPanicStatus,
-	loadPanicRunsForDay,
+	loadPanicRunsOverlappingLocalDay,
 	serializedPanicStatusJsonSchema
 } = require('../../lib/panic');
 const {
@@ -75,10 +75,9 @@ async function stopPanicRoute(app) {
 				? request.body.emotionalCharge
 				: null;
 
-			await app.mongo.db.collection('panic_runs').findOneAndUpdate(
+			await app.mongo.db.collection('panic_runs').updateMany(
 				{
 					userId,
-					day,
 					endedAt: null
 				},
 				{
@@ -88,18 +87,13 @@ async function stopPanicRoute(app) {
 						emotionalCharge,
 						updatedAt: stoppedAt
 					}
-				},
-				{
-					sort: {
-						startedAt: -1
-					},
-					returnDocument: 'after'
 				}
 			);
 
-			const panicRuns = await loadPanicRunsForDay(app.mongo.db, {
+			const panicRuns = await loadPanicRunsOverlappingLocalDay(app.mongo.db, {
 				userId,
-				day
+				day,
+				timezoneOffsetMinutes
 			});
 
 			return {

@@ -2,7 +2,8 @@ const { ObjectId } = require('mongodb');
 
 const {
 	buildPanicStatus,
-	loadPanicRunsForDay,
+	loadOpenPanicRuns,
+	loadPanicRunsOverlappingLocalDay,
 	serializedPanicStatusJsonSchema
 } = require('../../lib/panic');
 const {
@@ -59,15 +60,14 @@ async function startPanicRoute(app) {
 				});
 			}
 
-				const day = request.body?.day || getCurrentLocalDay(timezoneOffsetMinutes);
-				const userId = new ObjectId(request.auth.userId);
-				const startedAt = new Date();
-			const existingOpenRun = await app.mongo.db.collection('panic_runs').findOne({
-				userId,
-				day,
-				endedAt: null
+			const day = request.body?.day || getCurrentLocalDay(timezoneOffsetMinutes);
+			const userId = new ObjectId(request.auth.userId);
+			const startedAt = new Date();
+			const existingOpenRuns = await loadOpenPanicRuns(app.mongo.db, {
+				userId
 			});
-				if (!existingOpenRun) {
+
+			if (existingOpenRuns.length === 0) {
 					await app.mongo.db.collection('panic_runs').insertOne({
 						userId,
 						day,
@@ -81,20 +81,21 @@ async function startPanicRoute(app) {
 					});
 			}
 
-			const panicRuns = await loadPanicRunsForDay(app.mongo.db, {
+			const panicRuns = await loadPanicRunsOverlappingLocalDay(app.mongo.db, {
 				userId,
-				day
+				day,
+				timezoneOffsetMinutes
 			});
 
 			return {
-					panic: buildPanicStatus({
-						day,
-						panicRuns,
-						timezoneOffsetMinutes,
-						now: startedAt
-					}),
-					pausedTaskCount: 0
-				};
+				panic: buildPanicStatus({
+					day,
+					panicRuns,
+					timezoneOffsetMinutes,
+					now: startedAt
+				}),
+				pausedTaskCount: 0
+			};
 		}
 	);
 }

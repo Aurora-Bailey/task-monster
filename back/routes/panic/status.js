@@ -2,7 +2,7 @@ const { ObjectId } = require('mongodb');
 
 const {
 	buildPanicStatus,
-	loadPanicRunsForDay,
+	loadPanicRunsOverlappingLocalDay,
 	serializedPanicStatusJsonSchema
 } = require('../../lib/panic');
 const {
@@ -59,9 +59,10 @@ async function panicStatusRoute(app) {
 			}
 
 			const day = request.query.day || getCurrentLocalDay(timezoneOffsetMinutes);
-			const panicRuns = await loadPanicRunsForDay(app.mongo.db, {
+			const panicRuns = await loadPanicRunsOverlappingLocalDay(app.mongo.db, {
 				userId: new ObjectId(request.auth.userId),
-				day
+				day,
+				timezoneOffsetMinutes
 			});
 
 			return {

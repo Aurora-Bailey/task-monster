@@ -4,7 +4,7 @@ const {
 	buildPanicLogItemsForWindow,
 	buildPanicLog,
 	getPanicMillisecondsForWindow,
-	loadPanicRunsForDay,
+	loadPanicRunsOverlappingLocalDay,
 	serializedPanicLogItemJsonSchema
 } = require('../../lib/panic');
 const {
@@ -332,9 +332,10 @@ async function dailyStatsRoute(app) {
 				const now = new Date();
 				const cadenceBuckets = buildCadenceBuckets(selectedDay, timezoneOffsetMinutes);
 				const userId = new ObjectId(request.auth.userId);
-				const panicRuns = await loadPanicRunsForDay(app.mongo.db, {
+				const panicRuns = await loadPanicRunsOverlappingLocalDay(app.mongo.db, {
 					userId,
-					day: selectedDay
+					day: selectedDay,
+					timezoneOffsetMinutes
 				});
 				const panicLog = buildPanicLog({
 					day: selectedDay,
