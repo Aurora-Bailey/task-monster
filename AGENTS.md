@@ -176,8 +176,14 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Active list route:
   - `GET /tasks/active`
-- Time tasks may have alarms and snooze:
-  - `POST /tasks/:taskId/snooze`
+- Time tasks now use pomodoro cadence derived from the task itself:
+  - `none`: no focus/break cycle
+  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
+  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
+  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
+- Break behavior:
+  - focus phase is silent
+  - break phase rings a short bell every minute
 - Tally tasks update through:
   - `POST /tasks/:taskId/tally`
 - Task note route:
@@ -283,6 +289,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - real daily stats from backend
 - `/add`
   - task creation form
+  - time tasks now choose a visible pomodoro preset (`none`, `short`, `medium`, `long`)
+  - task notes are always visible on the form; there is no notes checkbox gate
 - `/profile`
   - active sessions plus recent login attempt history
 
@@ -305,11 +313,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - daymap lock toggle
   - unmap back to inactive
 - Active page includes:
-  - browser audio alarm behavior
+  - browser audio break-bell behavior
   - tally increment and decrement controls
-  - snooze
   - done modal with adjustable start and end timing
-- Some browsers require prior user interaction before audio alarms can play
+- Some browsers require prior user interaction before break audio can play
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The header now also exposes an `AI` button next to `Panic`
   - it opens a right-side assistant drawer
@@ -321,6 +328,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - arrow-key navigation is intentionally disabled while the drawer is open
   - the drawer only sends the most recent 12 messages to the backend on each request
 - Panic controls live in the header, not on the active page itself
+- Local DB upgrade note:
+  - if older task docs still carry legacy alarm fields, run `cd back && npm run migrate:pomodoro`
 
 ## In-app assistant
 
@@ -350,7 +359,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - queue or unqueue daymap tasks
   - toggle daymap lock
   - update active tally counts
-  - snooze alarms
   - start or stop panic mode
 - Current prompt/behavior policy:
   - tools are required for all task-specific facts and all mutations
@@ -360,6 +368,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - structured replies should use markdown when it helps
   - raw millisecond values should usually be converted into human-readable durations
   - the intended tone is calm, sharp, concise, and slightly futuristic
+  - time tasks should be described in terms of pomodoro cadence, focus, and break rather than alarms
 - Task creation guard:
   - `create_task` now checks for close existing matches in `inactive` and `daymap` before creating
   - if a close match exists, the backend returns `requiresChoice: true` with `errorCode: duplicate_task_guard`

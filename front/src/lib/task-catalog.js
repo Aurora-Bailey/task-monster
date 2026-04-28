@@ -6,8 +6,14 @@ export const taskCatalog = [
 		note: 'Clear the counters, open the blinds, and reset the kitchen before the day starts.',
 		color: '#3d9790',
 		mode: 'repeatable',
-		durationMinutes: 15,
-		snoozeMinutes: 5,
+		pomodoro: {
+			presetKey: 'short',
+			label: 'Short',
+			focusMinutes: 15,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 15,
+			longBreakInterval: 4
+		},
 		window: '7:10 AM',
 		location: 'Kitchen',
 		activeToday: true
@@ -19,8 +25,14 @@ export const taskCatalog = [
 		note: 'Ship the next onboarding polish pass without context switching mid-block.',
 		color: '#4f6ed6',
 		mode: 'one-time',
-		durationMinutes: 45,
-		snoozeMinutes: 10,
+		pomodoro: {
+			presetKey: 'long',
+			label: 'Long',
+			focusMinutes: 50,
+			shortBreakMinutes: 10,
+			longBreakMinutes: 30,
+			longBreakInterval: 3
+		},
 		window: '9:30 AM',
 		location: 'Desk',
 		activeToday: true
@@ -32,8 +44,14 @@ export const taskCatalog = [
 		note: 'Get outside for a short reset lap before the afternoon stack of work begins.',
 		color: '#5f9b55',
 		mode: 'repeatable',
-		durationMinutes: 20,
-		snoozeMinutes: 5,
+		pomodoro: {
+			presetKey: 'short',
+			label: 'Short',
+			focusMinutes: 15,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 15,
+			longBreakInterval: 4
+		},
 		window: '12:15 PM',
 		location: 'Neighborhood',
 		activeToday: true
@@ -45,8 +63,14 @@ export const taskCatalog = [
 		note: 'Review charges, reconcile receipts, and make sure nothing odd is drifting.',
 		color: '#c74a4a',
 		mode: 'repeatable',
-		durationMinutes: 30,
-		snoozeMinutes: 10,
+		pomodoro: {
+			presetKey: 'medium',
+			label: 'Medium',
+			focusMinutes: 25,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 20,
+			longBreakInterval: 4
+		},
 		window: '4:00 PM',
 		location: 'Finance desk',
 		activeToday: true
@@ -58,8 +82,14 @@ export const taskCatalog = [
 		note: 'Water the patio herbs and rotate the planters that miss the morning light.',
 		color: '#5f9b55',
 		mode: 'repeatable',
-		durationMinutes: 10,
-		snoozeMinutes: 5,
+		pomodoro: {
+			presetKey: 'short',
+			label: 'Short',
+			focusMinutes: 15,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 15,
+			longBreakInterval: 4
+		},
 		window: '6:30 PM',
 		location: 'Patio',
 		activeToday: false
@@ -71,8 +101,14 @@ export const taskCatalog = [
 		note: 'Fold the clean load and put the heavier layers away before bedtime.',
 		color: '#d7b23d',
 		mode: 'one-time',
-		durationMinutes: 20,
-		snoozeMinutes: 10,
+		pomodoro: {
+			presetKey: 'short',
+			label: 'Short',
+			focusMinutes: 15,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 15,
+			longBreakInterval: 4
+		},
 		window: '8:00 PM',
 		location: 'Bedroom',
 		activeToday: false
@@ -84,8 +120,14 @@ export const taskCatalog = [
 		note: 'Shape the next batch of priorities and decide what actually deserves the table.',
 		color: '#8a5bd1',
 		mode: 'repeatable',
-		durationMinutes: 60,
-		snoozeMinutes: 15,
+		pomodoro: {
+			presetKey: 'long',
+			label: 'Long',
+			focusMinutes: 50,
+			shortBreakMinutes: 10,
+			longBreakMinutes: 30,
+			longBreakInterval: 3
+		},
 		window: 'Monday, 8:00 AM',
 		location: 'Planning board',
 		activeToday: false
@@ -97,8 +139,14 @@ export const taskCatalog = [
 		note: 'Call in the refill request and confirm the pickup window before the weekend.',
 		color: '#de7d37',
 		mode: 'one-time',
-		durationMinutes: 15,
-		snoozeMinutes: 10,
+		pomodoro: {
+			presetKey: 'short',
+			label: 'Short',
+			focusMinutes: 15,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 15,
+			longBreakInterval: 4
+		},
 		window: 'Friday, 11:00 AM',
 		location: 'Phone',
 		activeToday: false
@@ -110,8 +158,14 @@ export const taskCatalog = [
 		note: 'Pull the useful ideas out of the current chapter instead of just highlighting them.',
 		color: '#4f6ed6',
 		mode: 'repeatable',
-		durationMinutes: 30,
-		snoozeMinutes: 10,
+		pomodoro: {
+			presetKey: 'medium',
+			label: 'Medium',
+			focusMinutes: 25,
+			shortBreakMinutes: 5,
+			longBreakMinutes: 20,
+			longBreakInterval: 4
+		},
 		window: '9:00 PM',
 		location: 'Reading chair',
 		activeToday: false

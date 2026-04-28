@@ -7,12 +7,15 @@ const {
 } = require('./local-days');
 const {
 	TASK_COLOR_MAP,
-	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
-	TASK_SNOOZE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
 	toObjectId
 } = require('./tasks');
+const {
+	POMODORO_PRESET_KEYS,
+	getPomodoroPreset,
+	normalizeStoredPomodoro
+} = require('./pomodoro');
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const TOOL_LOOP_LIMIT = 8;
@@ -208,6 +211,7 @@ function summarizeTask(task, openTaskRun) {
 		Number.isInteger(task.queuePosition) && task.queuePosition > 0 ? task.queuePosition : null;
 	const note = task.note ?? null;
 	const instanceNote = openTaskRun?.instanceNote ?? null;
+	const pomodoro = normalizeStoredPomodoro(task);
 
 	return {
 		id: task._id.toString(),
@@ -217,9 +221,7 @@ function summarizeTask(task, openTaskRun) {
 		category: TASK_CATEGORY_DETAILS[task.colorKey]?.category || task.colorKey,
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
-		alarmEnabled: task.alarmEnabled === true,
-		durationMinutes: task.durationMinutes ?? null,
-		snoozeMinutes: task.snoozeMinutes ?? null,
+		pomodoro,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
@@ -231,8 +233,7 @@ function summarizeTask(task, openTaskRun) {
 		instanceNote,
 		activatedAt: task.activatedAt ? task.activatedAt.toISOString() : null,
 		mappedAt: task.mappedAt ? task.mappedAt.toISOString() : null,
-		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
-		alarmDueAt: task.alarmDueAt ? task.alarmDueAt.toISOString() : null
+		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null
 	};
 }
 
@@ -261,19 +262,24 @@ function summarizeDuplicateGuardTask(task) {
 }
 
 function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked }) {
+	const pomodoro =
+		body.trackingType === 'time'
+			? body.pomodoroPreset
+				? getPomodoroPreset(body.pomodoroPreset)
+				: null
+			: null;
+
 	return {
 		name: body.name,
 		category: TASK_CATEGORY_DETAILS[body.color]?.category || body.color,
 		colorKey: body.color,
 		mode: body.mode,
 		trackingType: body.trackingType,
+		pomodoro,
 		note: body.note ?? null,
 		startState,
 		queued,
 		daymapLocked,
-		alarmEnabled: body.alarmEnabled === true,
-		durationMinutes: body.durationMinutes ?? null,
-		snoozeMinutes: body.snoozeMinutes ?? null,
 		tallyUnit: body.tallyUnit ?? null,
 		tallyTarget: body.tallyTarget ?? null
 	};
@@ -605,6 +611,8 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		'Operating context:',
 		'- Task Monster is a constrained task board, not a generic to-do dump.',
 		'- Inactive means backlog. Daymap means on today\'s table but not currently running. Active means currently on the table. Done or archive depends on the task mode.',
+		'- Time-tracked tasks may have no pomodoro at all, or use a pomodoro cadence instead of alarms. Short = 15/5 with a 15-minute long break every 4 focus blocks. Medium = 25/5 with a 20-minute long break every 4 blocks. Long = 50/10 with a 30-minute long break every 3 blocks.',
+		'- During focus there is no sound. During breaks the app rings a short bell every minute so the user can switch hands-free.',
 		'- Prefer reusing, moving, or updating an existing task over creating near-duplicates.',
 		'- Category/color mapping: red=System, orange=World, gold=Home, green=Body, teal=Reset, blue=Craft, violet=Becoming.',
 		'- Persistent task notes live on the task note. Active-run notes live on the instance note.',
@@ -896,26 +904,28 @@ async function executeCreateTaskTool(app, request, args) {
 		};
 	}
 
-	const alarmEnabled = args.alarmEnabled === true;
 	const body = {
 		name: args.name,
 		color: colorKey,
 		mode,
 		trackingType,
-		alarmEnabled,
+		pomodoroPreset:
+			trackingType === 'time'
+				? Object.hasOwn(args, 'pomodoroPreset')
+					? args.pomodoroPreset
+					: 'medium'
+				: null,
 		note: typeof args.note === 'string' ? args.note : null,
-		durationMinutes: null,
-		snoozeMinutes: null,
 		tallyUnit: null,
 		tallyTarget: null
 	};
 
-	if (trackingType === 'time' && alarmEnabled) {
-		if (!TASK_DURATION_VALUES.includes(args.durationMinutes)) {
+	if (trackingType === 'time') {
+		if (body.pomodoroPreset !== null && !POMODORO_PRESET_KEYS.includes(body.pomodoroPreset)) {
 			return {
 				output: {
 					ok: false,
-					message: 'Alarmed time tasks need a supported duration.'
+					message: 'Time tasks need a supported pomodoro preset.'
 				},
 				actions: [],
 				refresh: {
@@ -926,23 +936,6 @@ async function executeCreateTaskTool(app, request, args) {
 			};
 		}
 
-		if (!TASK_SNOOZE_VALUES.includes(args.snoozeMinutes)) {
-			return {
-				output: {
-					ok: false,
-					message: 'Alarmed time tasks need a supported snooze length.'
-				},
-				actions: [],
-				refresh: {
-					tasks: false,
-					stats: false,
-					panic: false
-				}
-			};
-		}
-
-		body.durationMinutes = args.durationMinutes;
-		body.snoozeMinutes = args.snoozeMinutes;
 	}
 
 	if (trackingType === 'tally') {
@@ -976,7 +969,6 @@ async function executeCreateTaskTool(app, request, args) {
 			};
 		}
 
-		body.alarmEnabled = false;
 		body.tallyUnit = args.tallyUnit.trim();
 		body.tallyTarget = args.tallyTarget;
 	}
@@ -1931,66 +1923,6 @@ async function executeUpdateTaskTallyTool(app, request, args) {
 	};
 }
 
-async function executeSnoozeTaskTool(app, request, args) {
-	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
-		userId: request.auth.userId,
-		taskQuery: args.taskQuery,
-		allowedStatuses: ['active']
-	});
-
-	if (!resolvedTask.ok) {
-		return {
-			output: resolvedTask,
-			actions: [],
-			refresh: {
-				tasks: false,
-				stats: false,
-				panic: false
-			}
-		};
-	}
-
-	const snoozeResponse = await injectUserRoute(app, request, {
-		method: 'POST',
-		url: `/tasks/${resolvedTask.task._id.toString()}/snooze`
-	});
-
-	if (!snoozeResponse.ok) {
-		return {
-			output: {
-				ok: false,
-				message: snoozeResponse.message || 'Unable to snooze the task alarm.'
-			},
-			actions: [],
-			refresh: {
-				tasks: false,
-				stats: false,
-				panic: false
-			}
-		};
-	}
-
-	const taskSummary = await buildTaskSummaryFromId(app.mongo.db, {
-		userId: request.auth.userId,
-		taskId: resolvedTask.task._id.toString()
-	});
-
-	return {
-		output: {
-			ok: true,
-			task: taskSummary
-		},
-		actions: [
-			buildTaskAction('snooze_task', `Snoozed ${taskSummary?.name || 'task'}.`, taskSummary)
-		],
-		refresh: {
-			tasks: true,
-			stats: false,
-			panic: false
-		}
-	};
-}
-
 async function loadPanicStatus(app, request, timezoneOffsetMinutes) {
 	const day = getCurrentLocalDay(timezoneOffsetMinutes);
 
@@ -2247,16 +2179,9 @@ const ASSISTANT_TOOLS = [
 						type: 'string',
 						enum: [...TASK_TRACKING_TYPE_VALUES]
 					},
-					alarmEnabled: {
-						type: 'boolean'
-					},
-					durationMinutes: {
-						type: 'integer',
-						enum: [...TASK_DURATION_VALUES]
-					},
-					snoozeMinutes: {
-						type: 'integer',
-						enum: [...TASK_SNOOZE_VALUES]
+					pomodoroPreset: {
+						type: ['string', 'null'],
+						enum: [...POMODORO_PRESET_KEYS, null]
 					},
 					tallyUnit: {
 						type: 'string',
@@ -2462,25 +2387,6 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'snooze_task',
-			description: 'Snooze the alarm of an active timed task.',
-			parameters: {
-				type: 'object',
-				required: ['taskQuery'],
-				additionalProperties: false,
-				properties: {
-					taskQuery: {
-						type: 'string',
-						minLength: 1,
-						maxLength: 120
-					}
-				}
-			}
-		}
-	},
-	{
-		type: 'function',
-		function: {
 			name: 'start_panic',
 			description: 'Start panic mode.',
 			parameters: {
@@ -2553,8 +2459,6 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 			return executeSetDaymapLockTool(app, request, parsedArguments);
 		case 'update_task_tally':
 			return executeUpdateTaskTallyTool(app, request, parsedArguments);
-		case 'snooze_task':
-			return executeSnoozeTaskTool(app, request, parsedArguments);
 		case 'start_panic':
 			return executeStartPanicTool(app, request, timezoneOffsetMinutes);
 		case 'stop_panic':

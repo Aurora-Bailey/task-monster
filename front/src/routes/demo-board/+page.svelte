@@ -62,7 +62,7 @@
 			<figure class="shot-frame">
 				<img
 					src={screenshots.active}
-					alt="Task Monster active task screen showing timer, notes, alarm state, panic time, and done controls."
+					alt="Task Monster active task screen showing timer, notes, pomodoro phase, panic time, and done controls."
 					loading="lazy"
 				/>
 			</figure>
@@ -70,7 +70,7 @@
 				<p class="card-index">II</p>
 				<h2>Active runtime keeps the session honest.</h2>
 				<p>
-					Alarms, snooze, panic overlap, effective time, and run notes all stay attached to the
+					Pomodoro phase, panic overlap, effective time, and run notes all stay attached to the
 					live task instead of being scattered into separate utilities.
 				</p>
 			</div>
@@ -88,7 +88,7 @@
 				<p class="card-index">III</p>
 				<h2>Tasks are configured for the workflow they belong to.</h2>
 				<p>
-					You can define type, color, tracking mode, and optional alarm behavior up front so the
+					You can define type, color, tracking mode, and pomodoro cadence up front so the
 					system behaves differently for different categories of work.
 				</p>
 			</div>

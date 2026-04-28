@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 
 const { serializedPanicLogItemJsonSchema } = require('./panic');
+const { normalizeStoredPomodoro } = require('./pomodoro');
 
 const TASK_COLOR_MAP = Object.freeze({
 	red: '#c74a4a',
@@ -14,8 +15,26 @@ const TASK_COLOR_MAP = Object.freeze({
 
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
 const TASK_TRACKING_TYPE_VALUES = Object.freeze(['time', 'tally']);
-const TASK_DURATION_VALUES = Object.freeze([5, 10, 15, 20, 30, 45, 60, 90, 120, 180]);
-const TASK_SNOOZE_VALUES = Object.freeze([5, 10, 15, 20, 30]);
+
+const serializedPomodoroJsonSchema = {
+	type: ['object', 'null'],
+	required: [
+		'presetKey',
+		'label',
+		'focusMinutes',
+		'shortBreakMinutes',
+		'longBreakMinutes',
+		'longBreakInterval'
+	],
+	properties: {
+		presetKey: { type: 'string' },
+		label: { type: 'string' },
+		focusMinutes: { type: 'integer' },
+		shortBreakMinutes: { type: 'integer' },
+		longBreakMinutes: { type: 'integer' },
+		longBreakInterval: { type: 'integer' }
+	}
+};
 
 const serializedTaskJsonSchema = {
 	type: 'object',
@@ -26,9 +45,7 @@ const serializedTaskJsonSchema = {
 		'colorKey',
 		'mode',
 		'trackingType',
-		'alarmEnabled',
-		'durationMinutes',
-		'snoozeMinutes',
+		'pomodoro',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -41,7 +58,6 @@ const serializedTaskJsonSchema = {
 		'queuePosition',
 		'activeToday',
 		'activatedAt',
-		'alarmDueAt',
 		'panicMilliseconds',
 		'panicMeasuredAt',
 		'effectiveMilliseconds',
@@ -58,9 +74,7 @@ const serializedTaskJsonSchema = {
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
-		alarmEnabled: { type: 'boolean' },
-		durationMinutes: { type: ['integer', 'null'] },
-		snoozeMinutes: { type: ['integer', 'null'] },
+		pomodoro: serializedPomodoroJsonSchema,
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -70,20 +84,19 @@ const serializedTaskJsonSchema = {
 		daymapLocked: { type: 'boolean' },
 		mappedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
-			queuePosition: { type: ['integer', 'null'] },
-			activeToday: { type: 'boolean' },
-			activatedAt: { type: ['string', 'null'] },
-			alarmDueAt: { type: ['string', 'null'] },
-			panicMilliseconds: { type: 'integer' },
-			panicMeasuredAt: { type: ['string', 'null'] },
-			effectiveMilliseconds: { type: 'integer' },
-			taskPanicLog: {
-				type: 'array',
-				items: serializedPanicLogItemJsonSchema
-			},
-			lastCompletedAt: { type: ['string', 'null'] },
-			lastInactivatedAt: { type: ['string', 'null'] },
-			createdAt: { type: 'string' },
+		queuePosition: { type: ['integer', 'null'] },
+		activeToday: { type: 'boolean' },
+		activatedAt: { type: ['string', 'null'] },
+		panicMilliseconds: { type: 'integer' },
+		panicMeasuredAt: { type: ['string', 'null'] },
+		effectiveMilliseconds: { type: 'integer' },
+		taskPanicLog: {
+			type: 'array',
+			items: serializedPanicLogItemJsonSchema
+		},
+		lastCompletedAt: { type: ['string', 'null'] },
+		lastInactivatedAt: { type: ['string', 'null'] },
+		createdAt: { type: 'string' },
 		updatedAt: { type: 'string' }
 	}
 };
@@ -98,9 +111,7 @@ const serializedCompletedTaskJsonSchema = {
 		'colorKey',
 		'mode',
 		'trackingType',
-		'alarmEnabled',
-		'durationMinutes',
-		'snoozeMinutes',
+		'pomodoro',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -111,15 +122,14 @@ const serializedCompletedTaskJsonSchema = {
 		'mappedToday',
 		'mappedAt',
 		'queuePosition',
-			'activeToday',
-			'activatedAt',
-			'alarmDueAt',
-			'panicMilliseconds',
-			'effectiveMilliseconds',
-			'taskPanicLog',
-			'lastCompletedAt',
-			'lastInactivatedAt',
-			'createdAt',
+		'activeToday',
+		'activatedAt',
+		'panicMilliseconds',
+		'effectiveMilliseconds',
+		'taskPanicLog',
+		'lastCompletedAt',
+		'lastInactivatedAt',
+		'createdAt',
 		'updatedAt',
 		'completedAt',
 		'startedAt',
@@ -135,9 +145,7 @@ const serializedCompletedTaskJsonSchema = {
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
-		alarmEnabled: { type: 'boolean' },
-		durationMinutes: { type: ['integer', 'null'] },
-		snoozeMinutes: { type: ['integer', 'null'] },
+		pomodoro: serializedPomodoroJsonSchema,
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -147,19 +155,18 @@ const serializedCompletedTaskJsonSchema = {
 		daymapLocked: { type: 'boolean' },
 		mappedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
-			queuePosition: { type: ['integer', 'null'] },
-			activeToday: { type: 'boolean' },
-			activatedAt: { type: ['string', 'null'] },
-			alarmDueAt: { type: ['string', 'null'] },
-			panicMilliseconds: { type: 'integer' },
-			effectiveMilliseconds: { type: 'integer' },
-			taskPanicLog: {
-				type: 'array',
-				items: serializedPanicLogItemJsonSchema
-			},
-			lastCompletedAt: { type: ['string', 'null'] },
-			lastInactivatedAt: { type: ['string', 'null'] },
-			createdAt: { type: 'string' },
+		queuePosition: { type: ['integer', 'null'] },
+		activeToday: { type: 'boolean' },
+		activatedAt: { type: ['string', 'null'] },
+		panicMilliseconds: { type: 'integer' },
+		effectiveMilliseconds: { type: 'integer' },
+		taskPanicLog: {
+			type: 'array',
+			items: serializedPanicLogItemJsonSchema
+		},
+		lastCompletedAt: { type: ['string', 'null'] },
+		lastInactivatedAt: { type: ['string', 'null'] },
+		createdAt: { type: 'string' },
 		updatedAt: { type: 'string' },
 		completedAt: { type: 'string' },
 		startedAt: { type: 'string' },
@@ -181,14 +188,6 @@ function isAllowedTaskTrackingType(trackingType) {
 	return TASK_TRACKING_TYPE_VALUES.includes(trackingType);
 }
 
-function isAllowedTaskDuration(durationMinutes) {
-	return TASK_DURATION_VALUES.includes(durationMinutes);
-}
-
-function isAllowedTaskSnooze(snoozeMinutes) {
-	return TASK_SNOOZE_VALUES.includes(snoozeMinutes);
-}
-
 function toObjectId(value) {
 	return value instanceof ObjectId ? value : new ObjectId(value);
 }
@@ -201,6 +200,8 @@ async function findOwnedTask(db, { taskId, userId }) {
 }
 
 function serializeTask(task) {
+	const pomodoro = normalizeStoredPomodoro(task);
+
 	return {
 		id: task._id.toString(),
 		name: task.name,
@@ -208,9 +209,7 @@ function serializeTask(task) {
 		colorKey: task.colorKey,
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
-		alarmEnabled: task.alarmEnabled,
-		durationMinutes: task.durationMinutes ?? null,
-		snoozeMinutes: task.snoozeMinutes ?? null,
+		pomodoro,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
@@ -222,18 +221,17 @@ function serializeTask(task) {
 		daymapLocked: task.daymapLocked === true,
 		mappedToday: task.mappedToday === true,
 		mappedAt: task.mappedAt ? task.mappedAt.toISOString() : null,
-			queuePosition: Number.isInteger(task.queuePosition) ? task.queuePosition : null,
-			activeToday: task.activeToday,
-			activatedAt: task.activatedAt ? task.activatedAt.toISOString() : null,
-			alarmDueAt: task.alarmDueAt ? task.alarmDueAt.toISOString() : null,
-			panicMilliseconds: Number.isInteger(task.panicMilliseconds) ? task.panicMilliseconds : 0,
-			panicMeasuredAt: task.panicMeasuredAt ? task.panicMeasuredAt.toISOString() : null,
-			effectiveMilliseconds: Number.isInteger(task.effectiveMilliseconds)
-				? task.effectiveMilliseconds
-				: 0,
-			taskPanicLog: Array.isArray(task.taskPanicLog) ? task.taskPanicLog : [],
-			lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
-			lastInactivatedAt: task.lastInactivatedAt ? task.lastInactivatedAt.toISOString() : null,
+		queuePosition: Number.isInteger(task.queuePosition) ? task.queuePosition : null,
+		activeToday: task.activeToday,
+		activatedAt: task.activatedAt ? task.activatedAt.toISOString() : null,
+		panicMilliseconds: Number.isInteger(task.panicMilliseconds) ? task.panicMilliseconds : 0,
+		panicMeasuredAt: task.panicMeasuredAt ? task.panicMeasuredAt.toISOString() : null,
+		effectiveMilliseconds: Number.isInteger(task.effectiveMilliseconds)
+			? task.effectiveMilliseconds
+			: 0,
+		taskPanicLog: Array.isArray(task.taskPanicLog) ? task.taskPanicLog : [],
+		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
+		lastInactivatedAt: task.lastInactivatedAt ? task.lastInactivatedAt.toISOString() : null,
 		createdAt: task.createdAt.toISOString(),
 		updatedAt: task.updatedAt.toISOString()
 	};
@@ -241,17 +239,14 @@ function serializeTask(task) {
 
 module.exports = {
 	TASK_COLOR_MAP,
-	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
-	TASK_SNOOZE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
 	findOwnedTask,
 	isAllowedTaskColor,
-	isAllowedTaskDuration,
 	isAllowedTaskMode,
-	isAllowedTaskSnooze,
 	isAllowedTaskTrackingType,
 	serializedCompletedTaskJsonSchema,
+	serializedPomodoroJsonSchema,
 	serializedTaskJsonSchema,
 	toObjectId,
 	serializeTask

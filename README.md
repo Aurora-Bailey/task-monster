@@ -10,7 +10,7 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, snooze alarms, adjust tally counts, control panic mode, and summarize the day from real stats data. New task creation now has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate.
+Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, adjust tally counts, control panic mode, and summarize the day from real stats data. New task creation now has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate.
 
 ## Current app status
 
@@ -64,6 +64,8 @@ If you are setting up a new machine, start by copying `.env.example` to `.env` a
    - `cd front && npm install`
    - `npm run dev`
 5. Open the Vite dev server in your browser.
+6. If you are upgrading an older local database that still has legacy alarm fields on tasks:
+   - `cd back && npm run migrate:pomodoro`
 
 Creating an account currently requires alpha code `gyarados`.
 Creating an account also requires agreeing to the current Privacy Policy and Terms & Conditions.
@@ -86,6 +88,11 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 
 - Tasks are either `one-time` or `repeatable`
 - Tasks track either by `time` or `tally`
+- Time-tracked tasks now use stored pomodoro cadences:
+  - `none`: no focus/break cycle; task still records active time and history
+  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
+  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
+  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
@@ -138,7 +145,6 @@ Assistant route:
     - queue or unqueue daymap tasks
     - toggle daymap lock
     - update tally counts
-    - snooze alarms
     - start or stop panic
     - summarize a local day from real stats
   - duplicate-task guard behavior:
@@ -161,7 +167,6 @@ Task routes:
 - `POST /tasks/:taskId/inactivate`
 - `POST /tasks/:taskId/done`
 - `POST /tasks/:taskId/archive`
-- `POST /tasks/:taskId/snooze`
 - `POST /tasks/:taskId/tally`
 - `PATCH /tasks/:taskId/note`
 - `PATCH /tasks/:taskId/instance-note`

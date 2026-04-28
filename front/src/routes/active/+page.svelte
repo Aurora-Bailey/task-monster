@@ -4,6 +4,7 @@
 	import { onMount, tick } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { getPomodoroState } from '$lib/pomodoro';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -13,7 +14,6 @@
 		doneTask,
 		inactivateTask,
 		loadActiveTasks,
-		snoozeTask,
 		updateTaskInstanceNote,
 		updateTaskTally,
 		updateTaskNote
@@ -37,8 +37,8 @@
 	let doneModalNoteInput = $state(null);
 
 	let clockIntervalId = null;
-	let alarmLoopId = null;
 	let audioContext = null;
+	let lastPomodoroBellKeys = new Map();
 
 	const DONE_ADJUST_MINUTE_MS = 60 * 1000;
 	const DONE_ADJUST_HOUR_MS = 60 * 60 * 1000;
@@ -116,14 +116,6 @@
 		busyTasks = nextBusyTasks;
 	}
 
-	function isTaskRinging(task) {
-		if (!task.activeToday || !task.alarmEnabled || !task.alarmDueAt) {
-			return false;
-		}
-
-		return new Date(task.alarmDueAt).getTime() <= nowMs;
-	}
-
 	function getActiveDurationLabel(task) {
 		if (!task.activatedAt) {
 			return 'Just started';
@@ -132,18 +124,22 @@
 		return formatElapsedDuration(nowMs - new Date(task.activatedAt).getTime());
 	}
 
-	function getAlarmLabel(task) {
-		if (!task.alarmEnabled || !task.alarmDueAt) {
-			return 'Off';
+	function getTaskPomodoroState(task) {
+		return getPomodoroState(task, nowMs);
+	}
+
+	function isTaskOnPomodoroBreak(task) {
+		return getTaskPomodoroState(task)?.isBreak === true;
+	}
+
+	function getPomodoroStatusLabel(task) {
+		const pomodoroState = getTaskPomodoroState(task);
+
+		if (!pomodoroState) {
+			return task.pomodoro ? `${task.pomodoro.label} cadence` : 'No cadence';
 		}
 
-		const delta = new Date(task.alarmDueAt).getTime() - nowMs;
-
-		if (delta >= 0) {
-			return `Rings in ${formatElapsedDuration(delta)}`;
-		}
-
-		return `Overdue by ${formatElapsedDuration(Math.abs(delta))}`;
+		return `${pomodoroState.phaseLabel} · ${formatElapsedDuration(pomodoroState.remainingMs)} left`;
 	}
 
 	function getLivePanicMilliseconds(task) {
@@ -363,23 +359,6 @@
 		}
 	}
 
-	async function handleSnooze(taskId) {
-		actionError = '';
-		setBusy(taskId, 'snooze');
-
-		try {
-			const updatedTask = await snoozeTask(taskId);
-			mergeTaskUpdate(taskId, updatedTask, {
-				preservePanic: true,
-				preserveInstanceNote: true
-			});
-		} catch (error) {
-			actionError = error.message;
-		} finally {
-			clearBusy(taskId);
-		}
-	}
-
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
 		mergeTaskUpdate(taskId, updatedTask, {
@@ -424,45 +403,67 @@
 		audioReady = audioContext.state === 'running';
 	}
 
-	function playAlarmPulse() {
+	function playPomodoroBell() {
 		if (!audioContext || audioContext.state !== 'running') {
 			return;
 		}
 
 		const now = audioContext.currentTime;
-		const oscillator = audioContext.createOscillator();
+		const primaryOscillator = audioContext.createOscillator();
+		const accentOscillator = audioContext.createOscillator();
 		const gain = audioContext.createGain();
 
-		oscillator.type = 'square';
-		oscillator.frequency.setValueAtTime(880, now);
+		primaryOscillator.type = 'triangle';
+		primaryOscillator.frequency.setValueAtTime(1244, now);
+		accentOscillator.type = 'sine';
+		accentOscillator.frequency.setValueAtTime(1661, now + 0.06);
+
 		gain.gain.setValueAtTime(0.0001, now);
 		gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
-		gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+		gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
 
-		oscillator.connect(gain);
+		primaryOscillator.connect(gain);
+		accentOscillator.connect(gain);
 		gain.connect(audioContext.destination);
-		oscillator.start(now);
-		oscillator.stop(now + 0.24);
+
+		primaryOscillator.start(now);
+		accentOscillator.start(now + 0.06);
+		primaryOscillator.stop(now + 0.22);
+		accentOscillator.stop(now + 0.42);
 	}
 
-	function startAlarmLoop() {
-		if (!browser || alarmLoopId !== null) {
+	function syncPomodoroBreakBell() {
+		if (!browser) {
 			return;
 		}
 
-		playAlarmPulse();
-		alarmLoopId = window.setInterval(() => {
-			playAlarmPulse();
-		}, 1200);
-	}
+		let shouldRing = false;
+		const activeTaskIds = new Set(tasks.map((task) => task.id));
 
-	function stopAlarmLoop() {
-		if (!browser || alarmLoopId === null) {
-			return;
+		for (const taskId of lastPomodoroBellKeys.keys()) {
+			if (!activeTaskIds.has(taskId)) {
+				lastPomodoroBellKeys.delete(taskId);
+			}
 		}
 
-		window.clearInterval(alarmLoopId);
-		alarmLoopId = null;
+		for (const task of tasks) {
+			const pomodoroState = getTaskPomodoroState(task);
+
+			if (!pomodoroState?.isBreak || !pomodoroState.bellKey) {
+				lastPomodoroBellKeys.delete(task.id);
+				continue;
+			}
+
+			if (lastPomodoroBellKeys.get(task.id) !== pomodoroState.bellKey) {
+				lastPomodoroBellKeys.set(task.id, pomodoroState.bellKey);
+				shouldRing = true;
+			}
+		}
+
+		if (shouldRing) {
+			void unlockAudio();
+			playPomodoroBell();
+		}
 	}
 
 	onMount(() => {
@@ -510,7 +511,7 @@
 				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
-				stopAlarmLoop();
+				lastPomodoroBellKeys = new Map();
 
 				if (audioContext) {
 					void audioContext.close();
@@ -519,7 +520,7 @@
 		}
 	});
 
-	const ringingCount = $derived(tasks.filter((task) => isTaskRinging(task)).length);
+	const breakCount = $derived(tasks.filter((task) => isTaskOnPomodoroBreak(task)).length);
 	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'active' }));
 	const selectedDoneTask = $derived(getTaskById(doneModalTaskId));
 
@@ -528,13 +529,7 @@
 			return;
 		}
 
-		if (ringingCount > 0) {
-			void unlockAudio();
-			startAlarmLoop();
-			return;
-		}
-
-		stopAlarmLoop();
+		syncPomodoroBreakBell();
 	});
 </script>
 
@@ -558,10 +553,10 @@
 		</div>
 	{/if}
 
-	{#if ringingCount > 0 && audioSupported && !audioReady}
+	{#if breakCount > 0 && audioSupported && !audioReady}
 		<div class="message-card warning-card">
-			<strong>Alarm audio needs a tap</strong>
-			<p>The browser is holding audio until you interact. Tap anywhere and the ringing will start.</p>
+			<strong>Pomodoro break bell needs a tap</strong>
+			<p>The browser is holding audio until you interact. Tap anywhere and the minute break chimes will start.</p>
 		</div>
 	{/if}
 
@@ -702,16 +697,15 @@
 						variant="active"
 						editableTaskId={task.id}
 						activeDurationLabel={getActiveDurationLabel(task)}
-						alarmLabel={getAlarmLabel(task)}
+						pomodoroStatusLabel={getPomodoroStatusLabel(task)}
+						pomodoroState={getTaskPomodoroState(task)}
 						panicDurationLabel={getPanicDurationLabel(task)}
 						effectiveDurationLabel={getEffectiveDurationLabel(task)}
 						onSaveInstanceNote={handleSaveInstanceNote}
-						ringing={isTaskRinging(task)}
 						busyAction={getBusyAction(task.id)}
 					onDone={handleDone}
 					onInactivate={handleInactivate}
 					onSaveNote={handleSaveNote}
-					onSnooze={handleSnooze}
 					onTally={handleTally}
 				/>
 			{/each}

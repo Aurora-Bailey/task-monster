@@ -91,16 +91,24 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
 - Daymap cards support queueing and daymap locking
+- The add page exposes pomodoro presets directly for time tasks
+  - `none`: manual run with no focus/break bell
+  - `short`: 15/5
+  - `medium`: 25/5
+  - `long`: 50/10
+  - task notes are always visible on the form
 - Active tasks support:
   - inactivate
   - done
-  - snooze for timed tasks
+  - pomodoro focus/break runtime for time tasks
   - tally increment/decrement for tally tasks
 - Marking a task done from `/active` opens a modal that can:
   - adjust the run start time
   - adjust the completion time
   - attach an instance note
-- Active alarms use browser audio
+- Active pomodoro breaks use browser audio bells
+  - focus is silent
+  - breaks ring once per minute
   - some browsers require user interaction before audio can play
 - Panic mode is controlled from the header, not from the active page itself
 - The header AI drawer talks to `POST /assistant/chat`

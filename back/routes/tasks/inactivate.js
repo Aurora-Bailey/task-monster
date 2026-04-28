@@ -77,7 +77,6 @@ async function inactivateTaskRoute(app) {
 						queuePosition: null,
 						activeToday: false,
 						activatedAt: null,
-						alarmDueAt: null,
 						lastInactivatedAt: inactivatedAt,
 						updatedAt: inactivatedAt
 					}

@@ -157,7 +157,6 @@ async function doneTaskRoute(app) {
 						queuePosition: null,
 						activeToday: false,
 						activatedAt: null,
-						alarmDueAt: null,
 						activeTallyCount: 0,
 						lastCompletedTallyCount: completedTallyCount,
 						lastCompletedAt: completedAt,

@@ -1,5 +1,12 @@
 <script>
 	import { readApiBody, readApiError } from '$lib/api';
+	import {
+		formatPomodoroCadence,
+		formatPomodoroLongBreak,
+		getPomodoroPresetOption,
+		NO_POMODORO_PRESET_KEY,
+		POMODORO_PRESET_OPTIONS
+	} from '$lib/pomodoro';
 	import { authorizedRequest } from '$lib/session';
 
 	const taskColors = [
@@ -61,37 +68,13 @@
 		}
 	];
 
-	const taskDurations = [
-		{ value: '5', label: '5 min' },
-		{ value: '10', label: '10 min' },
-		{ value: '15', label: '15 min' },
-		{ value: '20', label: '20 min' },
-		{ value: '30', label: '30 min' },
-		{ value: '45', label: '45 min' },
-		{ value: '60', label: '1 hour' },
-		{ value: '90', label: '90 min' },
-		{ value: '120', label: '2 hours' },
-		{ value: '180', label: '3 hours' }
-	];
-
-	const snoozeDurations = [
-		{ value: '5', label: '5 min' },
-		{ value: '10', label: '10 min' },
-		{ value: '15', label: '15 min' },
-		{ value: '20', label: '20 min' },
-		{ value: '30', label: '30 min' }
-	];
-
 	let taskName = $state('');
 	let selectedColor = $state(taskColors[0].value);
 	let taskMode = $state('repeatable');
 	let trackingType = $state('time');
-	let alarmEnabled = $state(false);
-	let durationMinutes = $state(taskDurations[1].value);
-	let snoozeMinutes = $state(snoozeDurations[1].value);
+	let selectedPomodoroPreset = $state('medium');
 	let tallyUnit = $state('');
 	let tallyTarget = $state('10');
-	let notesEnabled = $state(false);
 	let note = $state('');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
@@ -99,18 +82,16 @@
 	const selectedColorMeta = $derived(
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
 	);
+	const selectedPomodoroMeta = $derived(getPomodoroPresetOption(selectedPomodoroPreset));
 
 	function resetForm() {
 		taskName = '';
 		selectedColor = taskColors[0].value;
 		taskMode = 'repeatable';
 		trackingType = 'time';
-		alarmEnabled = false;
-		durationMinutes = taskDurations[1].value;
-		snoozeMinutes = snoozeDurations[1].value;
+		selectedPomodoroPreset = 'medium';
 		tallyUnit = '';
 		tallyTarget = '10';
-		notesEnabled = false;
 		note = '';
 	}
 
@@ -128,15 +109,16 @@
 					color: selectedColor,
 					mode: taskMode,
 					trackingType,
-					alarmEnabled: trackingType === 'time' ? alarmEnabled : false,
-					durationMinutes:
-						trackingType === 'time' && alarmEnabled ? Number.parseInt(durationMinutes, 10) : null,
-					snoozeMinutes:
-						trackingType === 'time' && alarmEnabled ? Number.parseInt(snoozeMinutes, 10) : null,
+					pomodoroPreset:
+						trackingType === 'time'
+							? selectedPomodoroPreset === NO_POMODORO_PRESET_KEY
+								? null
+								: selectedPomodoroPreset
+							: null,
 					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
 					tallyTarget:
 						trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
-					note: notesEnabled ? note : null
+					note: note.trim() ? note : null
 				}
 			});
 
@@ -251,52 +233,101 @@
 			</fieldset>
 
 			{#if trackingType === 'time'}
-				<div class="alarm-stack">
-				<input
-					id="task-alarm"
-					bind:checked={alarmEnabled}
-					class="alarm-toggle"
-					type="checkbox"
-					name="alarm"
-				/>
-				<label class="alarm-row" for="task-alarm">Alarm</label>
+				<fieldset class="pomodoro-picker">
+					<legend class="field-label">Pomodoro cadence</legend>
 
-				<div class="alarm-fields">
-					<fieldset class="time-group">
-						<legend class="field-label">Task length</legend>
-						<div class="time-options">
-							{#each taskDurations as duration}
-								<label class="time-option">
-									<input
-										type="radio"
-										name="duration"
-										value={duration.value}
-										bind:group={durationMinutes}
-									/>
-									<span class="time-pill">{duration.label}</span>
-								</label>
-							{/each}
-						</div>
-					</fieldset>
+					<div class="pomodoro-options">
+						{#each POMODORO_PRESET_OPTIONS as option}
+							<label class="pomodoro-option">
+								<input
+									type="radio"
+									name="pomodoroPreset"
+									value={option.presetKey}
+									bind:group={selectedPomodoroPreset}
+								/>
 
-					<fieldset class="time-group">
-						<legend class="field-label">Snooze length</legend>
-						<div class="time-options">
-							{#each snoozeDurations as duration}
-								<label class="time-option">
-									<input
-										type="radio"
-										name="snooze"
-										value={duration.value}
-										bind:group={snoozeMinutes}
-									/>
-									<span class="time-pill">{duration.label}</span>
-								</label>
-							{/each}
-						</div>
-					</fieldset>
-				</div>
-				</div>
+								<span class="pomodoro-card">
+									<span class="pomodoro-card__icon" aria-hidden="true">
+										{#if option.presetKey === NO_POMODORO_PRESET_KEY}
+											<svg viewBox="0 0 48 48" fill="none" role="presentation">
+												<circle cx="24" cy="24" r="17" fill="#e8edf5" stroke="#8ba0b9" stroke-width="2" />
+												<path d="M16 32 32 16" stroke="#8ba0b9" stroke-width="2.5" stroke-linecap="round" />
+											</svg>
+										{:else}
+											<svg viewBox="0 0 48 48" fill="none" role="presentation">
+												<path
+													d="M20 9c0-3.3 2.7-6 6-6 2.9 0 5.2 2 5.8 4.7-.8-.3-1.6-.4-2.5-.4-3.4 0-6.7 1.5-9.3 4.1V9Z"
+													fill="#5a9d5d"
+												/>
+												<path
+													d="M31.5 8.7c2.6-2.2 6.3-2.3 9.1-.3-2.1 1.6-4.1 3.2-6.6 3.6-1 .2-1.9.2-2.8 0 .1-1.2.1-2.3.3-3.3Z"
+													fill="#7dbb77"
+												/>
+												<path
+													d="M24 14c10.8 0 19 7.1 19 16.4C43 39.3 35 45 24 45S5 39.3 5 30.4C5 21.1 13.2 14 24 14Z"
+													fill="#e55243"
+												/>
+												<path
+													d="M24 19c3.9 0 6.8 1.4 8.5 2.7-1.4-3.8-4.6-6.1-8.5-6.1-4 0-7.2 2.3-8.6 6.1C17.1 20.4 20 19 24 19Z"
+													fill="#f17b66"
+												/>
+											</svg>
+										{/if}
+									</span>
+
+									<span class="pomodoro-card__topline">
+										<strong>{option.label}</strong>
+										<span>{option.tagline}</span>
+									</span>
+
+									<span class="pomodoro-card__cadence">
+										{#if option.presetKey === NO_POMODORO_PRESET_KEY}
+											No focus/break cycle
+										{:else}
+											{option.focusMinutes}m focus / {option.shortBreakMinutes}m break
+										{/if}
+									</span>
+
+									<span class="pomodoro-card__meta">
+										{#if option.presetKey === NO_POMODORO_PRESET_KEY}
+											Still tracks active time, notes, panic overlap, and done history
+										{:else}
+											{option.longBreakMinutes}m long break after {option.longBreakInterval} focus blocks
+										{/if}
+									</span>
+
+									<span class="pomodoro-card__description">{option.description}</span>
+								</span>
+							</label>
+						{/each}
+					</div>
+
+					<div class="pomodoro-helper">
+						<p class="pomodoro-helper__eyebrow">Selected rhythm</p>
+						<h2>{selectedPomodoroMeta.label} lantern</h2>
+						{#if selectedPomodoroPreset === NO_POMODORO_PRESET_KEY}
+							<p class="pomodoro-helper__lede">
+								This task will still record active time, notes, panic overlap, and done history, but
+								it will not run a focus/break cadence or ring break bells.
+							</p>
+						{:else}
+							<p class="pomodoro-helper__lede">
+								{selectedPomodoroMeta.focusMinutes} minutes on, {selectedPomodoroMeta.shortBreakMinutes}
+								minutes off, then a {selectedPomodoroMeta.longBreakMinutes}-minute long break every
+								{selectedPomodoroMeta.longBreakInterval} focus blocks.
+							</p>
+						{/if}
+						{#if selectedPomodoroPreset === NO_POMODORO_PRESET_KEY}
+							<p class="pomodoro-helper__meta">{formatPomodoroLongBreak(selectedPomodoroMeta)}.</p>
+						{:else}
+							<p class="pomodoro-helper__meta">
+								{formatPomodoroCadence(selectedPomodoroMeta)} cadence. {formatPomodoroLongBreak(
+									selectedPomodoroMeta
+								)}.
+							</p>
+						{/if}
+					</div>
+				</fieldset>
 			{:else}
 				<div class="tally-fields">
 					<label class="field-label" for="task-tally-unit">Tally unit</label>
@@ -326,28 +357,17 @@
 				</div>
 			{/if}
 
-			<div class="notes-stack">
-				<input
-					id="task-notes-toggle"
-					bind:checked={notesEnabled}
-					class="notes-toggle"
-					type="checkbox"
-					name="hasNotes"
-				/>
-				<label class="notes-row" for="task-notes-toggle">Additional notepad</label>
-
-				<div class="notes-fields">
-					<label class="field-label" for="task-notes">Task notepad</label>
-					<textarea
-						id="task-notes"
-						bind:value={note}
-						class="notes-input"
-						name="notes"
-						rows="4"
-						maxlength="2000"
-						placeholder="Extra context, reminders, or anything that makes this task easier to land."
-					></textarea>
-				</div>
+			<div class="notes-section">
+				<label class="field-label" for="task-notes">Task notepad</label>
+				<textarea
+					id="task-notes"
+					bind:value={note}
+					class="notes-input"
+					name="notes"
+					rows="4"
+					maxlength="2000"
+					placeholder="Extra context, reminders, or anything that makes this task easier to land."
+				></textarea>
 			</div>
 
 			{#if errorMessage}
@@ -593,153 +613,148 @@
 		outline-offset: 4px;
 	}
 
-	.alarm-stack {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		align-items: center;
-		column-gap: 0.75rem;
-		row-gap: 0.4rem;
-	}
-
-	.alarm-toggle {
-		width: 1rem;
-		height: 1rem;
+	.pomodoro-picker {
 		margin: 0;
-		accent-color: var(--color-theme-2);
-	}
-
-	.alarm-row {
-		font-weight: 600;
-		color: rgba(0, 0, 0, 0.7);
-		cursor: pointer;
-	}
-
-	.alarm-fields {
-		grid-column: 1 / -1;
-		display: grid;
-		gap: 1rem;
-		padding-left: 1.75rem;
-		max-height: 0;
-		overflow: hidden;
-		opacity: 0;
-		pointer-events: none;
-		transform: translateY(-0.35rem);
-		transition:
-			max-height 0.25s ease,
-			opacity 0.18s ease,
-			transform 0.18s ease,
-			padding-top 0.18s ease;
-	}
-
-	.alarm-toggle:checked ~ .alarm-fields {
-		max-height: 18rem;
-		padding-top: 0.35rem;
-		opacity: 1;
-		pointer-events: auto;
-		transform: translateY(0);
-	}
-
-	.time-group {
-		margin: 0;
-		padding: 0;
+		padding: 0.15rem 0 0;
 		border: 0;
 	}
 
-	.time-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.55rem;
+	.pomodoro-options {
+		display: grid;
+		gap: 0.85rem;
 	}
 
-	.time-option {
+	.pomodoro-option {
 		position: relative;
-		display: inline-flex;
+		display: block;
 		cursor: pointer;
 	}
 
-	.time-option input {
+	.pomodoro-option input {
 		position: absolute;
 		opacity: 0;
 		pointer-events: none;
 	}
 
-	.time-pill {
-		padding: 0.55rem 0.8rem;
-		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.08);
-		border: 1px solid rgba(64, 117, 166, 0.18);
-		color: rgba(0, 0, 0, 0.74);
-		font-size: 0.92rem;
-		font-weight: 700;
+	.pomodoro-card {
+		display: grid;
+		gap: 0.45rem;
+		padding: 1rem 1rem 1.05rem;
+		border-radius: 20px;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.94)),
+			radial-gradient(circle at top left, rgba(229, 82, 67, 0.08), transparent 38%);
+		border: 1px solid rgba(64, 117, 166, 0.14);
+		box-shadow: 0 12px 28px rgba(44, 62, 80, 0.08);
 		transition:
-			background-color 0.16s ease,
+			transform 0.16s ease,
 			border-color 0.16s ease,
-			color 0.16s ease,
 			box-shadow 0.16s ease,
-			transform 0.16s ease;
+			background-color 0.16s ease;
 	}
 
-	.time-option:hover .time-pill {
+	.pomodoro-option:hover .pomodoro-card {
 		transform: translateY(-1px);
-		border-color: rgba(64, 117, 166, 0.32);
 	}
 
-	.time-option input:checked + .time-pill {
-		background: var(--color-theme-2);
-		border-color: var(--color-theme-2);
-		color: white;
-		box-shadow: 0 10px 20px rgba(64, 117, 166, 0.2);
+	.pomodoro-option input:checked + .pomodoro-card {
+		border-color: rgba(229, 82, 67, 0.4);
+		box-shadow:
+			0 18px 34px rgba(229, 82, 67, 0.14),
+			0 0 0 1px rgba(229, 82, 67, 0.08);
+		background:
+			linear-gradient(180deg, rgba(255, 252, 250, 0.98), rgba(255, 247, 242, 0.95)),
+			radial-gradient(circle at top left, rgba(229, 82, 67, 0.16), transparent 42%);
 	}
 
-	.time-option:focus-within .time-pill {
+	.pomodoro-option:focus-within .pomodoro-card {
 		outline: 3px solid rgba(64, 117, 166, 0.25);
 		outline-offset: 3px;
 	}
 
-	.notes-stack {
-		display: grid;
-		grid-template-columns: auto 1fr;
+	.pomodoro-card__icon {
+		display: inline-flex;
 		align-items: center;
-		column-gap: 0.75rem;
-		row-gap: 0.4rem;
+		justify-content: center;
+		width: 2.6rem;
+		height: 2.6rem;
+		border-radius: 999px;
+		background: rgba(255, 245, 241, 0.92);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 	}
 
-	.notes-toggle {
-		width: 1rem;
-		height: 1rem;
+	.pomodoro-card__icon svg {
+		width: 1.85rem;
+		height: 1.85rem;
+	}
+
+	.pomodoro-card__topline {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.pomodoro-card__topline strong {
+		font-size: 1rem;
+		color: rgba(13, 24, 36, 0.88);
+	}
+
+	.pomodoro-card__topline span {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(229, 82, 67, 0.76);
+	}
+
+	.pomodoro-card__cadence {
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: rgba(13, 24, 36, 0.76);
+	}
+
+	.pomodoro-card__meta,
+	.pomodoro-card__description,
+	.pomodoro-helper__lede,
+	.pomodoro-helper__meta {
+		font-size: 0.9rem;
+		line-height: 1.45;
+		color: rgba(13, 24, 36, 0.66);
+	}
+
+	.pomodoro-helper {
+		display: grid;
+		gap: 0.35rem;
+		margin-top: 0.95rem;
+		padding: 1rem 1.05rem;
+		border-radius: 18px;
+		background:
+			linear-gradient(180deg, rgba(255, 251, 249, 0.96), rgba(255, 246, 242, 0.94)),
+			radial-gradient(circle at top left, rgba(229, 82, 67, 0.12), transparent 44%);
+		border: 1px solid rgba(229, 82, 67, 0.12);
+		box-shadow: 0 12px 26px rgba(44, 62, 80, 0.08);
+	}
+
+	.pomodoro-helper__eyebrow {
 		margin: 0;
-		accent-color: var(--color-theme-2);
+		font-size: 0.74rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(229, 82, 67, 0.76);
 	}
 
-	.notes-row {
-		font-weight: 600;
-		color: rgba(0, 0, 0, 0.7);
-		cursor: pointer;
+	.pomodoro-helper h2 {
+		margin: 0;
+		font-size: 1.2rem;
+		letter-spacing: -0.03em;
+		color: rgba(13, 24, 36, 0.9);
 	}
 
-	.notes-fields {
-		grid-column: 1 / -1;
+	.notes-section {
 		display: grid;
 		gap: 0.55rem;
-		padding-left: 1.75rem;
-		max-height: 0;
-		overflow: hidden;
-		opacity: 0;
-		pointer-events: none;
-		transform: translateY(-0.35rem);
-		transition:
-			max-height 0.25s ease,
-			opacity 0.18s ease,
-			transform 0.18s ease,
-			padding-top 0.18s ease;
-	}
-
-	.notes-toggle:checked ~ .notes-fields {
-		max-height: 14rem;
-		padding-top: 0.35rem;
-		opacity: 1;
-		pointer-events: auto;
-		transform: translateY(0);
 	}
 
 	.tally-fields {

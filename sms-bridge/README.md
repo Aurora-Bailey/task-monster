@@ -92,7 +92,6 @@ Suggested supported actions:
 - inactivate an active task
 - mark a task done
 - move a task to daymap
-- snooze an active timed task
 - start or stop panic mode
 
 Suggested deferred actions:
@@ -127,7 +126,6 @@ Examples:
 - `what is active`
 - `show daymap`
 - `what's on my daymap`
-- `snooze X`
 
 This makes the bridge cheaper, faster, and more predictable.
 
@@ -144,7 +142,6 @@ The model should be able to choose among tools like:
 - `inactivate_task`
 - `done_task`
 - `move_task_to_daymap`
-- `snooze_task`
 - `start_panic`
 - `stop_panic`
 - `ask_clarifying_question`
@@ -215,7 +212,6 @@ Possible policy:
 - low-risk actions can execute immediately
   - `what's active`
   - `show daymap`
-  - `snooze`
 - medium-risk actions execute if confidence is high
   - `start X`
   - `stop X`
@@ -236,7 +232,6 @@ Likely backend routes the bridge will use:
 - `POST /tasks/:taskId/inactivate`
 - `POST /tasks/:taskId/done`
 - `POST /tasks/:taskId/daymap`
-- `POST /tasks/:taskId/snooze`
 - `GET /panic/status`
 - `POST /panic/start`
 - `POST /panic/stop`

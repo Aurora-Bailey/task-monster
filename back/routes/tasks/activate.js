@@ -56,10 +56,6 @@ async function activateTaskRoute(app) {
 			}
 
 			const activatedAt = new Date();
-			const alarmDueAt =
-				task.trackingType !== 'tally' && task.alarmEnabled && task.durationMinutes
-					? new Date(activatedAt.getTime() + task.durationMinutes * 60 * 1000)
-					: null;
 			const mappedAt = task.mappedAt || activatedAt;
 			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
 			const activeTallyCount =
@@ -81,7 +77,6 @@ async function activateTaskRoute(app) {
 						queuePosition: null,
 						activeToday: true,
 						activatedAt,
-						alarmDueAt,
 						activeTallyCount,
 						updatedAt: activatedAt
 					}

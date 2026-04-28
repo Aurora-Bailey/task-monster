@@ -1,15 +1,12 @@
 const { ObjectId } = require('mongodb');
 
+const { POMODORO_PRESET_KEYS, getPomodoroPreset, isValidPomodoroPresetKey } = require('../../lib/pomodoro');
 const {
 	TASK_COLOR_MAP,
-	TASK_DURATION_VALUES,
 	TASK_MODE_VALUES,
-	TASK_SNOOZE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
 	isAllowedTaskColor,
-	isAllowedTaskDuration,
 	isAllowedTaskMode,
-	isAllowedTaskSnooze,
 	isAllowedTaskTrackingType,
 	serializedTaskJsonSchema,
 	serializeTask
@@ -18,7 +15,7 @@ const {
 const createTaskSchema = {
 	body: {
 		type: 'object',
-		required: ['name', 'color', 'mode', 'alarmEnabled'],
+		required: ['name', 'color', 'mode'],
 		additionalProperties: false,
 		properties: {
 			name: {
@@ -38,16 +35,9 @@ const createTaskSchema = {
 				type: 'string',
 				enum: [...TASK_TRACKING_TYPE_VALUES]
 			},
-			alarmEnabled: {
-				type: 'boolean'
-			},
-			durationMinutes: {
-				type: ['integer', 'null'],
-				enum: [...TASK_DURATION_VALUES, null]
-			},
-			snoozeMinutes: {
-				type: ['integer', 'null'],
-				enum: [...TASK_SNOOZE_VALUES, null]
+			pomodoroPreset: {
+				type: ['string', 'null'],
+				enum: [...POMODORO_PRESET_KEYS, null]
 			},
 			tallyUnit: {
 				type: ['string', 'null'],
@@ -88,7 +78,10 @@ async function createTaskRoute(app) {
 			const color = request.body.color;
 			const mode = request.body.mode;
 			const trackingType = request.body.trackingType || 'time';
-			const alarmEnabled = request.body.alarmEnabled;
+			const hasPomodoroPreset = Object.hasOwn(request.body, 'pomodoroPreset');
+			const pomodoroPresetKey = hasPomodoroPreset
+				? request.body.pomodoroPreset
+				: 'medium';
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
 
 			if (!name) {
@@ -115,32 +108,24 @@ async function createTaskRoute(app) {
 				});
 			}
 
-			let durationMinutes = null;
-			let snoozeMinutes = null;
+			let pomodoro = null;
 			let tallyUnit = null;
 			let tallyTarget = null;
 
-			if (trackingType === 'time' && alarmEnabled) {
-				durationMinutes = request.body.durationMinutes;
-				snoozeMinutes = request.body.snoozeMinutes;
-
-				if (!isAllowedTaskDuration(durationMinutes)) {
+			if (trackingType === 'time') {
+				if (pomodoroPresetKey !== null && !isValidPomodoroPresetKey(pomodoroPresetKey)) {
 					return reply.code(400).send({
-						message: 'Task length is not supported.'
+						message: 'Pomodoro preset is not supported.'
 					});
 				}
 
-				if (!isAllowedTaskSnooze(snoozeMinutes)) {
-					return reply.code(400).send({
-						message: 'Snooze length is not supported.'
-					});
-				}
+				pomodoro = pomodoroPresetKey === null ? null : getPomodoroPreset(pomodoroPresetKey);
 			}
 
 			if (trackingType === 'tally') {
-				if (alarmEnabled) {
+				if (request.body.pomodoroPreset !== undefined && request.body.pomodoroPreset !== null) {
 					return reply.code(400).send({
-						message: 'Tally tasks do not use alarms.'
+						message: 'Tally tasks do not use pomodoro presets.'
 					});
 				}
 
@@ -168,9 +153,7 @@ async function createTaskRoute(app) {
 				colorHex: TASK_COLOR_MAP[color],
 				mode,
 				trackingType,
-				alarmEnabled: trackingType === 'time' ? alarmEnabled : false,
-				durationMinutes,
-				snoozeMinutes,
+				pomodoro,
 				tallyUnit,
 				tallyTarget,
 				activeTallyCount: 0,
@@ -182,7 +165,6 @@ async function createTaskRoute(app) {
 				queuePosition: null,
 				activeToday: false,
 				activatedAt: null,
-				alarmDueAt: null,
 				lastCompletedAt: null,
 				lastInactivatedAt: null,
 				archived: false,

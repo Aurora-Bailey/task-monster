@@ -56,10 +56,6 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 			return null;
 		}
 
-		const alarmDueAt =
-			queuedTask.trackingType !== 'tally' && queuedTask.alarmEnabled && queuedTask.durationMinutes
-				? new Date(activatedAt.getTime() + queuedTask.durationMinutes * 60 * 1000)
-				: null;
 		const activeTallyCount =
 			queuedTask.trackingType === 'tally' && Number.isInteger(queuedTask.activeTallyCount)
 				? queuedTask.activeTallyCount
@@ -77,7 +73,6 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 				$set: {
 					activeToday: true,
 					activatedAt,
-					alarmDueAt,
 					activeTallyCount,
 					queuePosition: null,
 					updatedAt: activatedAt

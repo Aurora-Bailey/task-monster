@@ -105,7 +105,7 @@ Important task-state fields:
 - `queuePosition`
 - `daymapLocked`
 - `activatedAt`
-- `alarmDueAt`
+- `pomodoro`
 - `activeTallyCount`
 
 Notes:
@@ -149,15 +149,23 @@ Queue semantics:
 - only daymap tasks can be queued
 - queue order uses `queuePosition`
 - when the last active task is removed by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
+- if older task docs still carry legacy alarm fields, normalize them with:
+  - `npm run migrate:pomodoro`
 
 ## Active runtime behavior
 
 - Active list route:
   - `GET /tasks/active`
+- Time tasks use stored pomodoro cadence:
+  - `none`: no focus/break cycle
+  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
+  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
+  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
+- Break behavior:
+  - focus phase is silent
+  - break phase rings a short bell every minute on the frontend
 - Tally updates:
   - `POST /tasks/:taskId/tally`
-- Snooze:
-  - `POST /tasks/:taskId/snooze`
 - Task note updates:
   - `PATCH /tasks/:taskId/note`
 - Active run instance note updates:
@@ -217,7 +225,6 @@ The current in-app assistant can:
 - queue or unqueue daymap tasks
 - toggle daymap lock
 - update active tally counts
-- snooze active alarms
 - start or stop panic mode
 
 Assistant request model:
@@ -232,6 +239,8 @@ Assistant request model:
 - there is no server-side conversation persistence
   - the drawer owns the visible thread state in the browser
 - the backend currently uses the Chat Completions API shape, not the Responses API
+- legacy task docs can be normalized with:
+  - `npm run migrate:pomodoro`
 
 Assistant prompt policy:
 

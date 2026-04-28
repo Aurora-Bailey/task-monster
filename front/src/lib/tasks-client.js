@@ -183,7 +183,3 @@ export function doneTask(taskId, { instanceNote, startedAt, completedAt } = {}) 
 
 	return runTaskAction(taskId, 'done', body);
 }
-
-export function snoozeTask(taskId) {
-	return runTaskAction(taskId, 'snooze');
-}

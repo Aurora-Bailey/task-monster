@@ -31,13 +31,13 @@
 		editableTaskId = null,
 		clickActionLabel = 'Activate',
 		activeDurationLabel = '',
-		alarmLabel = '',
+		pomodoroStatusLabel = '',
+		pomodoroState = null,
 		panicDurationLabel = '',
 		effectiveDurationLabel = '',
 		doneDurationLabel = '',
 		doneTallyCount = null,
 		completedAtLabel = '',
-		ringing = false,
 		busyAction = null,
 		onSaveNote = null,
 		onSaveInstanceNote = null,
@@ -49,14 +49,11 @@
 		onTally = () => {},
 		onUnmap = () => {},
 		onInactivate = () => {},
-		onDone = () => {},
-		onSnooze = () => {}
+		onDone = () => {}
 	} = $props();
 
 	const isTallyTask = $derived(task.trackingType === 'tally');
-	const hasAlarm = $derived(
-		task.trackingType !== 'tally' && task.alarmEnabled && task.durationMinutes && task.snoozeMinutes
-	);
+	const hasPomodoro = $derived(task.trackingType !== 'tally' && task.pomodoro);
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
 	const isQueuedDaymapTask = $derived(isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0);
@@ -70,6 +67,20 @@
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
 	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
 	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
+	const pomodoroCycleLabel = $derived(
+		pomodoroState
+			? pomodoroState.isBreak
+				? `Completed ${pomodoroState.completedFocusBlocks} focus block${pomodoroState.completedFocusBlocks === 1 ? '' : 's'}`
+				: `Block ${pomodoroState.focusBlockIndex} of ${pomodoroState.longBreakInterval}`
+			: ''
+	);
+	const pomodoroDetailLabel = $derived(
+		pomodoroState
+			? pomodoroState.isBreak
+				? 'Bell chimes every minute. Focus resumes automatically when the break closes.'
+				: 'Stay with one clear slice. Capture distractions and keep the cut clean.'
+			: ''
+	);
 	const activeTallyCountValue = $derived(Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0);
 	const resolvedDoneTallyCount = $derived(
 		Number.isInteger(doneTallyCount)
@@ -82,9 +93,8 @@
 		variant === 'done' ? 'Completed' : null,
 		task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
 		task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null,
-		hasAlarm ? 'Alarm on' : null,
-		hasAlarm ? formatMinutes(task.durationMinutes) : null,
-		hasAlarm ? `Snooze ${formatMinutes(task.snoozeMinutes)}` : null
+		hasPomodoro ? `${task.pomodoro.label} pomodoro` : null,
+		hasPomodoro ? `${formatMinutes(task.pomodoro.focusMinutes)} / ${formatMinutes(task.pomodoro.shortBreakMinutes)}` : null
 	].filter(Boolean));
 
 	let draftNote = $state('');
@@ -628,29 +638,26 @@
 				</div>
 
 				<div class="runtime-stat">
-					<span>{variant === 'done' ? 'Completed' : 'Alarm'}</span>
-					<strong>{variant === 'done' ? completedAtLabel : alarmLabel || 'Off'}</strong>
+					<span>{variant === 'done' ? 'Completed' : 'Pomodoro'}</span>
+					<strong>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'No cadence'}</strong>
 				</div>
 			</div>
 
-			{#if variant === 'active' && hasAlarm && ringing}
-				<div class="alarm-panel">
+			{#if variant === 'active' && hasPomodoro && pomodoroState}
+				<div class:break-panel={pomodoroState.isBreak} class="pomodoro-panel">
 					<div>
-						<strong>Alarm ringing</strong>
-						<p>This task has hit its timer and will keep sounding until you snooze it.</p>
+						<strong>{pomodoroState.phaseLabel}</strong>
+						<p>{pomodoroDetailLabel}</p>
 					</div>
-					<button
-						class="action-button warm-button"
-						type="button"
-						disabled={busyAction !== null}
-						onclick={() => onSnooze(task.id)}
-					>
-						{busyAction === 'snooze' ? 'Snoozing...' : `Snooze ${formatMinutes(task.snoozeMinutes)}`}
-					</button>
+
+					<div class="pomodoro-panel__stats">
+						<span>{pomodoroCycleLabel}</span>
+						<strong>{formatElapsedDuration(pomodoroState.remainingMs)} left</strong>
+					</div>
 				</div>
 			{/if}
 		{/if}
-		{/if}
+	{/if}
 
 		{#if panicDurationLabel}
 			<p class="task-card__panic-duration">{panicDurationLabel}</p>
@@ -799,7 +806,7 @@
 	}
 
 	.task-card__header,
-	.alarm-panel {
+	.pomodoro-panel {
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
@@ -966,7 +973,7 @@
 	}
 
 	.runtime-stat,
-	.alarm-panel {
+	.pomodoro-panel {
 		background: rgba(255, 255, 255, 0.88);
 		border: 1px solid rgba(20, 28, 38, 0.08);
 	}
@@ -1217,24 +1224,56 @@
 		white-space: pre-wrap;
 	}
 
-	.alarm-panel {
+	.pomodoro-panel {
 		padding: 0.95rem 1rem;
 		border-radius: 18px;
+		background:
+			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
+			rgba(255, 255, 255, 0.88);
+		border-color: rgba(79, 110, 214, 0.16);
+	}
+
+	.pomodoro-panel.break-panel {
 		background:
 			linear-gradient(180deg, rgba(255, 247, 236, 0.98), rgba(255, 251, 245, 0.95)),
 			rgba(255, 255, 255, 0.88);
 		border-color: rgba(191, 121, 31, 0.16);
 	}
 
-	.alarm-panel strong {
+	.pomodoro-panel strong {
 		display: block;
 		margin-bottom: 0.25rem;
+		color: rgba(20, 28, 38, 0.82);
+	}
+
+	.pomodoro-panel.break-panel strong {
 		color: #9a5e12;
 	}
 
-	.alarm-panel p {
+	.pomodoro-panel p {
 		font-size: 0.88rem;
 		color: rgba(20, 28, 38, 0.66);
+	}
+
+	.pomodoro-panel__stats {
+		display: grid;
+		gap: 0.2rem;
+		text-align: right;
+		flex: 0 0 auto;
+	}
+
+	.pomodoro-panel__stats span {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(20, 28, 38, 0.46);
+	}
+
+	.pomodoro-panel__stats strong {
+		margin: 0;
+		font-size: 0.98rem;
+		color: rgba(20, 28, 38, 0.84);
 	}
 
 	.tally-panel {
@@ -1360,12 +1399,6 @@
 		border: 1px solid rgba(20, 28, 38, 0.08);
 	}
 
-	.warm-button {
-		background: linear-gradient(135deg, #c97b22, #e3a04f);
-		color: white;
-		box-shadow: 0 12px 24px rgba(201, 123, 34, 0.2);
-	}
-
 	@keyframes note-spin {
 		to {
 			transform: rotate(360deg);
@@ -1374,7 +1407,7 @@
 
 	@media (max-width: 640px) {
 		.task-card__header,
-		.alarm-panel {
+		.pomodoro-panel {
 			flex-direction: column;
 		}
 

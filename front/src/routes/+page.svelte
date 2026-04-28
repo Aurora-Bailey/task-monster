@@ -79,7 +79,7 @@
 					<figure class="shot-panel hero-secondary-shot">
 						<img
 							src={screenshots.active}
-							alt="Task Monster active task screen showing alarm state, panic time, and done controls."
+							alt="Task Monster active task screen showing pomodoro state, panic time, and done controls."
 						/>
 					</figure>
 
@@ -160,7 +160,7 @@
 			<figure class="shot-panel portrait-shot">
 				<img
 					src={screenshots.active}
-					alt="Task Monster active task screen showing notes, timer, alarm, panic time, and done controls."
+					alt="Task Monster active task screen showing notes, timer, pomodoro phase, panic time, and done controls."
 					loading="lazy"
 				/>
 			</figure>
@@ -169,11 +169,11 @@
 				<p class="section-kicker">Active runtime</p>
 				<h2>When a task goes live, it becomes a real session.</h2>
 				<p>
-					The active screen is where the system earns its keep: duration, alarm state, panic
+					The active screen is where the system earns its keep: duration, pomodoro phase, panic
 					overlap, effective time, run notes, and completion all sit on the same surface.
 				</p>
 				<ul class="surface-points">
-					<li>Alarm and snooze stay tied to the active task.</li>
+					<li>Focus and break cadence stay tied to the active task.</li>
 					<li>Run notes do not get mixed into the template note.</li>
 					<li>Done closes the session instead of toggling a checkbox.</li>
 				</ul>
@@ -196,7 +196,7 @@
 				<p class="section-kicker">Task builder</p>
 				<h2>Tasks carry structure, not just names.</h2>
 				<p>
-					You can define color, type, tracking mode, and optional behavior at creation time so
+					You can define color, type, tracking mode, and pomodoro cadence at creation time so
 					the system knows how that task should behave later.
 				</p>
 				<p>
