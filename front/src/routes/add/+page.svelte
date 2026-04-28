@@ -1,5 +1,6 @@
 <script>
 	import { readApiBody, readApiError } from '$lib/api';
+	import { BELL_SOUND_OPTIONS, DEFAULT_BELL_SOUND_KEY, getBellSoundOption } from '$lib/bell-sounds';
 	import {
 		formatPomodoroCadence,
 		formatPomodoroLongBreak,
@@ -73,6 +74,7 @@
 	let taskMode = $state('repeatable');
 	let trackingType = $state('time');
 	let selectedPomodoroPreset = $state('medium');
+	let selectedBellSound = $state(DEFAULT_BELL_SOUND_KEY);
 	let tallyUnit = $state('');
 	let tallyTarget = $state('10');
 	let note = $state('');
@@ -83,6 +85,7 @@
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
 	);
 	const selectedPomodoroMeta = $derived(getPomodoroPresetOption(selectedPomodoroPreset));
+	const selectedBellSoundMeta = $derived(getBellSoundOption(selectedBellSound));
 
 	function resetForm() {
 		taskName = '';
@@ -90,6 +93,7 @@
 		taskMode = 'repeatable';
 		trackingType = 'time';
 		selectedPomodoroPreset = 'medium';
+		selectedBellSound = DEFAULT_BELL_SOUND_KEY;
 		tallyUnit = '';
 		tallyTarget = '10';
 		note = '';
@@ -115,6 +119,7 @@
 								? null
 								: selectedPomodoroPreset
 							: null,
+					bellSound: trackingType === 'time' ? selectedBellSound : null,
 					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
 					tallyTarget:
 						trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
@@ -327,6 +332,38 @@
 							</p>
 						{/if}
 					</div>
+
+					<fieldset class="bell-picker">
+						<legend class="field-label">Break bell sound</legend>
+
+						<div class="bell-options">
+							{#each BELL_SOUND_OPTIONS as option}
+								<label class="bell-option">
+									<input
+										type="radio"
+										name="bellSound"
+										value={option.key}
+										bind:group={selectedBellSound}
+									/>
+
+									<span class="bell-card">
+										<strong>{option.label}</strong>
+										<span class="bell-card__tone">{option.tone}</span>
+										<span class="bell-card__description">{option.description}</span>
+									</span>
+								</label>
+							{/each}
+						</div>
+
+						<p class="bell-helper">
+							<strong>{selectedBellSoundMeta.label}</strong> will be used for break chimes
+							{#if selectedPomodoroPreset === NO_POMODORO_PRESET_KEY}
+								once this task has a pomodoro cadence again.
+							{:else}
+								on this task.
+							{/if}
+						</p>
+					</fieldset>
 				</fieldset>
 			{:else}
 				<div class="tally-fields">
@@ -750,6 +787,88 @@
 		font-size: 1.2rem;
 		letter-spacing: -0.03em;
 		color: rgba(13, 24, 36, 0.9);
+	}
+
+	.bell-picker {
+		margin: 1rem 0 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.bell-options {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.bell-option {
+		position: relative;
+		display: block;
+		cursor: pointer;
+	}
+
+	.bell-option input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.bell-card {
+		display: grid;
+		gap: 0.22rem;
+		padding: 0.9rem 0.95rem;
+		border-radius: 18px;
+		background: rgba(255, 255, 255, 0.84);
+		border: 1px solid rgba(64, 117, 166, 0.14);
+		box-shadow: 0 10px 24px rgba(44, 62, 80, 0.06);
+		transition:
+			transform 0.16s ease,
+			border-color 0.16s ease,
+			box-shadow 0.16s ease,
+			background 0.16s ease;
+	}
+
+	.bell-card strong {
+		font-size: 0.95rem;
+		color: rgba(13, 24, 36, 0.9);
+	}
+
+	.bell-card__tone {
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(64, 117, 166, 0.75);
+	}
+
+	.bell-card__description {
+		font-size: 0.83rem;
+		line-height: 1.35;
+		color: rgba(13, 24, 36, 0.7);
+	}
+
+	.bell-option:hover .bell-card {
+		transform: translateY(-1px);
+	}
+
+	.bell-option input:checked + .bell-card {
+		background:
+			linear-gradient(180deg, rgba(235, 248, 255, 0.98), rgba(222, 243, 255, 0.98)),
+			radial-gradient(circle at top left, rgba(64, 117, 166, 0.14), transparent 48%);
+		border-color: rgba(64, 117, 166, 0.32);
+		box-shadow: 0 14px 30px rgba(44, 62, 80, 0.1);
+	}
+
+	.bell-option:focus-within .bell-card {
+		outline: 3px solid rgba(64, 117, 166, 0.2);
+		outline-offset: 4px;
+	}
+
+	.bell-helper {
+		margin: 0.8rem 0 0;
+		font-size: 0.88rem;
+		line-height: 1.45;
+		color: rgba(13, 24, 36, 0.74);
 	}
 
 	.notes-section {

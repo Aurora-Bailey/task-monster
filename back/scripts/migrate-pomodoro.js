@@ -1,5 +1,6 @@
 const { loadConfig } = require('../lib/config');
 const { loadRootEnv } = require('../lib/load-env');
+const { normalizeStoredBellSound } = require('../lib/bell-sounds');
 const { connectToMongo } = require('../lib/mongo');
 const { normalizeStoredPomodoro } = require('../lib/pomodoro');
 
@@ -19,6 +20,7 @@ async function main() {
 
 		for (const task of tasks) {
 			const nextPomodoro = normalizeStoredPomodoro(task);
+			const nextBellSound = normalizeStoredBellSound(task);
 			const update = {
 				$unset: {
 					alarmEnabled: '',
@@ -30,11 +32,13 @@ async function main() {
 
 			if (task.trackingType === 'tally') {
 				update.$set = {
-					pomodoro: null
+					pomodoro: null,
+					bellSound: null
 				};
 			} else {
 				update.$set = {
-					pomodoro: nextPomodoro
+					pomodoro: nextPomodoro,
+					bellSound: nextBellSound
 				};
 			}
 

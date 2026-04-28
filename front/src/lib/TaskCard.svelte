@@ -639,7 +639,7 @@
 
 				<div class="runtime-stat">
 					<span>{variant === 'done' ? 'Completed' : 'Pomodoro'}</span>
-					<strong>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'No cadence'}</strong>
+					<strong>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'Manual run'}</strong>
 				</div>
 			</div>
 

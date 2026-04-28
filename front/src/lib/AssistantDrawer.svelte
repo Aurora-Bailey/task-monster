@@ -147,17 +147,7 @@
 			</button>
 
 			<div class="assistant-thread" bind:this={scrollViewport}>
-				{#if messages.length === 0}
-					<section class="assistant-intro">
-						<p>Try things like:</p>
-						<ul>
-							<li>`start the homework task`</li>
-							<li>`make a becoming task called journal reset`</li>
-							<li>`summarize my day so far`</li>
-							<li>`pause the dev task and queue laundry`</li>
-						</ul>
-					</section>
-				{:else}
+				{#if messages.length > 0}
 					{#each messages as message, index (`${message.role}-${index}`)}
 						<article
 							class:user-message={message.role === 'user'}
@@ -293,29 +283,9 @@
 		display: none;
 	}
 
-	.assistant-intro {
-		display: grid;
-		gap: 0.8rem;
-		padding: 1rem;
-		border-radius: 22px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(146, 169, 196, 0.12);
-	}
-
-	.assistant-intro p,
-	.assistant-intro li,
 	.message-bubble p,
 	.assistant-error {
 		margin: 0;
-	}
-
-	.assistant-intro ul {
-		margin: 0;
-		padding-left: 1.1rem;
-		display: grid;
-		gap: 0.45rem;
-		color: rgba(222, 231, 241, 0.78);
-		font-size: 0.92rem;
 	}
 
 	.message-row {
@@ -529,12 +499,17 @@
 		align-items: center;
 		padding: 0.35rem 0.55rem;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(146, 169, 196, 0.16);
+		background:
+			linear-gradient(180deg, rgba(49, 152, 100, 0.18), rgba(38, 116, 78, 0.24)),
+			radial-gradient(circle at top left, rgba(173, 255, 161, 0.22), transparent 46%);
+		border: 1px solid rgba(142, 255, 180, 0.22);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.06),
+			0 10px 22px rgba(4, 20, 10, 0.18);
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.04em;
-		color: rgba(231, 238, 245, 0.8);
+		color: rgba(226, 255, 232, 0.94);
 	}
 
 	.user-message .message-actions span {

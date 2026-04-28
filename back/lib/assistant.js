@@ -1,6 +1,11 @@
 const { ObjectId } = require('mongodb');
 
 const {
+	BELL_SOUND_VALUES,
+	DEFAULT_BELL_SOUND_KEY,
+	normalizeStoredBellSound
+} = require('./bell-sounds');
+const {
 	getCurrentLocalDay,
 	isValidDayString,
 	parseTimezoneOffsetMinutes
@@ -212,6 +217,7 @@ function summarizeTask(task, openTaskRun) {
 	const note = task.note ?? null;
 	const instanceNote = openTaskRun?.instanceNote ?? null;
 	const pomodoro = normalizeStoredPomodoro(task);
+	const bellSound = normalizeStoredBellSound(task);
 
 	return {
 		id: task._id.toString(),
@@ -222,6 +228,7 @@ function summarizeTask(task, openTaskRun) {
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
 		pomodoro,
+		bellSound,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
@@ -268,6 +275,7 @@ function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked })
 				? getPomodoroPreset(body.pomodoroPreset)
 				: null
 			: null;
+	const bellSound = body.trackingType === 'time' ? body.bellSound || DEFAULT_BELL_SOUND_KEY : null;
 
 	return {
 		name: body.name,
@@ -276,6 +284,7 @@ function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked })
 		mode: body.mode,
 		trackingType: body.trackingType,
 		pomodoro,
+		bellSound,
 		note: body.note ?? null,
 		startState,
 		queued,
@@ -601,6 +610,16 @@ function buildTaskAction(type, label, taskSummary) {
 	};
 }
 
+function buildTaskChangeAction(field, value, taskSummary) {
+	return buildTaskAction('change', `Changed: ${field} - ${value}`, taskSummary);
+}
+
+function buildTaskChangeActions(changes, taskSummary) {
+	return (Array.isArray(changes) ? changes : []).map((change) =>
+		buildTaskChangeAction(change.field, change.value, taskSummary)
+	);
+}
+
 function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 	return [
 		'You are the in-app Task Monster assistant.',
@@ -613,6 +632,7 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		'- Inactive means backlog. Daymap means on today\'s table but not currently running. Active means currently on the table. Done or archive depends on the task mode.',
 		'- Time-tracked tasks may have no pomodoro at all, or use a pomodoro cadence instead of alarms. Short = 15/5 with a 15-minute long break every 4 focus blocks. Medium = 25/5 with a 20-minute long break every 4 blocks. Long = 50/10 with a 30-minute long break every 3 blocks.',
 		'- During focus there is no sound. During breaks the app rings a short bell every minute so the user can switch hands-free.',
+		'- Time tasks also carry a bell sound. Supported bell sounds are glass, temple, and arcade.',
 		'- Prefer reusing, moving, or updating an existing task over creating near-duplicates.',
 		'- Category/color mapping: red=System, orange=World, gold=Home, green=Body, teal=Reset, blue=Craft, violet=Becoming.',
 		'- Persistent task notes live on the task note. Active-run notes live on the instance note.',
@@ -620,6 +640,7 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		'Action policy:',
 		'- Use tools for all task-specific facts and all mutations. Never guess task state, stats, or IDs.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
+		'- For metadata edits like name, category, mode, pomodoro, bell sound, tally target, or active started time, prefer the edit_task tool.',
 		'- Interpret "pause" or "take it off active" as moving a task to daymap, not fully back to inactive, unless the user explicitly says backlog or inactive.',
 		'- Interpret "inactive" or "backlog" as fully removing a task from the daymap.',
 		'- If a tool result includes requiresChoice=true or errorCode=duplicate_task_guard, do not call any more mutation tools in that response. Present the choice and wait.',
@@ -915,6 +936,12 @@ async function executeCreateTaskTool(app, request, args) {
 					? args.pomodoroPreset
 					: 'medium'
 				: null,
+		bellSound:
+			trackingType === 'time'
+				? typeof args.bellSound === 'string'
+					? args.bellSound
+					: DEFAULT_BELL_SOUND_KEY
+				: null,
 		note: typeof args.note === 'string' ? args.note : null,
 		tallyUnit: null,
 		tallyTarget: null
@@ -1012,6 +1039,21 @@ async function executeCreateTaskTool(app, request, args) {
 				}
 			};
 		}
+
+		if (!BELL_SOUND_VALUES.includes(body.bellSound)) {
+			return {
+				output: {
+					ok: false,
+					message: 'Time tasks need a supported bell sound.'
+				},
+				actions: [],
+				refresh: {
+					tasks: false,
+					stats: false,
+					panic: false
+				}
+			};
+		}
 	}
 
 	const createResponse = await injectUserRoute(app, request, {
@@ -1046,7 +1088,7 @@ async function executeCreateTaskTool(app, request, args) {
 			actions: [],
 			refresh: {
 				tasks: true,
-				stats: false,
+				stats: true,
 				panic: false
 			}
 		};
@@ -1077,7 +1119,7 @@ async function executeCreateTaskTool(app, request, args) {
 				actions: [],
 				refresh: {
 					tasks: true,
-					stats: false,
+					stats: true,
 					panic: false
 				}
 			};
@@ -1106,7 +1148,7 @@ async function executeCreateTaskTool(app, request, args) {
 				actions: [],
 				refresh: {
 					tasks: true,
-					stats: false,
+					stats: true,
 					panic: false
 				}
 			};
@@ -1126,7 +1168,134 @@ async function executeCreateTaskTool(app, request, args) {
 		actions: [buildTaskAction('create_task', `Created ${taskSummary?.name || 'task'}.`, taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
+			panic: false
+		}
+	};
+}
+
+async function executeEditTaskTool(app, request, args) {
+	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
+		userId: request.auth.userId,
+		taskQuery: args.taskQuery,
+		allowedStatuses: ['active', 'daymap', 'inactive', 'archived'],
+		includeArchived: true
+	});
+
+	if (!resolvedTask.ok) {
+		return {
+			output: resolvedTask,
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const body = {};
+
+	if (typeof args.name === 'string') {
+		body.name = args.name;
+	}
+
+	if (typeof args.colorKey === 'string') {
+		body.color = args.colorKey;
+	}
+
+	if (typeof args.mode === 'string') {
+		body.mode = args.mode;
+	}
+
+	if (typeof args.trackingType === 'string') {
+		body.trackingType = args.trackingType;
+	}
+
+	if (Object.hasOwn(args, 'pomodoroPreset')) {
+		body.pomodoroPreset = args.pomodoroPreset;
+	}
+
+	if (Object.hasOwn(args, 'bellSound')) {
+		body.bellSound = args.bellSound;
+	}
+
+	if (Object.hasOwn(args, 'note')) {
+		body.note = typeof args.note === 'string' ? args.note : null;
+	}
+
+	if (Object.hasOwn(args, 'tallyUnit')) {
+		body.tallyUnit = typeof args.tallyUnit === 'string' ? args.tallyUnit : null;
+	}
+
+	if (Object.hasOwn(args, 'tallyTarget')) {
+		body.tallyTarget = args.tallyTarget;
+	}
+
+	if (Object.hasOwn(args, 'activeTallyCount')) {
+		body.activeTallyCount = args.activeTallyCount;
+	}
+
+	if (Object.hasOwn(args, 'daymapLocked')) {
+		body.daymapLocked = args.daymapLocked;
+	}
+
+	if (typeof args.startedAt === 'string') {
+		body.startedAt = args.startedAt;
+	}
+
+	if (Object.keys(body).length === 0) {
+		return {
+			output: {
+				ok: false,
+				message: 'No task edits were provided.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const editResponse = await injectUserRoute(app, request, {
+		method: 'PATCH',
+		url: `/tasks/${resolvedTask.task._id.toString()}`,
+		body
+	});
+
+	if (!editResponse.ok) {
+		return {
+			output: {
+				ok: false,
+				message: editResponse.message || 'Unable to edit the task.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const taskSummary = await buildTaskSummaryFromId(app.mongo.db, {
+		userId: request.auth.userId,
+		taskId: resolvedTask.task._id.toString()
+	});
+	const changes = editResponse.body?.changes ?? [];
+
+	return {
+		output: {
+			ok: true,
+			task: taskSummary,
+			changes
+		},
+		actions: buildTaskChangeActions(changes, taskSummary),
+		refresh: {
+			tasks: true,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1228,10 +1397,10 @@ async function executeRenameTaskTool(app, request, args) {
 			ok: true,
 			task: taskSummary
 		},
-		actions: [buildTaskAction('rename_task', `Renamed task to ${taskSummary?.name || nextName}.`, taskSummary)],
+		actions: [buildTaskChangeAction('task name', `"${taskSummary?.name || nextName}"`, taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1289,16 +1458,10 @@ async function executeSetTaskNoteTool(app, request, args) {
 			ok: true,
 			task: taskSummary
 		},
-		actions: [
-			buildTaskAction(
-				'set_task_note',
-				`${taskSummary?.note ? 'Updated' : 'Cleared'} note for ${taskSummary?.name || 'task'}.`,
-				taskSummary
-			)
-		],
+		actions: [buildTaskChangeAction('task note', taskSummary?.note ? `"${taskSummary.note}"` : 'cleared', taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1360,15 +1523,15 @@ async function executeSetTaskInstanceNoteTool(app, request, args) {
 			task: taskSummary
 		},
 		actions: [
-			buildTaskAction(
-				'set_task_instance_note',
-				`${taskSummary?.instanceNote ? 'Updated' : 'Cleared'} active note for ${taskSummary?.name || 'task'}.`,
+			buildTaskChangeAction(
+				'instance note',
+				taskSummary?.instanceNote ? `"${taskSummary.instanceNote}"` : 'cleared',
 				taskSummary
 			)
 		],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1671,7 +1834,7 @@ async function executeMoveTaskTool(app, request, args) {
 		actions: [buildTaskAction('move_task', actionLabels[destination], taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: destination === 'done',
+			stats: true,
 			panic: false
 		}
 	};
@@ -1762,7 +1925,7 @@ async function executeSetQueueStateTool(app, request, args) {
 		],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1841,16 +2004,10 @@ async function executeSetDaymapLockTool(app, request, args) {
 			ok: true,
 			task: taskSummary
 		},
-		actions: [
-			buildTaskAction(
-				'set_task_daymap_lock',
-				`${args.daymapLocked ? 'Locked' : 'Unlocked'} ${taskSummary?.name || 'task'} for the daymap loop.`,
-				taskSummary
-			)
-		],
+		actions: [buildTaskChangeAction('daymap lock', args.daymapLocked ? 'locked' : 'unlocked', taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -1908,16 +2065,10 @@ async function executeUpdateTaskTallyTool(app, request, args) {
 			ok: true,
 			task: taskSummary
 		},
-		actions: [
-			buildTaskAction(
-				'update_task_tally',
-				`Updated ${taskSummary?.name || 'task'} tally by ${args.delta > 0 ? '+' : ''}${args.delta}.`,
-				taskSummary
-			)
-		],
+		actions: [buildTaskChangeAction('active tally', String(taskSummary?.activeTallyCount ?? 0), taskSummary)],
 		refresh: {
 			tasks: true,
-			stats: false,
+			stats: true,
 			panic: false
 		}
 	};
@@ -2183,6 +2334,10 @@ const ASSISTANT_TOOLS = [
 						type: ['string', 'null'],
 						enum: [...POMODORO_PRESET_KEYS, null]
 					},
+					bellSound: {
+						type: 'string',
+						enum: [...BELL_SOUND_VALUES]
+					},
 					tallyUnit: {
 						type: 'string',
 						maxLength: 60
@@ -2210,6 +2365,76 @@ const ASSISTANT_TOOLS = [
 						type: 'boolean',
 						description:
 							'Only set this true if the user explicitly chose to create the exact requested task after a duplicate-task warning.'
+					}
+				}
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
+			name: 'edit_task',
+			description:
+				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, tally settings, daymap lock, note, or active started time changes.',
+			parameters: {
+				type: 'object',
+				required: ['taskQuery'],
+				additionalProperties: false,
+				properties: {
+					taskQuery: {
+						type: 'string',
+						minLength: 1,
+						maxLength: 120
+					},
+					name: {
+						type: 'string',
+						minLength: 1,
+						maxLength: 120
+					},
+					colorKey: {
+						type: 'string',
+						enum: [...TASK_COLOR_KEYS]
+					},
+					mode: {
+						type: 'string',
+						enum: [...TASK_MODE_VALUES]
+					},
+					trackingType: {
+						type: 'string',
+						enum: [...TASK_TRACKING_TYPE_VALUES]
+					},
+					pomodoroPreset: {
+						type: ['string', 'null'],
+						enum: [...POMODORO_PRESET_KEYS, null]
+					},
+					bellSound: {
+						type: ['string', 'null'],
+						enum: [...BELL_SOUND_VALUES, null]
+					},
+					note: {
+						type: ['string', 'null'],
+						maxLength: 2000
+					},
+					tallyUnit: {
+						type: ['string', 'null'],
+						maxLength: 60
+					},
+					tallyTarget: {
+						type: ['integer', 'null'],
+						minimum: 1,
+						maximum: 100000
+					},
+					activeTallyCount: {
+						type: 'integer',
+						minimum: 0,
+						maximum: 1000000
+					},
+					daymapLocked: {
+						type: 'boolean'
+					},
+					startedAt: {
+						type: 'string',
+						format: 'date-time'
 					}
 				}
 			}
@@ -2445,6 +2670,8 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 			return executeDaySummaryTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'create_task':
 			return executeCreateTaskTool(app, request, parsedArguments);
+		case 'edit_task':
+			return executeEditTaskTool(app, request, parsedArguments);
 		case 'rename_task':
 			return executeRenameTaskTool(app, request, parsedArguments);
 		case 'set_task_note':

@@ -96,6 +96,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - `short`: 15/5
   - `medium`: 25/5
   - `long`: 50/10
+  - time tasks also choose a bell sound:
+    - `glass`
+    - `temple`
+    - `arcade`
   - task notes are always visible on the form
 - Active tasks support:
   - inactivate
@@ -109,6 +113,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Active pomodoro breaks use browser audio bells
   - focus is silent
   - breaks ring once per minute
+  - the bell engine is mounted in the shared header, so it continues across authenticated routes
   - some browsers require user interaction before audio can play
 - Panic mode is controlled from the header, not from the active page itself
 - The header AI drawer talks to `POST /assistant/chat`
@@ -125,6 +130,11 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Assistant create behavior now has a duplicate guard
   - if the backend sees a close match already in `inactive` or `daymap`, the assistant should present a `1 / 2 / 3` choice instead of silently creating another task
   - that follow-up choice depends on the current thread still being present in the drawer
+- The assistant can now use the broad task edit route for:
+  - pomodoro changes
+  - bell sound changes
+  - active started-time edits
+  - other task metadata edits
 
 ## Data source notes
 

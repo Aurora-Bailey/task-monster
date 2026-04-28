@@ -106,6 +106,7 @@ Important task-state fields:
 - `daymapLocked`
 - `activatedAt`
 - `pomodoro`
+- `bellSound`
 - `activeTallyCount`
 
 Notes:
@@ -161,6 +162,10 @@ Queue semantics:
   - `short`: 15/5 with a 15-minute long break every 4 focus blocks
   - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
   - `long`: 50/10 with a 30-minute long break every 3 focus blocks
+- Time tasks also store a bell sound:
+  - `glass`
+  - `temple`
+  - `arcade`
 - Break behavior:
   - focus phase is silent
   - break phase rings a short bell every minute on the frontend
@@ -170,6 +175,9 @@ Queue semantics:
   - `PATCH /tasks/:taskId/note`
 - Active run instance note updates:
   - `PATCH /tasks/:taskId/instance-note`
+- Broad task edits:
+  - `PATCH /tasks/:taskId`
+  - supports metadata edits, bell sound, pomodoro, tracking type, tally fields, and active started-time changes
 
 The active list derives and returns:
 
@@ -218,6 +226,7 @@ The current in-app assistant can:
 - list or search tasks by state
 - summarize a selected local day from real stats
 - create tasks
+- edit task metadata, bell sound, pomodoro, tally settings, and active started time
 - rename tasks
 - update task notes
 - update active instance notes

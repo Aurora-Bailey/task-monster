@@ -1,5 +1,21 @@
+import { browser } from '$app/environment';
+
 import { readApiBody, readApiError } from './api';
 import { authorizedRequest } from './session';
+
+export const TASKS_UPDATED_EVENT = 'taskmonster:tasks-updated';
+
+function dispatchTasksUpdated(detail = {}) {
+	if (!browser) {
+		return;
+	}
+
+	window.dispatchEvent(
+		new CustomEvent(TASKS_UPDATED_EVENT, {
+			detail
+		})
+	);
+}
 
 async function loadTaskList(path) {
 	const response = await authorizedRequest(path);
@@ -23,6 +39,10 @@ async function runTaskAction(taskId, action, body) {
 	}
 
 	const responseBody = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: action,
+		taskId
+	});
 	return responseBody?.task ?? null;
 }
 
@@ -144,7 +164,32 @@ export async function activateTask(taskId) {
 	}
 
 	const body = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'activate',
+		taskId
+	});
 	return body?.task ?? null;
+}
+
+export async function updateTask(taskId, changes) {
+	const response = await authorizedRequest(`/tasks/${taskId}`, {
+		method: 'PATCH',
+		body: changes
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the task.'));
+	}
+
+	const body = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'update',
+		taskId
+	});
+	return body ?? {
+		task: null,
+		changes: []
+	};
 }
 
 export function archiveTask(taskId) {

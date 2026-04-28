@@ -6,6 +6,7 @@ export const taskCatalog = [
 		note: 'Clear the counters, open the blinds, and reset the kitchen before the day starts.',
 		color: '#3d9790',
 		mode: 'repeatable',
+		bellSound: 'glass',
 		pomodoro: {
 			presetKey: 'short',
 			label: 'Short',
@@ -25,6 +26,7 @@ export const taskCatalog = [
 		note: 'Ship the next onboarding polish pass without context switching mid-block.',
 		color: '#4f6ed6',
 		mode: 'one-time',
+		bellSound: 'arcade',
 		pomodoro: {
 			presetKey: 'long',
 			label: 'Long',
@@ -44,6 +46,7 @@ export const taskCatalog = [
 		note: 'Get outside for a short reset lap before the afternoon stack of work begins.',
 		color: '#5f9b55',
 		mode: 'repeatable',
+		bellSound: 'temple',
 		pomodoro: {
 			presetKey: 'short',
 			label: 'Short',
@@ -63,6 +66,7 @@ export const taskCatalog = [
 		note: 'Review charges, reconcile receipts, and make sure nothing odd is drifting.',
 		color: '#c74a4a',
 		mode: 'repeatable',
+		bellSound: 'glass',
 		pomodoro: {
 			presetKey: 'medium',
 			label: 'Medium',
@@ -82,6 +86,7 @@ export const taskCatalog = [
 		note: 'Water the patio herbs and rotate the planters that miss the morning light.',
 		color: '#5f9b55',
 		mode: 'repeatable',
+		bellSound: 'temple',
 		pomodoro: {
 			presetKey: 'short',
 			label: 'Short',
@@ -101,6 +106,7 @@ export const taskCatalog = [
 		note: 'Fold the clean load and put the heavier layers away before bedtime.',
 		color: '#d7b23d',
 		mode: 'one-time',
+		bellSound: 'glass',
 		pomodoro: {
 			presetKey: 'short',
 			label: 'Short',
@@ -120,6 +126,7 @@ export const taskCatalog = [
 		note: 'Shape the next batch of priorities and decide what actually deserves the table.',
 		color: '#8a5bd1',
 		mode: 'repeatable',
+		bellSound: 'arcade',
 		pomodoro: {
 			presetKey: 'long',
 			label: 'Long',
@@ -139,6 +146,7 @@ export const taskCatalog = [
 		note: 'Call in the refill request and confirm the pickup window before the weekend.',
 		color: '#de7d37',
 		mode: 'one-time',
+		bellSound: 'temple',
 		pomodoro: {
 			presetKey: 'short',
 			label: 'Short',
@@ -158,6 +166,7 @@ export const taskCatalog = [
 		note: 'Pull the useful ideas out of the current chapter instead of just highlighting them.',
 		color: '#4f6ed6',
 		mode: 'repeatable',
+		bellSound: 'glass',
 		pomodoro: {
 			presetKey: 'medium',
 			label: 'Medium',

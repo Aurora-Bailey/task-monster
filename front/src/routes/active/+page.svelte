@@ -25,8 +25,6 @@
 	let actionError = $state('');
 	let busyTasks = $state({});
 	let nowMs = $state(Date.now());
-	let audioReady = $state(false);
-	let audioSupported = $state(true);
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
 	let panic = $state(null);
 	let showDoneModal = $state(false);
@@ -37,8 +35,6 @@
 	let doneModalNoteInput = $state(null);
 
 	let clockIntervalId = null;
-	let audioContext = null;
-	let lastPomodoroBellKeys = new Map();
 
 	const DONE_ADJUST_MINUTE_MS = 60 * 1000;
 	const DONE_ADJUST_HOUR_MS = 60 * 60 * 1000;
@@ -128,15 +124,11 @@
 		return getPomodoroState(task, nowMs);
 	}
 
-	function isTaskOnPomodoroBreak(task) {
-		return getTaskPomodoroState(task)?.isBreak === true;
-	}
-
 	function getPomodoroStatusLabel(task) {
 		const pomodoroState = getTaskPomodoroState(task);
 
 		if (!pomodoroState) {
-			return task.pomodoro ? `${task.pomodoro.label} cadence` : 'No cadence';
+			return task.pomodoro ? `${task.pomodoro.label} cadence` : 'Manual run';
 		}
 
 		return `${pomodoroState.phaseLabel} · ${formatElapsedDuration(pomodoroState.remainingMs)} left`;
@@ -376,96 +368,6 @@
 		return updatedTask;
 	}
 
-	async function unlockAudio() {
-		if (!browser) {
-			return;
-		}
-
-		const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-
-		if (!AudioContextConstructor) {
-			audioSupported = false;
-			return;
-		}
-
-		if (!audioContext) {
-			audioContext = new AudioContextConstructor();
-		}
-
-		try {
-			if (audioContext.state === 'suspended') {
-				await audioContext.resume();
-			}
-		} catch (error) {
-			console.error(error);
-		}
-
-		audioReady = audioContext.state === 'running';
-	}
-
-	function playPomodoroBell() {
-		if (!audioContext || audioContext.state !== 'running') {
-			return;
-		}
-
-		const now = audioContext.currentTime;
-		const primaryOscillator = audioContext.createOscillator();
-		const accentOscillator = audioContext.createOscillator();
-		const gain = audioContext.createGain();
-
-		primaryOscillator.type = 'triangle';
-		primaryOscillator.frequency.setValueAtTime(1244, now);
-		accentOscillator.type = 'sine';
-		accentOscillator.frequency.setValueAtTime(1661, now + 0.06);
-
-		gain.gain.setValueAtTime(0.0001, now);
-		gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
-		gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
-
-		primaryOscillator.connect(gain);
-		accentOscillator.connect(gain);
-		gain.connect(audioContext.destination);
-
-		primaryOscillator.start(now);
-		accentOscillator.start(now + 0.06);
-		primaryOscillator.stop(now + 0.22);
-		accentOscillator.stop(now + 0.42);
-	}
-
-	function syncPomodoroBreakBell() {
-		if (!browser) {
-			return;
-		}
-
-		let shouldRing = false;
-		const activeTaskIds = new Set(tasks.map((task) => task.id));
-
-		for (const taskId of lastPomodoroBellKeys.keys()) {
-			if (!activeTaskIds.has(taskId)) {
-				lastPomodoroBellKeys.delete(taskId);
-			}
-		}
-
-		for (const task of tasks) {
-			const pomodoroState = getTaskPomodoroState(task);
-
-			if (!pomodoroState?.isBreak || !pomodoroState.bellKey) {
-				lastPomodoroBellKeys.delete(task.id);
-				continue;
-			}
-
-			if (lastPomodoroBellKeys.get(task.id) !== pomodoroState.bellKey) {
-				lastPomodoroBellKeys.set(task.id, pomodoroState.bellKey);
-				shouldRing = true;
-			}
-		}
-
-		if (shouldRing) {
-			void unlockAudio();
-			playPomodoroBell();
-		}
-	}
-
 	onMount(() => {
 		sortMode = loadStoredTaskSort('active');
 		void loadTasks();
@@ -475,10 +377,6 @@
 			clockIntervalId = window.setInterval(() => {
 				nowMs = Date.now();
 			}, 1000);
-
-			const resumeAudio = () => {
-				void unlockAudio();
-			};
 			const handleAssistantRefresh = async (event) => {
 				if (event.detail?.refresh?.tasks !== true && event.detail?.refresh?.panic !== true) {
 					return;
@@ -500,37 +398,19 @@
 				}
 			};
 
-			window.addEventListener('pointerdown', resumeAudio);
-			window.addEventListener('keydown', resumeAudio);
 			window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 			return () => {
-				window.removeEventListener('pointerdown', resumeAudio);
-				window.removeEventListener('keydown', resumeAudio);
 				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
-				lastPomodoroBellKeys = new Map();
-
-				if (audioContext) {
-					void audioContext.close();
-				}
 			};
 		}
 	});
 
-	const breakCount = $derived(tasks.filter((task) => isTaskOnPomodoroBreak(task)).length);
 	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'active' }));
 	const selectedDoneTask = $derived(getTaskById(doneModalTaskId));
-
-	$effect(() => {
-		if (!browser) {
-			return;
-		}
-
-		syncPomodoroBreakBell();
-	});
 </script>
 
 <svelte:head>
@@ -550,13 +430,6 @@
 		<div class="message-card error-card">
 			<strong>Could not update that task</strong>
 			<p>{actionError}</p>
-		</div>
-	{/if}
-
-	{#if breakCount > 0 && audioSupported && !audioReady}
-		<div class="message-card warning-card">
-			<strong>Pomodoro break bell needs a tap</strong>
-			<p>The browser is holding audio until you interact. Tap anywhere and the minute break chimes will start.</p>
 		</div>
 	{/if}
 
@@ -745,11 +618,6 @@
 	.error-card {
 		border-color: rgba(159, 45, 39, 0.18);
 		background: rgba(255, 245, 244, 0.92);
-	}
-
-	.warning-card {
-		border-color: rgba(191, 121, 31, 0.18);
-		background: rgba(255, 249, 239, 0.94);
 	}
 
 	.task-grid {

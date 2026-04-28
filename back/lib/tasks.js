@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 
+const { normalizeStoredBellSound } = require('./bell-sounds');
 const { serializedPanicLogItemJsonSchema } = require('./panic');
 const { normalizeStoredPomodoro } = require('./pomodoro');
 
@@ -46,6 +47,7 @@ const serializedTaskJsonSchema = {
 		'mode',
 		'trackingType',
 		'pomodoro',
+		'bellSound',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -75,6 +77,7 @@ const serializedTaskJsonSchema = {
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
 		pomodoro: serializedPomodoroJsonSchema,
+		bellSound: { type: ['string', 'null'] },
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -112,6 +115,7 @@ const serializedCompletedTaskJsonSchema = {
 		'mode',
 		'trackingType',
 		'pomodoro',
+		'bellSound',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -146,6 +150,7 @@ const serializedCompletedTaskJsonSchema = {
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
 		pomodoro: serializedPomodoroJsonSchema,
+		bellSound: { type: ['string', 'null'] },
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -201,6 +206,7 @@ async function findOwnedTask(db, { taskId, userId }) {
 
 function serializeTask(task) {
 	const pomodoro = normalizeStoredPomodoro(task);
+	const bellSound = normalizeStoredBellSound(task);
 
 	return {
 		id: task._id.toString(),
@@ -210,6 +216,7 @@ function serializeTask(task) {
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
 		pomodoro,
+		bellSound,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,

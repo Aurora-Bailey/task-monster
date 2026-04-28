@@ -93,6 +93,10 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
   - `short`: 15/5 with a 15-minute long break every 4 focus blocks
   - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
   - `long`: 50/10 with a 30-minute long break every 3 focus blocks
+- Time tasks also store a per-task break bell sound:
+  - `glass`
+  - `temple`
+  - `arcade`
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
@@ -139,6 +143,7 @@ Assistant route:
   - current v1 actions include:
     - list/search tasks
     - create tasks
+    - edit task metadata and active started time
     - rename tasks
     - update task note or active instance note
     - move tasks between inactive/daymap/active/done/archive semantics
@@ -171,6 +176,8 @@ Task routes:
 - `PATCH /tasks/:taskId/note`
 - `PATCH /tasks/:taskId/instance-note`
 - `PATCH /tasks/:taskId/daymap-lock`
+- `PATCH /tasks/:taskId`
+  - broad task edit route for metadata, bell sound, pomodoro, tracking type, tally fields, and active started time
 
 Panic and stats routes:
 

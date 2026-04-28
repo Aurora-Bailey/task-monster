@@ -83,30 +83,33 @@ async function updateOpenTaskRunTally(
 	db,
 	{ userId, taskId, tallyCount = 0, updatedAt = new Date() }
 ) {
-	return db.collection('task_runs').findOneAndUpdate(
-		{
-			userId: toObjectId(userId),
-			taskId: toObjectId(taskId),
-			endedAt: null
+	return updateOpenTaskRunFields(db, {
+		userId,
+		taskId,
+		fields: {
+			tallyCount
 		},
-		{
-			$set: {
-				tallyCount,
-				updatedAt
-			}
-		},
-		{
-			sort: {
-				startedAt: -1
-			},
-			returnDocument: 'after'
-		}
-	);
+		updatedAt
+	});
 }
 
 async function updateOpenTaskRunInstanceNote(
 	db,
 	{ userId, taskId, instanceNote = null, updatedAt = new Date() }
+) {
+	return updateOpenTaskRunFields(db, {
+		userId,
+		taskId,
+		fields: {
+			instanceNote
+		},
+		updatedAt
+	});
+}
+
+async function updateOpenTaskRunFields(
+	db,
+	{ userId, taskId, fields = {}, updatedAt = new Date() }
 ) {
 	return db.collection('task_runs').findOneAndUpdate(
 		{
@@ -116,7 +119,7 @@ async function updateOpenTaskRunInstanceNote(
 		},
 		{
 			$set: {
-				instanceNote,
+				...fields,
 				updatedAt
 			}
 		},
@@ -132,6 +135,7 @@ async function updateOpenTaskRunInstanceNote(
 module.exports = {
 	closeOpenTaskRun,
 	openTaskRun,
+	updateOpenTaskRunFields,
 	updateOpenTaskRunInstanceNote,
 	updateOpenTaskRunTally
 };

@@ -181,9 +181,14 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `short`: 15/5 with a 15-minute long break every 4 focus blocks
   - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
   - `long`: 50/10 with a 30-minute long break every 3 focus blocks
+- Time tasks also carry a bell sound:
+  - `glass`
+  - `temple`
+  - `arcade`
 - Break behavior:
   - focus phase is silent
   - break phase rings a short bell every minute
+  - the bell engine now lives in the shared authenticated header, so it keeps running across authenticated routes instead of only on `/active`
 - Tally tasks update through:
   - `POST /tasks/:taskId/tally`
 - Task note route:
@@ -290,6 +295,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/add`
   - task creation form
   - time tasks now choose a visible pomodoro preset (`none`, `short`, `medium`, `long`)
+  - time tasks also choose a stored bell sound on the form
   - task notes are always visible on the form; there is no notes checkbox gate
 - `/profile`
   - active sessions plus recent login attempt history
@@ -352,6 +358,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - list or search tasks by board state
   - summarize a local day from real stats
   - create tasks
+  - edit task metadata, bell sound, pomodoro, tally settings, and active started time
   - rename tasks
   - update task note
   - update active instance note

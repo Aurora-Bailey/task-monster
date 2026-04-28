@@ -1,5 +1,10 @@
 const { ObjectId } = require('mongodb');
 
+const {
+	DEFAULT_BELL_SOUND_KEY,
+	BELL_SOUND_VALUES,
+	isAllowedBellSound
+} = require('../../lib/bell-sounds');
 const { POMODORO_PRESET_KEYS, getPomodoroPreset, isValidPomodoroPresetKey } = require('../../lib/pomodoro');
 const {
 	TASK_COLOR_MAP,
@@ -38,6 +43,10 @@ const createTaskSchema = {
 			pomodoroPreset: {
 				type: ['string', 'null'],
 				enum: [...POMODORO_PRESET_KEYS, null]
+			},
+			bellSound: {
+				type: ['string', 'null'],
+				enum: [...BELL_SOUND_VALUES, null]
 			},
 			tallyUnit: {
 				type: ['string', 'null'],
@@ -82,6 +91,10 @@ async function createTaskRoute(app) {
 			const pomodoroPresetKey = hasPomodoroPreset
 				? request.body.pomodoroPreset
 				: 'medium';
+			const bellSoundKey =
+				typeof request.body.bellSound === 'string'
+					? request.body.bellSound
+					: DEFAULT_BELL_SOUND_KEY;
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
 
 			if (!name) {
@@ -109,6 +122,7 @@ async function createTaskRoute(app) {
 			}
 
 			let pomodoro = null;
+			let bellSound = null;
 			let tallyUnit = null;
 			let tallyTarget = null;
 
@@ -120,12 +134,26 @@ async function createTaskRoute(app) {
 				}
 
 				pomodoro = pomodoroPresetKey === null ? null : getPomodoroPreset(pomodoroPresetKey);
+
+				if (!isAllowedBellSound(bellSoundKey)) {
+					return reply.code(400).send({
+						message: 'Bell sound is not supported.'
+					});
+				}
+
+				bellSound = bellSoundKey;
 			}
 
 			if (trackingType === 'tally') {
 				if (request.body.pomodoroPreset !== undefined && request.body.pomodoroPreset !== null) {
 					return reply.code(400).send({
 						message: 'Tally tasks do not use pomodoro presets.'
+					});
+				}
+
+				if (request.body.bellSound !== undefined && request.body.bellSound !== null) {
+					return reply.code(400).send({
+						message: 'Tally tasks do not use bell sounds.'
 					});
 				}
 
@@ -154,6 +182,7 @@ async function createTaskRoute(app) {
 				mode,
 				trackingType,
 				pomodoro,
+				bellSound,
 				tallyUnit,
 				tallyTarget,
 				activeTallyCount: 0,
