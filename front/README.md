@@ -9,6 +9,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - the default API base is `http://127.0.0.1:3001`
 - `PUBLIC_API_BASE_URL` is now read from the repo root `.env`
 - Vite env loading is configured to use the repo root as `envDir`
+- authenticated app pages now also expose a right-side AI drawer in the header
 
 ## Commands
 
@@ -67,10 +68,16 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - stats API wrapper
 - `src/lib/panic-client.js`
   - panic API wrapper and event dispatch
+- `src/lib/assistant-client.js`
+  - assistant API wrapper and assistant-refresh event dispatch
+- `src/lib/assistant-markdown.js`
+  - local safe markdown renderer used by assistant replies
+- `src/lib/AssistantDrawer.svelte`
+  - right-side authenticated chat drawer with themed markdown response rendering
 - `src/lib/TaskCard.svelte`
   - shared card UI for inactive, daymap, active, and done variants
 - `src/routes/Header.svelte`
-  - top nav, panic control, logout, and arrow-key page navigation
+  - top nav, panic control, AI drawer trigger, logout, and arrow-key page navigation
 
 ## Current UI behavior
 
@@ -95,6 +102,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Active alarms use browser audio
   - some browsers require user interaction before audio can play
 - Panic mode is controlled from the header, not from the active page itself
+- The header AI drawer talks to `POST /assistant/chat`
+  - the key stays on the backend
+  - assistant-triggered task or panic changes dispatch `taskmonster:assistant-refresh`
+  - active, daymap, inactive, done, and stats pages listen for that refresh event
 
 ## Data source notes
 

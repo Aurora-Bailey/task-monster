@@ -10,6 +10,8 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
+Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, snooze alarms, adjust tally counts, control panic mode, and summarize the day from real stats data.
+
 ## Current app status
 
 - Frontend routes currently exposed:
@@ -70,6 +72,8 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `PORT=3001`
 - `MONGO_URL=mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME=task-monster`
+- `OPENAI_API_KEY=...`
+- `OPENAI_MODEL=gpt-5.4-mini`
 
 Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset.
 
@@ -108,6 +112,23 @@ Auth/session routes:
 - `DELETE /sessions/:sessionId`
 - `POST /sessions/logout`
 - `GET /login-attempts`
+
+Assistant route:
+
+- `POST /assistant/chat`
+  - authenticated assistant route used by the header drawer
+  - current v1 actions include:
+    - list/search tasks
+    - create tasks
+    - rename tasks
+    - update task note or active instance note
+    - move tasks between inactive/daymap/active/done/archive semantics
+    - queue or unqueue daymap tasks
+    - toggle daymap lock
+    - update tally counts
+    - snooze alarms
+    - start or stop panic
+    - summarize a local day from real stats
 
 Task routes:
 

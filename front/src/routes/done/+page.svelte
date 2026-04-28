@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 
+	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -140,6 +141,24 @@
 		sortMode = loadStoredTaskSort('done');
 		timezoneOffsetMinutes = new Date().getTimezoneOffset();
 		void loadTasks();
+
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		const handleAssistantRefresh = async (event) => {
+			if (event.detail?.refresh?.tasks !== true && event.detail?.refresh?.stats !== true) {
+				return;
+			}
+
+			await loadTasks(selectedDay);
+		};
+
+		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+
+		return () => {
+			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		};
 	});
 </script>
 

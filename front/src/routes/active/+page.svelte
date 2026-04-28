@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 
+	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -477,6 +478,18 @@
 			const resumeAudio = () => {
 				void unlockAudio();
 			};
+			const handleAssistantRefresh = async (event) => {
+				if (event.detail?.refresh?.tasks !== true && event.detail?.refresh?.panic !== true) {
+					return;
+				}
+
+				try {
+					panic = await loadPanicStatus();
+					tasks = await loadActiveTasks();
+				} catch (error) {
+					loadError = error.message;
+				}
+			};
 			const handlePanicUpdated = async (event) => {
 				try {
 					panic = event.detail ?? null;
@@ -488,11 +501,13 @@
 
 			window.addEventListener('pointerdown', resumeAudio);
 			window.addEventListener('keydown', resumeAudio);
+			window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 			return () => {
 				window.removeEventListener('pointerdown', resumeAudio);
 				window.removeEventListener('keydown', resumeAudio);
+				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
 				stopAlarmLoop();

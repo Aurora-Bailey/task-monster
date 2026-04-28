@@ -9,6 +9,7 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 - active run tracking in `task_runs`
 - panic logging in `panic_runs`
 - done history and daily stats
+- authenticated assistant actions through `POST /assistant/chat`
 
 ## Commands
 
@@ -34,6 +35,10 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
   - default: `mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME`
   - default: `task-monster`
+- `OPENAI_API_KEY`
+  - required for the authenticated in-app assistant
+- `OPENAI_MODEL`
+  - default: `gpt-5.4-mini`
 
 ## Structure
 
@@ -41,6 +46,8 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
   - builds the Fastify app, connects to Mongo, installs hooks, and registers routes
 - `lib/`
   - shared logic
+- `lib/assistant.js`
+  - assistant prompt, tool definitions, task matching, and OpenAI chat loop
 - `routes/`
   - one file per route, auto-registered recursively
 
@@ -63,6 +70,10 @@ Indexes are created on startup in `lib/mongo.js`.
   - `GET /ping`
   - `POST /users`
   - `POST /sessions/login`
+- Assistant route:
+  - `POST /assistant/chat`
+  - requires a normal bearer token
+  - executes tool actions under the authenticated user
 - Passwords are hashed with salted `scrypt`
 - Session tokens are not stored raw
   - only SHA-256 token hashes are stored
@@ -189,6 +200,23 @@ Current stats output includes:
 - panic log
 - done log
 - session log
+
+## Assistant scope
+
+The current in-app assistant can:
+
+- list or search tasks by state
+- summarize a selected local day from real stats
+- create tasks
+- rename tasks
+- update task notes
+- update active instance notes
+- move tasks between inactive/daymap/active/done/archive semantics
+- queue or unqueue daymap tasks
+- toggle daymap lock
+- update active tally counts
+- snooze active alarms
+- start or stop panic mode
 
 ## Current quirk
 

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
+	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
@@ -118,6 +119,24 @@
 	onMount(() => {
 		sortMode = loadStoredTaskSort('daymap');
 		void loadTasks();
+
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		const handleAssistantRefresh = async (event) => {
+			if (event.detail?.refresh?.tasks !== true) {
+				return;
+			}
+
+			await loadTasks();
+		};
+
+		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+
+		return () => {
+			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		};
 	});
 
 	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'daymap' }));

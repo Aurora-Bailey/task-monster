@@ -1,6 +1,7 @@
 	<script>
 		import { onMount } from 'svelte';
 
+		import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 		import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
 		import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 		import { loadDailyStats } from '$lib/stats-client';
@@ -270,10 +271,27 @@
 					loadError = error.message;
 				}
 			};
+			const handleAssistantRefresh = async (event) => {
+				if (
+					event.detail?.refresh?.tasks !== true &&
+					event.detail?.refresh?.stats !== true &&
+					event.detail?.refresh?.panic !== true
+				) {
+					return;
+				}
 
+				try {
+					await loadStats(selectedDay);
+				} catch (error) {
+					loadError = error.message;
+				}
+			};
+
+			window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 			return () => {
+				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			};
 		});

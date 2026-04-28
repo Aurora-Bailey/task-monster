@@ -5,6 +5,8 @@
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
 
+	import AssistantDrawer from '$lib/AssistantDrawer.svelte';
+	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
@@ -29,6 +31,7 @@
 	let panicReturnNote = $state('');
 	let panicReturnCharge = $state(5);
 	let panicReturnNoteInput = $state(null);
+	let showAssistantDrawer = $state(false);
 
 	const navLinks = [
 		{ href: '/add', label: 'Add' },
@@ -72,6 +75,9 @@
 	const panicButtonTitle = $derived(
 		panicIsActive ? `Panic active for ${panicElapsedLabel}` : 'Start tracking off-the-rails time'
 	);
+	const assistantButtonTitle = $derived(
+		showAssistantDrawer ? 'Close the AI assistant' : 'Open the AI assistant'
+	);
 
 	async function loadPanic() {
 		isPanicLoading = true;
@@ -112,6 +118,14 @@
 		} finally {
 			isPanicBusy = false;
 		}
+	}
+
+	function openAssistantDrawer() {
+		showAssistantDrawer = true;
+	}
+
+	function closeAssistantDrawer() {
+		showAssistantDrawer = false;
 	}
 
 	function closePanicReturnModal() {
@@ -171,7 +185,7 @@
 				return;
 			}
 
-			if (showPanicReturnModal || isTypingTarget(event.target)) {
+			if (showPanicReturnModal || showAssistantDrawer || isTypingTarget(event.target)) {
 				return;
 			}
 
@@ -205,11 +219,18 @@
 				void loadPanic();
 			}
 		}, 1000);
+		const handleAssistantRefresh = async (event) => {
+			if (event.detail?.refresh?.panic === true) {
+				await loadPanic();
+			}
+		};
 
 		window.addEventListener('keydown', handleArrowNavigation);
+		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 
 		return () => {
 			window.removeEventListener('keydown', handleArrowNavigation);
+			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.clearInterval(intervalId);
 		};
 	});
@@ -254,6 +275,17 @@
 					<span class="panic-button__time">{panicElapsedLabel}</span>
 				{/if}
 			</button>
+
+			<button
+				class="assistant-button"
+				class:is-open={showAssistantDrawer}
+				type="button"
+				title={assistantButtonTitle}
+				onclick={showAssistantDrawer ? closeAssistantDrawer : openAssistantDrawer}
+			>
+				<span class="assistant-button__label">AI</span>
+				<span class="assistant-button__meta">{showAssistantDrawer ? 'Open' : 'Ready'}</span>
+			</button>
 		</div>
 	</nav>
 
@@ -280,6 +312,13 @@
 {#if panicError}
 	<p class="panic-error">{panicError}</p>
 {/if}
+
+<AssistantDrawer
+	open={showAssistantDrawer}
+	username={user?.username || ''}
+	currentPath={page.url.pathname}
+	onClose={closeAssistantDrawer}
+/>
 
 {#if showPanicReturnModal}
 	<div class="panic-modal-backdrop">
@@ -462,12 +501,46 @@
 			filter 0.2s ease;
 	}
 
+	.assistant-button {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.1rem;
+		min-width: 7.2rem;
+		min-height: 3.2rem;
+		padding: 0.55rem 0.95rem;
+		border-radius: 999px;
+		background:
+			radial-gradient(circle at top left, rgba(132, 186, 255, 0.3), transparent 46%),
+			linear-gradient(135deg, rgba(20, 30, 44, 0.94), rgba(11, 17, 28, 0.96));
+		border: 1px solid rgba(132, 186, 255, 0.18);
+		box-shadow: 0 14px 28px rgba(12, 18, 30, 0.24);
+		color: white;
+		cursor: pointer;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease,
+			filter 0.2s ease;
+	}
+
 	.panic-button:hover {
 		transform: translateY(-1px);
 		filter: brightness(1.03);
 	}
 
+	.assistant-button:hover {
+		transform: translateY(-1px);
+		filter: brightness(1.04);
+	}
+
 	.panic-button:disabled {
+		cursor: wait;
+		opacity: 0.82;
+		transform: none;
+	}
+
+	.assistant-button:disabled {
 		cursor: wait;
 		opacity: 0.82;
 		transform: none;
@@ -479,6 +552,14 @@
 		animation: panic-flash 0.9s ease-in-out infinite alternate;
 	}
 
+	.assistant-button.is-open {
+		border-color: rgba(132, 186, 255, 0.34);
+		box-shadow:
+			0 0 0 3px rgba(132, 186, 255, 0.12),
+			0 14px 28px rgba(12, 18, 30, 0.28);
+	}
+
+	.assistant-button__label,
 	.panic-button__label {
 		font-size: 0.76rem;
 		font-weight: 900;
@@ -487,6 +568,7 @@
 		line-height: 1;
 	}
 
+	.assistant-button__meta,
 	.panic-button__time {
 		font-size: 0.72rem;
 		font-weight: 700;
@@ -756,6 +838,10 @@
 		}
 
 		.panic-button {
+			width: 100%;
+		}
+
+		.assistant-button {
 			width: 100%;
 		}
 

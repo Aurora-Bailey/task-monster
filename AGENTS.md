@@ -35,6 +35,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `PORT` default: `3001`
   - `MONGO_URL` default: `mongodb://127.0.0.1:27017`
   - `MONGO_DB_NAME` default: `task-monster`
+  - `OPENAI_MODEL` default: `gpt-5.4-mini`
+  - `OPENAI_API_KEY` is required for the authenticated in-app assistant
 - MongoDB is expected locally unless env vars override it
 
 ## Backend architecture
@@ -68,6 +70,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `users.legalAcceptance.version`
 - Session verification route:
   - `GET /whoami`
+- Assistant route:
+  - `POST /assistant/chat`
+  - runs authenticated tool actions under the current user
 - Session management routes:
   - `GET /sessions`
   - `DELETE /sessions/:sessionId`
@@ -234,12 +239,19 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/lib/stats-client.js`
 - Panic client:
   - `front/src/lib/panic-client.js`
+- Assistant client:
+  - `front/src/lib/assistant-client.js`
+- Assistant markdown renderer:
+  - `front/src/lib/assistant-markdown.js`
+- Assistant drawer:
+  - `front/src/lib/AssistantDrawer.svelte`
 - Shared task card:
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
   - `front/src/lib/TaskSortBar.svelte`
 - Top nav and panic control:
   - `front/src/routes/Header.svelte`
+  - now also owns the authenticated AI drawer trigger and drawer mount
 
 ## Main frontend routes
 
@@ -293,7 +305,32 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - done modal with adjustable start and end timing
 - Some browsers require prior user interaction before audio alarms can play
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
+- The header now also exposes an `AI` button next to `Panic`
+  - it opens a right-side assistant drawer
+  - assistant replies are rendered through a local safe markdown renderer, not a third-party package
+  - assistant-triggered changes dispatch `taskmonster:assistant-refresh`
+  - active/daymap/inactive/done/stats listen for that event and reload as needed
+  - arrow-key navigation is intentionally disabled while the drawer is open
 - Panic controls live in the header, not on the active page itself
+
+## In-app assistant
+
+- The authenticated assistant is backend-mediated only; the OpenAI key stays on the server.
+- Backend route:
+  - `POST /assistant/chat`
+- Current v1 tool surface:
+  - list or search tasks by board state
+  - summarize a local day from real stats
+  - create tasks
+  - rename tasks
+  - update task note
+  - update active instance note
+  - move tasks between inactive/daymap/active/done/archive semantics
+  - queue or unqueue daymap tasks
+  - toggle daymap lock
+  - update active tally counts
+  - snooze alarms
+  - start or stop panic mode
 
 ## Filler vs real data
 
