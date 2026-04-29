@@ -25,9 +25,16 @@ const {
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const TOOL_LOOP_LIMIT = 8;
 const MAX_CONVERSATION_MESSAGES = 12;
+const DEFAULT_BOARD_SECTION_LIMIT = 8;
+const MAX_BOARD_SECTION_LIMIT = 12;
+const DEFAULT_SEARCH_LIMIT = 8;
+const MAX_SEARCH_LIMIT = 12;
+const DEFAULT_FILTER_LIMIT = 12;
+const MAX_FILTER_LIMIT = 60;
 const DEFAULT_LIST_LIMIT = 12;
 const MAX_LIST_LIMIT = 20;
 const DEFAULT_DAY_SUMMARY_LIMIT = 5;
+const MAX_BULK_EDIT_MATCHES = 100;
 const CREATE_TASK_GUARD_MIN_SCORE = 620;
 const CREATE_TASK_GUARD_MAX_MATCHES = 3;
 
@@ -620,6 +627,209 @@ function buildTaskChangeActions(changes, taskSummary) {
 	);
 }
 
+function buildTaskEditRequestBody(
+	args,
+	{ allowName = true, allowStartedAt = true, allowActiveTallyCount = true } = {}
+) {
+	const body = {};
+
+	if (allowName && typeof args.name === 'string') {
+		body.name = args.name;
+	}
+
+	if (typeof args.colorKey === 'string') {
+		body.color = args.colorKey;
+	}
+
+	if (typeof args.mode === 'string') {
+		body.mode = args.mode;
+	}
+
+	if (typeof args.trackingType === 'string') {
+		body.trackingType = args.trackingType;
+	}
+
+	if (Object.hasOwn(args, 'pomodoroPreset')) {
+		body.pomodoroPreset = args.pomodoroPreset;
+	}
+
+	if (Object.hasOwn(args, 'bellSound')) {
+		body.bellSound = args.bellSound;
+	}
+
+	if (Object.hasOwn(args, 'note')) {
+		body.note = typeof args.note === 'string' ? args.note : null;
+	}
+
+	if (Object.hasOwn(args, 'tallyUnit')) {
+		body.tallyUnit = typeof args.tallyUnit === 'string' ? args.tallyUnit : null;
+	}
+
+	if (Object.hasOwn(args, 'tallyTarget')) {
+		body.tallyTarget = args.tallyTarget;
+	}
+
+	if (allowActiveTallyCount && Object.hasOwn(args, 'activeTallyCount')) {
+		body.activeTallyCount = args.activeTallyCount;
+	}
+
+	if (Object.hasOwn(args, 'daymapLocked')) {
+		body.daymapLocked = args.daymapLocked;
+	}
+
+	if (allowStartedAt && typeof args.startedAt === 'string') {
+		body.startedAt = args.startedAt;
+	}
+
+	return body;
+}
+
+function normalizeAssistantStatuses(statuses, { includeArchived = false } = {}) {
+	const allowedStatuses = Array.isArray(statuses)
+		? [...new Set(statuses.filter((status) => TASK_STATUS_VALUES.includes(status) && status !== 'all'))]
+		: [];
+
+	if (allowedStatuses.length > 0) {
+		return allowedStatuses;
+	}
+
+	return includeArchived
+		? ['active', 'daymap', 'inactive', 'archived']
+		: ['active', 'daymap', 'inactive'];
+}
+
+function selectTasksForAssistantFilter(tasks, args = {}) {
+	const includeArchived =
+		args.includeArchived === true ||
+		(Array.isArray(args.statuses) && args.statuses.includes('archived'));
+	const allowedStatuses = normalizeAssistantStatuses(args.statuses, {
+		includeArchived
+	});
+	const query = typeof args.query === 'string' ? args.query.trim() : '';
+	const queryNormalized = normalizeText(query);
+	const queryTokens = tokenizeText(query);
+	const filteredTasks = tasks.filter((task) => {
+		const taskState = buildTaskState(task);
+
+		if (!allowedStatuses.includes(taskState)) {
+			return false;
+		}
+
+		const trackingType = task.trackingType || 'time';
+
+		if (typeof args.trackingType === 'string' && args.trackingType !== trackingType) {
+			return false;
+		}
+
+		if (typeof args.mode === 'string' && args.mode !== task.mode) {
+			return false;
+		}
+
+		if (typeof args.colorKey === 'string' && args.colorKey !== task.colorKey) {
+			return false;
+		}
+
+		const pomodoroPreset = normalizeStoredPomodoro(task)?.presetKey ?? null;
+
+		if (Object.hasOwn(args, 'pomodoroPreset') && args.pomodoroPreset !== pomodoroPreset) {
+			return false;
+		}
+
+		if (typeof args.hasPomodoro === 'boolean' && args.hasPomodoro !== (pomodoroPreset !== null)) {
+			return false;
+		}
+
+		const bellSound = trackingType === 'time' ? normalizeStoredBellSound(task) : null;
+
+		if (Object.hasOwn(args, 'bellSound') && args.bellSound !== bellSound) {
+			return false;
+		}
+
+		if (
+			typeof args.daymapLocked === 'boolean' &&
+			args.daymapLocked !== (task.daymapLocked === true)
+		) {
+			return false;
+		}
+
+		if (!queryNormalized) {
+			return true;
+		}
+
+		return scoreTaskMatch(task, queryTokens, queryNormalized) > 0;
+	});
+
+	if (!queryNormalized) {
+		return {
+			query: null,
+			statuses: allowedStatuses,
+			tasks: filteredTasks
+		};
+	}
+
+	return {
+		query,
+		statuses: allowedStatuses,
+		tasks: filteredTasks
+			.map((task) => ({
+				task,
+				score: scoreTaskMatch(task, queryTokens, queryNormalized)
+			}))
+			.sort((left, right) => right.score - left.score)
+			.map((entry) => entry.task)
+	};
+}
+
+function collectBulkChangeSummaries(changesByTask) {
+	const summaryMap = new Map();
+
+	for (const changes of changesByTask) {
+		for (const change of Array.isArray(changes) ? changes : []) {
+			if (!change?.field) {
+				continue;
+			}
+
+			const key = `${change.field}::${change.value ?? ''}`;
+
+			if (!summaryMap.has(key)) {
+				summaryMap.set(key, {
+					field: change.field,
+					value: change.value ?? ''
+				});
+			}
+		}
+	}
+
+	return [...summaryMap.values()];
+}
+
+function clampAssistantLimit(value, { fallback, maximum }) {
+	if (!Number.isInteger(value)) {
+		return fallback;
+	}
+
+	return Math.min(maximum, Math.max(1, value));
+}
+
+function buildTaskSummaryOutput(taskSummary, { includeNotes = false } = {}) {
+	if (!taskSummary) {
+		return null;
+	}
+
+	if (includeNotes) {
+		return taskSummary;
+	}
+
+	const nextSummary = {
+		...taskSummary
+	};
+
+	delete nextSummary.note;
+	delete nextSummary.instanceNote;
+
+	return nextSummary;
+}
+
 function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 	return [
 		'You are the in-app Task Monster assistant.',
@@ -639,8 +849,19 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		'',
 		'Action policy:',
 		'- Use tools for all task-specific facts and all mutations. Never guess task state, stats, or IDs.',
+		'- Always call tools with a JSON object. Never omit the arguments payload. If a tool has no meaningful arguments, send {}.',
+		'- For get_board_snapshot, send {"scope":"board"}. For get_day_summary, send {"scope":"day"} and add a day only when needed.',
+		'- Use get_board_snapshot for broad board reads like "what can you see", "what is on my board", or "what is active right now". The snapshot task lists are previews, not exhaustive sections.',
+		'- Never claim that all tasks in a status are clean, missing, or changed based only on a board snapshot preview.',
+		'- Use filter_tasks for full-set checks like "which inactive tasks still have pomodoro?" or "show every daymap-locked task".',
+		'- Use bulk_edit_tasks when the user says all, every, entire, or cleanup across a matching set. Do not loop edit_task for large set edits.',
+		'- Use search_tasks for task lookup instead of trying to paginate broad task lists yourself.',
+		'- Use complete_task_run when the user says a task was finished or done and especially when they mention a corrected finish time.',
+		'- Use control_task for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
-		'- For metadata edits like name, category, mode, pomodoro, bell sound, tally target, or active started time, prefer the edit_task tool.',
+		'- For metadata edits like name, category, mode, pomodoro, bell sound, tally target, task note, or active started time, prefer the edit_task tool.',
+		'- If the user asks to correct when a run started or ended, pass the corrected time in the tool arguments. Do not treat a timing correction as a note.',
+		'- Never change startedAt as a substitute for a requested completedAt unless the user explicitly asked to change the start time.',
 		'- Interpret "pause" or "take it off active" as moving a task to daymap, not fully back to inactive, unless the user explicitly says backlog or inactive.',
 		'- Interpret "inactive" or "backlog" as fully removing a task from the daymap.',
 		'- If a tool result includes requiresChoice=true or errorCode=duplicate_task_guard, do not call any more mutation tools in that response. Present the choice and wait.',
@@ -741,6 +962,196 @@ async function buildTaskSummaryFromId(db, { userId, taskId }) {
 	});
 
 	return summarizeTask(task, openTaskRunMap.get(task._id.toString()) || null);
+}
+
+async function executeGetBoardSnapshotTool(app, request, args = {}) {
+	const includeNotes = args.includeNotes === true;
+	const includeArchived = args.includeArchived === true;
+	const sectionLimit = clampAssistantLimit(args.limit, {
+		fallback: DEFAULT_BOARD_SECTION_LIMIT,
+		maximum: MAX_BOARD_SECTION_LIMIT
+	});
+	const tasks = await loadUserTasks(app.mongo.db, {
+		userId: request.auth.userId,
+		includeArchived
+	});
+	const activeTasks = filterTasksByStatus(tasks, 'active');
+	const daymapTasks = filterTasksByStatus(tasks, 'daymap');
+	const inactiveTasks = filterTasksByStatus(tasks, 'inactive');
+	const archivedTasks = includeArchived ? filterTasksByStatus(tasks, 'archived') : [];
+	const previewTasks = [
+		...activeTasks.slice(0, sectionLimit),
+		...daymapTasks.slice(0, sectionLimit),
+		...inactiveTasks.slice(0, sectionLimit),
+		...archivedTasks.slice(0, sectionLimit)
+	];
+	const openTaskRunMap = await loadOpenTaskRunMap(app.mongo.db, {
+		userId: request.auth.userId,
+		taskIds: previewTasks.map((task) => task._id)
+	});
+	const mapTasks = (nextTasks) =>
+		nextTasks.slice(0, sectionLimit).map((task) =>
+			buildTaskSummaryOutput(
+				summarizeTask(task, openTaskRunMap.get(task._id.toString()) || null),
+				{ includeNotes }
+			)
+		);
+
+	return {
+		output: {
+			ok: true,
+			previewOnly: true,
+			previewLimit: sectionLimit,
+			note: 'Counts are exhaustive. Task lists here are previews only. Use filter_tasks for claims about every matching task.',
+			counts: {
+				active: activeTasks.length,
+				daymap: daymapTasks.length,
+				inactive: inactiveTasks.length,
+				archived: includeArchived ? archivedTasks.length : null
+			},
+			activePreview: mapTasks(activeTasks),
+			daymapPreview: mapTasks(daymapTasks),
+			inactivePreview: mapTasks(inactiveTasks),
+			archivedPreview: includeArchived ? mapTasks(archivedTasks) : [],
+			hasMore: {
+				active: activeTasks.length > sectionLimit,
+				daymap: daymapTasks.length > sectionLimit,
+				inactive: inactiveTasks.length > sectionLimit,
+				archived: includeArchived ? archivedTasks.length > sectionLimit : null
+			}
+		},
+		actions: [],
+		refresh: {
+			tasks: false,
+			stats: false,
+			panic: false
+		}
+	};
+}
+
+async function executeSearchTasksTool(app, request, args) {
+	const query = typeof args.query === 'string' ? args.query.trim() : '';
+
+	if (!query) {
+		return {
+			output: {
+				ok: false,
+				message: 'Task search needs a query string.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const requestedStatuses = Array.isArray(args.statuses)
+		? args.statuses.filter(
+				(status) => typeof status === 'string' && TASK_STATUS_VALUES.includes(status)
+			)
+		: [];
+	const includeArchived =
+		args.includeArchived === true ||
+		requestedStatuses.includes('archived') ||
+		requestedStatuses.includes('all');
+	const allowedStatuses =
+		requestedStatuses.length === 0 || requestedStatuses.includes('all')
+			? ['active', 'daymap', 'inactive', ...(includeArchived ? ['archived'] : [])]
+			: requestedStatuses;
+	const includeNotes = args.includeNotes === true;
+	const limit = clampAssistantLimit(args.limit, {
+		fallback: DEFAULT_SEARCH_LIMIT,
+		maximum: MAX_SEARCH_LIMIT
+	});
+	const tasks = (await loadUserTasks(app.mongo.db, {
+		userId: request.auth.userId,
+		includeArchived
+	})).filter((task) => allowedStatuses.includes(buildTaskState(task)));
+	const scoredTasks = tasks
+		.map((task) => ({
+			task,
+			score: scoreTaskMatch(task, tokenizeText(query), normalizeText(query))
+		}))
+		.filter((entry) => entry.score > 0)
+		.sort((left, right) => right.score - left.score);
+	const taskIds = scoredTasks.slice(0, limit).map((entry) => entry.task._id);
+	const openTaskRunMap = await loadOpenTaskRunMap(app.mongo.db, {
+		userId: request.auth.userId,
+		taskIds
+	});
+
+	return {
+		output: {
+			ok: true,
+			query,
+			statuses: allowedStatuses,
+			totalCount: scoredTasks.length,
+			tasks: scoredTasks.slice(0, limit).map((entry) =>
+				buildTaskSummaryOutput(
+					summarizeTask(
+						entry.task,
+						openTaskRunMap.get(entry.task._id.toString()) || null
+					),
+					{ includeNotes }
+				)
+			)
+		},
+		actions: [],
+		refresh: {
+			tasks: false,
+			stats: false,
+			panic: false
+		}
+	};
+}
+
+async function executeFilterTasksTool(app, request, args = {}) {
+	const includeNotes = args.includeNotes === true;
+	const limit = clampAssistantLimit(args.limit, {
+		fallback: DEFAULT_FILTER_LIMIT,
+		maximum: MAX_FILTER_LIMIT
+	});
+	const includeArchived =
+		args.includeArchived === true ||
+		(Array.isArray(args.statuses) && args.statuses.includes('archived'));
+	const selection = selectTasksForAssistantFilter(
+		await loadUserTasks(app.mongo.db, {
+			userId: request.auth.userId,
+			includeArchived
+		}),
+		args
+	);
+	const previewTasks = selection.tasks.slice(0, limit);
+	const openTaskRunMap = await loadOpenTaskRunMap(app.mongo.db, {
+		userId: request.auth.userId,
+		taskIds: previewTasks.map((task) => task._id)
+	});
+
+	return {
+		output: {
+			ok: true,
+			query: selection.query,
+			statuses: selection.statuses,
+			totalCount: selection.tasks.length,
+			previewOnly: selection.tasks.length > limit,
+			previewLimit: limit,
+			countsAreExhaustive: true,
+			tasks: previewTasks.map((task) =>
+				buildTaskSummaryOutput(
+					summarizeTask(task, openTaskRunMap.get(task._id.toString()) || null),
+					{ includeNotes }
+				)
+			)
+		},
+		actions: [],
+		refresh: {
+			tasks: false,
+			stats: false,
+			panic: false
+		}
+	};
 }
 
 async function executeListTasksTool(app, request, args) {
@@ -1194,55 +1605,7 @@ async function executeEditTaskTool(app, request, args) {
 		};
 	}
 
-	const body = {};
-
-	if (typeof args.name === 'string') {
-		body.name = args.name;
-	}
-
-	if (typeof args.colorKey === 'string') {
-		body.color = args.colorKey;
-	}
-
-	if (typeof args.mode === 'string') {
-		body.mode = args.mode;
-	}
-
-	if (typeof args.trackingType === 'string') {
-		body.trackingType = args.trackingType;
-	}
-
-	if (Object.hasOwn(args, 'pomodoroPreset')) {
-		body.pomodoroPreset = args.pomodoroPreset;
-	}
-
-	if (Object.hasOwn(args, 'bellSound')) {
-		body.bellSound = args.bellSound;
-	}
-
-	if (Object.hasOwn(args, 'note')) {
-		body.note = typeof args.note === 'string' ? args.note : null;
-	}
-
-	if (Object.hasOwn(args, 'tallyUnit')) {
-		body.tallyUnit = typeof args.tallyUnit === 'string' ? args.tallyUnit : null;
-	}
-
-	if (Object.hasOwn(args, 'tallyTarget')) {
-		body.tallyTarget = args.tallyTarget;
-	}
-
-	if (Object.hasOwn(args, 'activeTallyCount')) {
-		body.activeTallyCount = args.activeTallyCount;
-	}
-
-	if (Object.hasOwn(args, 'daymapLocked')) {
-		body.daymapLocked = args.daymapLocked;
-	}
-
-	if (typeof args.startedAt === 'string') {
-		body.startedAt = args.startedAt;
-	}
+	const body = buildTaskEditRequestBody(args);
 
 	if (Object.keys(body).length === 0) {
 		return {
@@ -1293,6 +1656,277 @@ async function executeEditTaskTool(app, request, args) {
 			changes
 		},
 		actions: buildTaskChangeActions(changes, taskSummary),
+		refresh: {
+			tasks: true,
+			stats: true,
+			panic: false
+		}
+	};
+}
+
+async function executeBulkEditTasksTool(app, request, args) {
+	const filter = !Array.isArray(args.filter) && typeof args.filter === 'object' && args.filter
+		? args.filter
+		: null;
+	const changes = !Array.isArray(args.changes) && typeof args.changes === 'object' && args.changes
+		? args.changes
+		: null;
+
+	if (!filter || !changes) {
+		return {
+			output: {
+				ok: false,
+				message: 'bulk_edit_tasks needs both a filter object and a changes object.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const body = buildTaskEditRequestBody(changes, {
+		allowName: false,
+		allowStartedAt: false,
+		allowActiveTallyCount: false
+	});
+
+	if (Object.keys(body).length === 0) {
+		return {
+			output: {
+				ok: false,
+				message: 'bulk_edit_tasks needs at least one supported shared change.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const includeArchived =
+		filter.includeArchived === true ||
+		(Array.isArray(filter.statuses) && filter.statuses.includes('archived'));
+	const selection = selectTasksForAssistantFilter(
+		await loadUserTasks(app.mongo.db, {
+			userId: request.auth.userId,
+			includeArchived
+		}),
+		filter
+	);
+	const matchedTasks = selection.tasks;
+
+	if (matchedTasks.length === 0) {
+		return {
+			output: {
+				ok: true,
+				statuses: selection.statuses,
+				matchedCount: 0,
+				changedCount: 0,
+				unchangedCount: 0,
+				failedCount: 0,
+				message: 'No tasks matched that filter.'
+			},
+			actions: [buildTaskAction('bulk_edit_tasks', 'No tasks matched that filter.', null)],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	if (matchedTasks.length > MAX_BULK_EDIT_MATCHES) {
+		return {
+			output: {
+				ok: false,
+				statuses: selection.statuses,
+				matchedCount: matchedTasks.length,
+				message: `That filter matched ${matchedTasks.length} tasks. Narrow it down before bulk editing more than ${MAX_BULK_EDIT_MATCHES} tasks at once.`
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const changedTaskNames = [];
+	const failedTasks = [];
+	const changesByTask = [];
+	let changedCount = 0;
+	let unchangedCount = 0;
+
+	for (const task of matchedTasks) {
+		const editResponse = await injectUserRoute(app, request, {
+			method: 'PATCH',
+			url: `/tasks/${task._id.toString()}`,
+			body
+		});
+
+		if (!editResponse.ok) {
+			failedTasks.push({
+				task: task.name,
+				message: editResponse.message || 'Unable to edit task.'
+			});
+			continue;
+		}
+
+		const taskChanges = Array.isArray(editResponse.body?.changes) ? editResponse.body.changes : [];
+		changesByTask.push(taskChanges);
+
+		if (taskChanges.length > 0) {
+			changedCount += 1;
+
+			if (changedTaskNames.length < 8) {
+				changedTaskNames.push(task.name);
+			}
+		} else {
+			unchangedCount += 1;
+		}
+	}
+
+	const changeSummaries = collectBulkChangeSummaries(changesByTask);
+	const actions = [];
+
+	if (changedCount > 0) {
+		actions.push(
+			buildTaskAction(
+				'bulk_edit_tasks',
+				`Changed ${changedCount} ${changedCount === 1 ? 'task' : 'tasks'}.`,
+				null
+			)
+		);
+	}
+
+	for (const change of changeSummaries.slice(0, 5)) {
+		actions.push(buildTaskAction('change', `Changed: ${change.field} - ${change.value}`, null));
+	}
+
+	if (unchangedCount > 0) {
+		actions.push(
+			buildTaskAction(
+				'bulk_edit_tasks',
+				`${unchangedCount} ${unchangedCount === 1 ? 'task was' : 'tasks were'} already in that state.`,
+				null
+			)
+		);
+	}
+
+	if (failedTasks.length > 0) {
+		actions.push(
+			buildTaskAction(
+				'bulk_edit_tasks',
+				`${failedTasks.length} ${failedTasks.length === 1 ? 'task failed' : 'tasks failed'}.`,
+				null
+			)
+		);
+	}
+
+	return {
+		output: {
+			ok: true,
+			statuses: selection.statuses,
+			matchedCount: matchedTasks.length,
+			changedCount,
+			unchangedCount,
+			failedCount: failedTasks.length,
+			changedTasks: changedTaskNames,
+			changeSummaries,
+			failedTasks: failedTasks.slice(0, 8)
+		},
+		actions,
+		refresh: {
+			tasks: changedCount > 0 || failedTasks.length > 0,
+			stats: changedCount > 0,
+			panic: false
+		}
+	};
+}
+
+async function executeCompleteTaskRunTool(app, request, args) {
+	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
+		userId: request.auth.userId,
+		taskQuery: args.taskQuery,
+		allowedStatuses: ['active']
+	});
+
+	if (!resolvedTask.ok) {
+		return {
+			output: resolvedTask,
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const body = {};
+
+	if (typeof args.startedAt === 'string') {
+		body.startedAt = args.startedAt;
+	}
+
+	if (typeof args.completedAt === 'string') {
+		body.completedAt = args.completedAt;
+	}
+
+	if (Object.hasOwn(args, 'instanceNote')) {
+		body.instanceNote =
+			typeof args.instanceNote === 'string' && args.instanceNote.length > 0
+				? args.instanceNote
+				: null;
+	}
+
+	const doneResponse = await injectUserRoute(app, request, {
+		method: 'POST',
+		url: `/tasks/${resolvedTask.task._id.toString()}/done`,
+		body: Object.keys(body).length > 0 ? body : undefined
+	});
+
+	if (!doneResponse.ok) {
+		return {
+			output: {
+				ok: false,
+				message: doneResponse.message || 'Unable to complete the task run.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	const taskSummary = await buildTaskSummaryFromId(app.mongo.db, {
+		userId: request.auth.userId,
+		taskId: resolvedTask.task._id.toString()
+	});
+	const changes = doneResponse.body?.changes ?? [];
+
+	return {
+		output: {
+			ok: true,
+			task: taskSummary,
+			changes
+		},
+		actions: [
+			...buildTaskChangeActions(changes, taskSummary),
+			buildTaskAction(
+				'complete_task_run',
+				`Marked ${taskSummary?.name || resolvedTask.task.name} done.`,
+				taskSummary
+			)
+		],
 		refresh: {
 			tasks: true,
 			stats: true,
@@ -2074,6 +2708,81 @@ async function executeUpdateTaskTallyTool(app, request, args) {
 	};
 }
 
+async function executeControlTaskTool(app, request, args) {
+	switch (args.action) {
+		case 'activate':
+			return executeMoveTaskTool(app, request, {
+				taskQuery: args.taskQuery,
+				destination: 'active'
+			});
+		case 'move_to_daymap':
+			return executeMoveTaskTool(app, request, {
+				taskQuery: args.taskQuery,
+				destination: 'daymap'
+			});
+		case 'move_to_inactive':
+			return executeMoveTaskTool(app, request, {
+				taskQuery: args.taskQuery,
+				destination: 'inactive'
+			});
+		case 'archive':
+			return executeMoveTaskTool(app, request, {
+				taskQuery: args.taskQuery,
+				destination: 'archived'
+			});
+		case 'queue':
+			return executeSetQueueStateTool(app, request, {
+				taskQuery: args.taskQuery,
+				queued: true
+			});
+		case 'unqueue':
+			return executeSetQueueStateTool(app, request, {
+				taskQuery: args.taskQuery,
+				queued: false
+			});
+		default:
+			return {
+				output: {
+					ok: false,
+					message: 'Task control action is not supported.'
+				},
+				actions: [],
+				refresh: {
+					tasks: false,
+					stats: false,
+					panic: false
+				}
+			};
+	}
+}
+
+async function executeAdjustActiveTallyTool(app, request, args) {
+	return executeUpdateTaskTallyTool(app, request, args);
+}
+
+async function executeSetPanicModeTool(app, request, args, timezoneOffsetMinutes) {
+	if (args.active === true) {
+		return executeStartPanicTool(app, request, timezoneOffsetMinutes);
+	}
+
+	if (args.active === false) {
+		return executeStopPanicTool(app, request, args, timezoneOffsetMinutes);
+	}
+
+	return {
+		output: {
+			ok: false,
+			message: 'Panic mode changes require active=true or active=false.'
+		},
+		actions: [],
+		refresh: {
+			tasks: false,
+			stats: false,
+			panic: false
+		}
+	};
+}
+
 async function loadPanicStatus(app, request, timezoneOffsetMinutes) {
 	const day = getCurrentLocalDay(timezoneOffsetMinutes);
 
@@ -2250,26 +2959,129 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'list_tasks',
+			name: 'get_board_snapshot',
 			description:
-				'List tasks from the user board, optionally filtered by state or searched by name.',
+				'Get a backend-owned snapshot of the board with exhaustive counts plus preview lists for active, daymap, inactive, and optionally archived tasks. Use this for broad reads like "what can you see?" or "what is on my board?". Never treat the returned task lists as the full section. Always send {"scope":"board"} as the base object.',
 			parameters: {
 				type: 'object',
 				additionalProperties: false,
+				required: ['scope'],
 				properties: {
-					status: {
+					scope: {
 						type: 'string',
-						enum: [...TASK_STATUS_VALUES]
-					},
-					search: {
-						type: 'string'
+						enum: ['board']
 					},
 					limit: {
 						type: 'integer',
 						minimum: 1,
-						maximum: MAX_LIST_LIMIT
+						maximum: MAX_BOARD_SECTION_LIMIT
+						},
+					includeNotes: {
+						type: 'boolean'
+					},
+					includeArchived: {
+						type: 'boolean'
+					}
+				}
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
+			name: 'filter_tasks',
+			description:
+				'Inspect the full board with backend-owned filters and exhaustive matching counts. Use this when the user asks about every task matching a condition, especially across a whole status like inactive or daymap.',
+			parameters: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					query: {
+						type: 'string',
+						maxLength: 120
+					},
+					statuses: {
+						type: 'array',
+						maxItems: 4,
+						items: {
+							type: 'string',
+							enum: [...TASK_STATUS_VALUES]
+						}
+					},
+					trackingType: {
+						type: 'string',
+						enum: [...TASK_TRACKING_TYPE_VALUES]
+					},
+					mode: {
+						type: 'string',
+						enum: [...TASK_MODE_VALUES]
+					},
+					colorKey: {
+						type: 'string',
+						enum: [...TASK_COLOR_KEYS]
+					},
+					pomodoroPreset: {
+						type: ['string', 'null'],
+						enum: [...POMODORO_PRESET_KEYS, null]
+					},
+					hasPomodoro: {
+						type: 'boolean'
+					},
+					bellSound: {
+						type: ['string', 'null'],
+						enum: [...BELL_SOUND_VALUES, null]
+					},
+					daymapLocked: {
+						type: 'boolean'
 					},
 					includeNotes: {
+						type: 'boolean'
+					},
+					includeArchived: {
+						type: 'boolean'
+					},
+					limit: {
+						type: 'integer',
+						minimum: 1,
+						maximum: MAX_FILTER_LIMIT
+					}
+				}
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
+			name: 'search_tasks',
+			description:
+				'Search the entire board with backend-side ranking so the model does not have to paginate or manually sift large task lists.',
+			parameters: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['query'],
+				properties: {
+					query: {
+						type: 'string',
+						minLength: 1,
+						maxLength: 120
+					},
+					statuses: {
+						type: 'array',
+						maxItems: 4,
+						items: {
+							type: 'string',
+							enum: [...TASK_STATUS_VALUES]
+						}
+					},
+					limit: {
+						type: 'integer',
+						minimum: 1,
+						maximum: MAX_SEARCH_LIMIT
+					},
+					includeNotes: {
+						type: 'boolean'
+					},
+					includeArchived: {
 						type: 'boolean'
 					}
 				}
@@ -2281,11 +3093,16 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'get_day_summary',
 			description:
-				'Load real day stats, top task breakdown, and recent done/panic items for a specific local day.',
+				'Load real day stats, top task breakdown, and recent done or panic items for a specific local day. Always send {"scope":"day"} as the base object.',
 			parameters: {
 				type: 'object',
 				additionalProperties: false,
+				required: ['scope'],
 				properties: {
+					scope: {
+						type: 'string',
+						enum: ['day']
+					},
 					day: {
 						type: 'string',
 						pattern: '^\\d{4}-\\d{2}-\\d{2}$'
@@ -2375,7 +3192,7 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'edit_task',
 			description:
-				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, tally settings, daymap lock, note, or active started time changes.',
+				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, tally settings, daymap lock, task note, or active started time changes.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery'],
@@ -2443,22 +3260,102 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'rename_task',
-			description: 'Rename an existing task.',
+			name: 'bulk_edit_tasks',
+			description:
+				'Apply one shared metadata change set to every task matching a backend-owned filter. Use this for requests like "remove pomodoro from all inactive tasks" or other status-wide cleanup.',
 			parameters: {
 				type: 'object',
-				required: ['taskQuery', 'name'],
+				required: ['filter', 'changes'],
 				additionalProperties: false,
 				properties: {
-					taskQuery: {
-						type: 'string',
-						minLength: 1,
-						maxLength: 120
+					filter: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							query: {
+								type: 'string',
+								maxLength: 120
+							},
+							statuses: {
+								type: 'array',
+								maxItems: 4,
+								items: {
+									type: 'string',
+									enum: [...TASK_STATUS_VALUES]
+								}
+							},
+							trackingType: {
+								type: 'string',
+								enum: [...TASK_TRACKING_TYPE_VALUES]
+							},
+							mode: {
+								type: 'string',
+								enum: [...TASK_MODE_VALUES]
+							},
+							colorKey: {
+								type: 'string',
+								enum: [...TASK_COLOR_KEYS]
+							},
+							pomodoroPreset: {
+								type: ['string', 'null'],
+								enum: [...POMODORO_PRESET_KEYS, null]
+							},
+							hasPomodoro: {
+								type: 'boolean'
+							},
+							bellSound: {
+								type: ['string', 'null'],
+								enum: [...BELL_SOUND_VALUES, null]
+							},
+							daymapLocked: {
+								type: 'boolean'
+							},
+							includeArchived: {
+								type: 'boolean'
+							}
+						}
 					},
-					name: {
-						type: 'string',
-						minLength: 1,
-						maxLength: 120
+					changes: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							colorKey: {
+								type: 'string',
+								enum: [...TASK_COLOR_KEYS]
+							},
+							mode: {
+								type: 'string',
+								enum: [...TASK_MODE_VALUES]
+							},
+							trackingType: {
+								type: 'string',
+								enum: [...TASK_TRACKING_TYPE_VALUES]
+							},
+							pomodoroPreset: {
+								type: ['string', 'null'],
+								enum: [...POMODORO_PRESET_KEYS, null]
+							},
+							bellSound: {
+								type: ['string', 'null'],
+								enum: [...BELL_SOUND_VALUES, null]
+							},
+							note: {
+								type: ['string', 'null'],
+								maxLength: 2000
+							},
+							tallyUnit: {
+								type: ['string', 'null'],
+								maxLength: 60
+							},
+							tallyTarget: {
+								type: ['integer', 'null'],
+								minimum: 1,
+								maximum: 100000
+							},
+							daymapLocked: {
+								type: 'boolean'
+							}
+						}
 					}
 				}
 			}
@@ -2467,9 +3364,9 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'set_task_note',
+			name: 'complete_task_run',
 			description:
-				'Update or clear the persistent task note. Use this for notes that belong to the task itself.',
+				'Mark an active task done, with optional startedAt and completedAt corrections plus an optional instance note. Use this when the user says they finished something or wants the end time corrected.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery'],
@@ -2480,29 +3377,13 @@ const ASSISTANT_TOOLS = [
 						minLength: 1,
 						maxLength: 120
 					},
-					note: {
-						type: ['string', 'null'],
-						maxLength: 2000
-					}
-				}
-			}
-		}
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'set_task_instance_note',
-			description:
-				'Update or clear the active-run note on an active task. Use this only for the current run.',
-			parameters: {
-				type: 'object',
-				required: ['taskQuery'],
-				additionalProperties: false,
-				properties: {
-					taskQuery: {
+					startedAt: {
 						type: 'string',
-						minLength: 1,
-						maxLength: 120
+						format: 'date-time'
+					},
+					completedAt: {
+						type: 'string',
+						format: 'date-time'
 					},
 					instanceNote: {
 						type: ['string', 'null'],
@@ -2515,12 +3396,12 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'move_task',
+			name: 'control_task',
 			description:
-				'Move a task between active, daymap, inactive, done, or archived states using Task Monster semantics.',
+				'Control task state transitions other than done. Use this for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 			parameters: {
 				type: 'object',
-				required: ['taskQuery', 'destination'],
+				required: ['taskQuery', 'action'],
 				additionalProperties: false,
 				properties: {
 					taskQuery: {
@@ -2528,13 +3409,16 @@ const ASSISTANT_TOOLS = [
 						minLength: 1,
 						maxLength: 120
 					},
-					destination: {
+					action: {
 						type: 'string',
-						enum: [...TASK_MOVE_DESTINATION_VALUES]
-					},
-					instanceNote: {
-						type: ['string', 'null'],
-						maxLength: 4000
+						enum: [
+							'activate',
+							'move_to_daymap',
+							'move_to_inactive',
+							'archive',
+							'queue',
+							'unqueue'
+						]
 					}
 				}
 			}
@@ -2543,53 +3427,9 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'set_task_queue_state',
-			description: 'Queue or unqueue a daymap task.',
-			parameters: {
-				type: 'object',
-				required: ['taskQuery', 'queued'],
-				additionalProperties: false,
-				properties: {
-					taskQuery: {
-						type: 'string',
-						minLength: 1,
-						maxLength: 120
-					},
-					queued: {
-						type: 'boolean'
-					}
-				}
-			}
-		}
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'set_task_daymap_lock',
+			name: 'adjust_active_tally',
 			description:
-				'Turn the daymap lock on or off. Locked repeatable tasks loop back to daymap after done.',
-			parameters: {
-				type: 'object',
-				required: ['taskQuery', 'daymapLocked'],
-				additionalProperties: false,
-				properties: {
-					taskQuery: {
-						type: 'string',
-						minLength: 1,
-						maxLength: 120
-					},
-					daymapLocked: {
-						type: 'boolean'
-					}
-				}
-			}
-		}
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'update_task_tally',
-			description: 'Increment or decrement the tally count of an active tally task.',
+				'Increment or decrement the tally count of an active tally task.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery', 'delta'],
@@ -2612,24 +3452,17 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
-			name: 'start_panic',
-			description: 'Start panic mode.',
+			name: 'set_panic_mode',
+			description:
+				'Start or stop panic mode. When stopping panic, you can optionally include a note and emotional pull score.',
 			parameters: {
 				type: 'object',
-				additionalProperties: false,
-				properties: {}
-			}
-		}
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'stop_panic',
-			description: 'Stop panic mode and optionally record a note and emotional pull score.',
-			parameters: {
-				type: 'object',
+				required: ['active'],
 				additionalProperties: false,
 				properties: {
+					active: {
+						type: 'boolean'
+					},
 					note: {
 						type: ['string', 'null'],
 						maxLength: 4000
@@ -2646,7 +3479,11 @@ const ASSISTANT_TOOLS = [
 ];
 
 async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinutes) {
-	const parsedArguments = parseJsonSafely(toolCall.function?.arguments);
+	const rawArguments = toolCall.function?.arguments;
+	const parsedArguments =
+		typeof rawArguments === 'string' && rawArguments.trim().length > 0
+			? parseJsonSafely(rawArguments)
+			: {};
 
 	if (!parsedArguments) {
 		return {
@@ -2663,33 +3500,44 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 		};
 	}
 
+	if (Array.isArray(parsedArguments) || typeof parsedArguments !== 'object') {
+		return {
+			output: {
+				ok: false,
+				message: `Tool arguments for ${toolCall.function?.name || 'unknown'} must be a JSON object.`
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
 	switch (toolCall.function.name) {
-		case 'list_tasks':
-			return executeListTasksTool(app, request, parsedArguments);
+		case 'get_board_snapshot':
+			return executeGetBoardSnapshotTool(app, request, parsedArguments);
+		case 'filter_tasks':
+			return executeFilterTasksTool(app, request, parsedArguments);
+		case 'search_tasks':
+			return executeSearchTasksTool(app, request, parsedArguments);
 		case 'get_day_summary':
 			return executeDaySummaryTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'create_task':
 			return executeCreateTaskTool(app, request, parsedArguments);
 		case 'edit_task':
 			return executeEditTaskTool(app, request, parsedArguments);
-		case 'rename_task':
-			return executeRenameTaskTool(app, request, parsedArguments);
-		case 'set_task_note':
-			return executeSetTaskNoteTool(app, request, parsedArguments);
-		case 'set_task_instance_note':
-			return executeSetTaskInstanceNoteTool(app, request, parsedArguments);
-		case 'move_task':
-			return executeMoveTaskTool(app, request, parsedArguments);
-		case 'set_task_queue_state':
-			return executeSetQueueStateTool(app, request, parsedArguments);
-		case 'set_task_daymap_lock':
-			return executeSetDaymapLockTool(app, request, parsedArguments);
-		case 'update_task_tally':
-			return executeUpdateTaskTallyTool(app, request, parsedArguments);
-		case 'start_panic':
-			return executeStartPanicTool(app, request, timezoneOffsetMinutes);
-		case 'stop_panic':
-			return executeStopPanicTool(app, request, parsedArguments, timezoneOffsetMinutes);
+		case 'bulk_edit_tasks':
+			return executeBulkEditTasksTool(app, request, parsedArguments);
+		case 'complete_task_run':
+			return executeCompleteTaskRunTool(app, request, parsedArguments);
+		case 'control_task':
+			return executeControlTaskTool(app, request, parsedArguments);
+		case 'adjust_active_tally':
+			return executeAdjustActiveTallyTool(app, request, parsedArguments);
+		case 'set_panic_mode':
+			return executeSetPanicModeTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		default:
 			return {
 				output: {

@@ -10,7 +10,7 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and can inspect the board, create tasks, rename tasks, move tasks across board states, update notes, queue/daymap-lock tasks, adjust tally counts, control panic mode, and summarize the day from real stats data. New task creation now has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate.
+Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate.
 
 ## Current app status
 
@@ -140,22 +140,27 @@ Assistant route:
   - the frontend only sends the most recent 12 conversation messages
   - the backend accepts a larger payload window, then sanitizes/trims to the most recent 12 user/assistant messages before calling OpenAI
   - there is no server-side conversation persistence; the visible thread lives in the client drawer state
-  - current v1 actions include:
-    - list/search tasks
+  - the backend now gives the model a higher-level domain tool surface instead of asking it to compose low-level route semantics
+  - current v2 actions include:
+    - board snapshot reads with exhaustive counts and preview-only task lists
+    - full-board filtered reads for exact set checks
+    - full-board task search with backend-side ranking
     - create tasks
-    - edit task metadata and active started time
-    - rename tasks
-    - update task note or active instance note
-    - move tasks between inactive/daymap/active/done/archive semantics
-    - queue or unqueue daymap tasks
-    - toggle daymap lock
-    - update tally counts
+    - edit a single task’s metadata, notes, pomodoro, bell sound, tally settings, and active started time
+    - bulk-edit matching task sets for shared metadata cleanup like removing pomodoro from every inactive task
+    - complete an active run with optional corrected `startedAt` / `completedAt`
+    - activate, daymap, backlog, queue, unqueue, and archive control actions
+    - adjust active tally counts
     - start or stop panic
     - summarize a local day from real stats
   - duplicate-task guard behavior:
     - create checks only `inactive` and `daymap` for close matches
     - if a close match exists, the assistant should stop and present options `1`, `2`, and `3`
     - option `3` is the explicit duplicate override path
+  - board-read guard behavior:
+    - `get_board_snapshot` counts are exhaustive, but its task lists are previews only
+    - for “all inactive tasks”, “every daymap-locked task”, or similar full-set claims, the assistant should use `filter_tasks`
+    - for status-wide cleanup, the assistant should use `bulk_edit_tasks` instead of looping many single-task edits
 
 Task routes:
 

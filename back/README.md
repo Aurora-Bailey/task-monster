@@ -223,18 +223,17 @@ Current stats output includes:
 
 The current in-app assistant can:
 
-- list or search tasks by state
+- take a broad board snapshot with backend-owned grouping and exhaustive counts
+- inspect exact full-board task sets through backend-owned filters
+- search tasks across the full board with backend-owned ranking
 - summarize a selected local day from real stats
 - create tasks
-- edit task metadata, bell sound, pomodoro, tally settings, and active started time
-- rename tasks
-- update task notes
-- update active instance notes
-- move tasks between inactive/daymap/active/done/archive semantics
-- queue or unqueue daymap tasks
-- toggle daymap lock
+- edit task metadata, note fields, bell sound, pomodoro, tally settings, daymap lock, and active started time
+- bulk-edit shared metadata across a matched task set
+- complete an active run with corrected `startedAt` / `completedAt` and optional `instanceNote`
+- control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
 - update active tally counts
-- start or stop panic mode
+- start or stop panic mode through one unified tool
 
 Assistant request model:
 
@@ -255,6 +254,13 @@ Assistant prompt policy:
 
 - use tools for all task-specific facts and all mutations
 - do not guess task state or stats
+- always send tool arguments as a JSON object
+- broad board reads should use `get_board_snapshot`
+- the task arrays in `get_board_snapshot` are previews only; its counts are exhaustive
+- full-set checks should use `filter_tasks`
+- status-wide cleanup should use `bulk_edit_tasks` instead of manual pagination or long single-task edit loops
+- broad task lookup should use `search_tasks` instead of pagination loops
+- timing corrections should be passed as tool arguments, not approximated with notes
 - ambiguous requests should get a short clarification question
 - `"pause"` or `"take it off active"` should resolve toward daymap
 - `"inactive"` or `"backlog"` should resolve toward fully unmapping back to inactive

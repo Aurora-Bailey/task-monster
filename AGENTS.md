@@ -354,22 +354,39 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Backend implementation:
   - `back/lib/assistant.js`
   - currently uses the OpenAI Chat Completions API, not the Responses API
-- Current v1 tool surface:
-  - list or search tasks by board state
-  - summarize a local day from real stats
-  - create tasks
-  - edit task metadata, bell sound, pomodoro, tally settings, and active started time
-  - rename tasks
-  - update task note
-  - update active instance note
-  - move tasks between inactive/daymap/active/done/archive semantics
-  - queue or unqueue daymap tasks
-  - toggle daymap lock
-  - update active tally counts
-  - start or stop panic mode
+- Current v2 tool surface:
+  - `get_board_snapshot`
+    - broad board reads with exhaustive counts plus preview-only task lists
+  - `filter_tasks`
+    - full-board filtered reads when the user means every matching task, not just a preview slice
+  - `search_tasks`
+    - backend-ranked task search across the full board; this is preferred over making the model paginate broad lists
+  - `get_day_summary`
+    - real local-day stats read
+  - `create_task`
+    - still guarded against close duplicates in `inactive` and `daymap`
+  - `edit_task`
+    - metadata, note, pomodoro, bell sound, tally settings, daymap lock, and active `startedAt`
+  - `bulk_edit_tasks`
+    - shared metadata cleanup across a matched task set, such as removing pomodoro from all inactive tasks
+  - `complete_task_run`
+    - marks an active task done and can correct `startedAt`, `completedAt`, and `instanceNote` in one call
+  - `control_task`
+    - activate, move to daymap, move to inactive, queue, unqueue, or archive
+  - `adjust_active_tally`
+    - active tally increments/decrements
+  - `set_panic_mode`
+    - unified panic start/stop tool
 - Current prompt/behavior policy:
   - tools are required for all task-specific facts and all mutations
+  - the model is explicitly told to always send a JSON object for tool arguments
+  - for broad reads it should call `get_board_snapshot` with `{"scope":"board"}`
+  - board snapshot task arrays are previews only and must not be treated as exhaustive sections
+  - for full-set checks like “all inactive tasks with pomodoro” it should call `filter_tasks`
+  - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
+  - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
+  - time-correction requests should be passed as actual tool arguments, not approximated with notes
   - `"pause"` and similar language should resolve toward daymap
   - `"inactive"` and `"backlog"` should resolve toward fully unmapping back to inactive
   - structured replies should use markdown when it helps

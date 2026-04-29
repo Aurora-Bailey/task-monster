@@ -32,15 +32,27 @@ const doneTaskSchema = {
 			}
 		}
 	},
-	response: {
-		200: {
-			type: 'object',
-			required: ['task'],
-			properties: {
-				task: serializedTaskJsonSchema
+		response: {
+			200: {
+				type: 'object',
+				required: ['task', 'changes'],
+				properties: {
+					task: serializedTaskJsonSchema,
+					changes: {
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['field', 'label', 'value'],
+							properties: {
+								field: { type: 'string' },
+								label: { type: 'string' },
+								value: { type: 'string' }
+							}
+						}
+					}
+				}
 			}
 		}
-	}
 };
 
 async function doneTaskRoute(app) {
@@ -100,10 +112,10 @@ async function doneTaskRoute(app) {
 				activeToday: true
 			});
 			const actionedAt = new Date();
-			const requestedStartedAt = request.body?.startedAt;
-			const requestedCompletedAt = request.body?.completedAt;
-			let startedAt = openTaskRun.startedAt;
-			let completedAt = actionedAt;
+				const requestedStartedAt = request.body?.startedAt;
+				const requestedCompletedAt = request.body?.completedAt;
+				let startedAt = openTaskRun.startedAt;
+				let completedAt = actionedAt;
 
 			if (typeof requestedStartedAt === 'string') {
 				const parsedStartedAt = new Date(requestedStartedAt);
@@ -129,23 +141,52 @@ async function doneTaskRoute(app) {
 				completedAt = new Date(Math.min(parsedCompletedAt.getTime(), actionedAt.getTime()));
 			}
 
-			completedAt = new Date(Math.max(startedAt.getTime(), completedAt.getTime()));
-			startedAt = new Date(Math.min(startedAt.getTime(), completedAt.getTime()));
+				completedAt = new Date(Math.max(startedAt.getTime(), completedAt.getTime()));
+				startedAt = new Date(Math.min(startedAt.getTime(), completedAt.getTime()));
+				const changes = [];
 
-			const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
+				const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
 			const completedTallyCount =
 				task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
 					? task.activeTallyCount
 					: null;
 			const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
-			const instanceNote = Object.hasOwn(request.body || {}, 'instanceNote')
-				? typeof request.body.instanceNote === 'string'
-					? request.body.instanceNote
-					: null
-				: undefined;
-			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
-				{
-					_id: task._id,
+				const instanceNote = Object.hasOwn(request.body || {}, 'instanceNote')
+					? typeof request.body.instanceNote === 'string'
+						? request.body.instanceNote
+						: null
+					: undefined;
+
+				if (startedAt.getTime() !== openTaskRun.startedAt.getTime()) {
+					changes.push({
+						field: 'started time',
+						label: 'Changed: started time',
+						value: startedAt.toISOString()
+					});
+				}
+
+				if (
+					typeof requestedCompletedAt === 'string' ||
+					completedAt.getTime() !== actionedAt.getTime()
+				) {
+					changes.push({
+						field: 'completed time',
+						label: 'Changed: completed time',
+						value: completedAt.toISOString()
+					});
+				}
+
+				if (instanceNote !== undefined && instanceNote !== (openTaskRun.instanceNote ?? null)) {
+					changes.push({
+						field: 'instance note',
+						label: 'Changed: instance note',
+						value: instanceNote ? `"${instanceNote}"` : 'cleared'
+					});
+				}
+
+				const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
+					{
+						_id: task._id,
 					userId: task.userId,
 					archived: false,
 					activeToday: true
@@ -198,11 +239,12 @@ async function doneTaskRoute(app) {
 				});
 			}
 
-			return {
-				task: serializeTask(result)
-			};
-		}
-	);
+				return {
+					task: serializeTask(result),
+					changes
+				};
+			}
+		);
 }
 
 module.exports = doneTaskRoute;

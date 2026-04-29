@@ -130,11 +130,12 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Assistant create behavior now has a duplicate guard
   - if the backend sees a close match already in `inactive` or `daymap`, the assistant should present a `1 / 2 / 3` choice instead of silently creating another task
   - that follow-up choice depends on the current thread still being present in the drawer
-- The assistant can now use the broad task edit route for:
-  - pomodoro changes
-  - bell sound changes
-  - active started-time edits
-  - other task metadata edits
+- The backend assistant surface is now higher-level and more domain-shaped
+  - broad reads should come back through board snapshots, but those snapshot task arrays are preview-only
+  - exact full-set checks should come back through backend-owned filtered reads
+  - status-wide cleanup should come back through backend-owned bulk edit actions rather than long chains of single edits
+  - task completion can now include corrected run timing in one assistant action
+  - metadata edits still flow through the broad task edit route
 
 ## Data source notes
 
