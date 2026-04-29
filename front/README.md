@@ -91,6 +91,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
 - Daymap cards support queueing and daymap locking
+- The daymap sort bar has a daymap-only `Queue` mode
+  - queued tasks rise to the top in queue-number order
+  - unqueued tasks stay below them
 - The add page exposes pomodoro presets directly for time tasks
   - `none`: manual run with no focus/break bell
   - `short`: 15/5

@@ -5,7 +5,13 @@
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
-	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
+	import {
+		DAYMAP_TASK_SORT_OPTIONS,
+		DEFAULT_TASK_SORT_MODE,
+		loadStoredTaskSort,
+		sortTasks,
+		storeTaskSort
+	} from '$lib/task-sort';
 	import {
 		activateTask,
 		loadDaymapTasks,
@@ -117,7 +123,7 @@
 	}
 
 	onMount(() => {
-		sortMode = loadStoredTaskSort('daymap');
+		sortMode = loadStoredTaskSort('daymap', DAYMAP_TASK_SORT_OPTIONS);
 		void loadTasks();
 
 		if (typeof window === 'undefined') {
@@ -178,9 +184,10 @@
 	{:else}
 		<TaskSortBar
 			value={sortMode}
+			options={DAYMAP_TASK_SORT_OPTIONS}
 			onChange={(nextSortMode) => {
 				sortMode = nextSortMode;
-				storeTaskSort('daymap', nextSortMode);
+				storeTaskSort('daymap', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
 			}}
 		/>
 

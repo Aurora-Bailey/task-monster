@@ -318,6 +318,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - queue or unqueue
   - daymap lock toggle
   - unmap back to inactive
+  - a daymap-only `Queue` sort mode that floats queued tasks to the top in queue-number order
 - Active page includes:
   - browser audio break-bell behavior
   - tally increment and decrement controls

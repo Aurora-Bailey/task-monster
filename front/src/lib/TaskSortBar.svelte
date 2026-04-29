@@ -1,14 +1,14 @@
-<script>
+	<script>
 	import { TASK_SORT_OPTIONS } from '$lib/task-sort';
 
-	let { value = 'date', onChange = () => {} } = $props();
+	let { value = 'date', options = TASK_SORT_OPTIONS, onChange = () => {} } = $props();
 </script>
 
 <div class="sort-bar" role="group" aria-label="Sort tasks">
 	<span class="sort-label">Sort</span>
 
 	<div class="sort-options">
-		{#each TASK_SORT_OPTIONS as option}
+		{#each options as option}
 			<button
 				type="button"
 				class:selected-option={value === option.value}

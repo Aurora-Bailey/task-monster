@@ -12,24 +12,28 @@ export const TASK_SORT_OPTIONS = [
 	{ value: 'color', label: 'Color' },
 	{ value: 'alpha', label: 'A-Z' }
 ];
-const TASK_SORT_MODES = new Set(TASK_SORT_OPTIONS.map((option) => option.value));
+export const DAYMAP_TASK_SORT_OPTIONS = [...TASK_SORT_OPTIONS, { value: 'queue', label: 'Queue' }];
 
-function isValidTaskSortMode(mode) {
-	return TASK_SORT_MODES.has(mode);
+function getTaskSortModes(options = TASK_SORT_OPTIONS) {
+	return new Set(options.map((option) => option.value));
 }
 
-export function loadStoredTaskSort(pageKey) {
+function isValidTaskSortMode(mode, options = TASK_SORT_OPTIONS) {
+	return getTaskSortModes(options).has(mode);
+}
+
+export function loadStoredTaskSort(pageKey, options = TASK_SORT_OPTIONS) {
 	if (typeof localStorage === 'undefined') {
 		return DEFAULT_TASK_SORT_MODE;
 	}
 
 	const storedMode = localStorage.getItem(`${TASK_SORT_STORAGE_PREFIX}${pageKey}`);
 
-	return isValidTaskSortMode(storedMode) ? storedMode : DEFAULT_TASK_SORT_MODE;
+	return isValidTaskSortMode(storedMode, options) ? storedMode : DEFAULT_TASK_SORT_MODE;
 }
 
-export function storeTaskSort(pageKey, mode) {
-	if (typeof localStorage === 'undefined' || !isValidTaskSortMode(mode)) {
+export function storeTaskSort(pageKey, mode, options = TASK_SORT_OPTIONS) {
+	if (typeof localStorage === 'undefined' || !isValidTaskSortMode(mode, options)) {
 		return;
 	}
 
@@ -76,8 +80,38 @@ function compareByAlpha(left, right) {
 	});
 }
 
+function compareByQueue(left, right) {
+	const leftQueuePosition =
+		Number.isInteger(left.queuePosition) && left.queuePosition > 0 ? left.queuePosition : null;
+	const rightQueuePosition =
+		Number.isInteger(right.queuePosition) && right.queuePosition > 0 ? right.queuePosition : null;
+
+	if (leftQueuePosition !== null && rightQueuePosition !== null) {
+		return leftQueuePosition - rightQueuePosition;
+	}
+
+	if (leftQueuePosition !== null) {
+		return -1;
+	}
+
+	if (rightQueuePosition !== null) {
+		return 1;
+	}
+
+	return 0;
+}
+
 export function sortTasks(items, { mode = DEFAULT_TASK_SORT_MODE, variant = 'inactive' } = {}) {
 	return [...items].sort((left, right) => {
+		if (mode === 'queue') {
+			return (
+				compareByQueue(left, right) ||
+				compareByColor(left, right) ||
+				compareByAlpha(left, right) ||
+				compareByDate(left, right, variant)
+			);
+		}
+
 		if (mode === 'color') {
 			return (
 				compareByColor(left, right) ||
