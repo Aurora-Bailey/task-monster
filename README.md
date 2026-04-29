@@ -149,7 +149,7 @@ Assistant route:
     - create tasks
     - edit a single task’s metadata, notes, pomodoro, bell sound, tally settings, and active started time
     - bulk-edit matching task sets for shared metadata cleanup like removing pomodoro from every inactive task
-    - complete an active run with optional corrected `startedAt` / `completedAt`
+    - complete an active run or a historical daymap/inactive run with optional corrected `startedAt` / `completedAt`
     - activate, daymap, backlog, queue, unqueue, and archive control actions
     - adjust active tally counts
     - start or stop panic
@@ -162,6 +162,9 @@ Assistant route:
     - `get_board_snapshot` counts are exhaustive, but its task lists are previews only
     - for “all inactive tasks”, “every daymap-locked task”, or similar full-set claims, the assistant should use `filter_tasks`
     - for status-wide cleanup, the assistant should use `bulk_edit_tasks` instead of looping many single-task edits
+  - assistant time behavior:
+    - `startedAt` / `completedAt` tool arguments are local user times, not UTC wall-clock guesses
+    - the prompt includes the current local timezone offset, and backend normalization corrects accidental `Z` timestamps from the model
 - `GET /assistant/history`
   - authenticated assistant history route used to hydrate the drawer on load
   - returns the latest persisted assistant/user messages in chronological order

@@ -230,7 +230,7 @@ The current in-app assistant can:
 - create tasks
 - edit task metadata, note fields, bell sound, pomodoro, tally settings, daymap lock, and active started time
 - bulk-edit shared metadata across a matched task set
-- complete an active run with corrected `startedAt` / `completedAt` and optional `instanceNote`
+- complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt` and optional `instanceNote`
 - control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
 - update active tally counts
 - start or stop panic mode through one unified tool
@@ -262,6 +262,8 @@ Assistant prompt policy:
 - status-wide cleanup should use `bulk_edit_tasks` instead of manual pagination or long single-task edit loops
 - broad task lookup should use `search_tasks` instead of pagination loops
 - timing corrections should be passed as tool arguments, not approximated with notes
+- if a non-active task is being completed historically, both `startedAt` and `completedAt` should be supplied
+- assistant time tool arguments are interpreted as the user’s local wall-clock times; the prompt now gives the current local offset and backend normalization protects against accidental UTC `Z` timestamps
 - ambiguous requests should get a short clarification question
 - `"pause"` or `"take it off active"` should resolve toward daymap
 - `"inactive"` or `"backlog"` should resolve toward fully unmapping back to inactive

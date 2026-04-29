@@ -135,7 +135,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - broad reads should come back through board snapshots, but those snapshot task arrays are preview-only
   - exact full-set checks should come back through backend-owned filtered reads
   - status-wide cleanup should come back through backend-owned bulk edit actions rather than long chains of single edits
-  - task completion can now include corrected run timing in one assistant action
+  - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
   - metadata edits still flow through the broad task edit route
 
 ## Data source notes

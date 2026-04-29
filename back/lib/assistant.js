@@ -627,9 +627,58 @@ function buildTaskChangeActions(changes, taskSummary) {
 	);
 }
 
+function formatTimezoneOffsetLabel(timezoneOffsetMinutes) {
+	const localOffsetMinutes = -timezoneOffsetMinutes;
+	const sign = localOffsetMinutes >= 0 ? '+' : '-';
+	const absoluteMinutes = Math.abs(localOffsetMinutes);
+	const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
+	const minutes = String(absoluteMinutes % 60).padStart(2, '0');
+
+	return `${sign}${hours}:${minutes}`;
+}
+
+function normalizeAssistantDateTimeArgument(value, timezoneOffsetMinutes) {
+	if (typeof value !== 'string') {
+		return value;
+	}
+
+	const trimmed = value.trim();
+	const match = trimmed.match(
+		/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/
+	);
+
+	if (!match) {
+		return trimmed;
+	}
+
+	const timezoneDesignator = match[8] || null;
+
+	if (timezoneDesignator && timezoneDesignator !== 'Z') {
+		return trimmed;
+	}
+
+	const year = Number.parseInt(match[1], 10);
+	const month = Number.parseInt(match[2], 10);
+	const day = Number.parseInt(match[3], 10);
+	const hour = Number.parseInt(match[4], 10);
+	const minute = Number.parseInt(match[5], 10);
+	const second = Number.parseInt(match[6] || '0', 10);
+	const millisecond = Number.parseInt((match[7] || '.0').slice(1).padEnd(3, '0').slice(0, 3), 10);
+	const utcMilliseconds =
+		Date.UTC(year, month - 1, day, hour, minute, second, millisecond) +
+		timezoneOffsetMinutes * 60 * 1000;
+
+	return new Date(utcMilliseconds).toISOString();
+}
+
 function buildTaskEditRequestBody(
 	args,
-	{ allowName = true, allowStartedAt = true, allowActiveTallyCount = true } = {}
+	{
+		allowName = true,
+		allowStartedAt = true,
+		allowActiveTallyCount = true,
+		timezoneOffsetMinutes = 0
+	} = {}
 ) {
 	const body = {};
 
@@ -678,7 +727,7 @@ function buildTaskEditRequestBody(
 	}
 
 	if (allowStartedAt && typeof args.startedAt === 'string') {
-		body.startedAt = args.startedAt;
+		body.startedAt = normalizeAssistantDateTimeArgument(args.startedAt, timezoneOffsetMinutes);
 	}
 
 	return body;
@@ -830,11 +879,12 @@ function buildTaskSummaryOutput(taskSummary, { includeNotes = false } = {}) {
 	return nextSummary;
 }
 
-function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
+function buildAssistantSystemPrompt({ username, localDay, currentPath, timezoneOffsetMinutes }) {
 	return [
 		'You are the in-app Task Monster assistant.',
 		`You are helping the authenticated user ${username}.`,
 		`The user local day is ${localDay}.`,
+		`The user local timezone offset is ${formatTimezoneOffsetLabel(timezoneOffsetMinutes)}.`,
 		currentPath ? `The user is currently viewing ${currentPath}.` : null,
 		'',
 		'Operating context:',
@@ -857,10 +907,12 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath }) {
 		'- Use bulk_edit_tasks when the user says all, every, entire, or cleanup across a matching set. Do not loop edit_task for large set edits.',
 		'- Use search_tasks for task lookup instead of trying to paginate broad task lists yourself.',
 		'- Use complete_task_run when the user says a task was finished or done and especially when they mention a corrected finish time.',
+		'- If a task is not active but the user gives an explicit historical start and end time, still use complete_task_run with both startedAt and completedAt.',
 		'- Use control_task for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
 		'- For metadata edits like name, category, mode, pomodoro, bell sound, tally target, task note, or active started time, prefer the edit_task tool.',
 		'- If the user asks to correct when a run started or ended, pass the corrected time in the tool arguments. Do not treat a timing correction as a note.',
+		'- For startedAt and completedAt tool arguments, use the user local timezone offset above. Do not send UTC Z times for ordinary local user requests.',
 		'- Never change startedAt as a substitute for a requested completedAt unless the user explicitly asked to change the start time.',
 		'- Interpret "pause" or "take it off active" as moving a task to daymap, not fully back to inactive, unless the user explicitly says backlog or inactive.',
 		'- Interpret "inactive" or "backlog" as fully removing a task from the daymap.',
@@ -1585,7 +1637,7 @@ async function executeCreateTaskTool(app, request, args) {
 	};
 }
 
-async function executeEditTaskTool(app, request, args) {
+async function executeEditTaskTool(app, request, args, timezoneOffsetMinutes) {
 	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
 		userId: request.auth.userId,
 		taskQuery: args.taskQuery,
@@ -1605,7 +1657,9 @@ async function executeEditTaskTool(app, request, args) {
 		};
 	}
 
-	const body = buildTaskEditRequestBody(args);
+	const body = buildTaskEditRequestBody(args, {
+		timezoneOffsetMinutes
+	});
 
 	if (Object.keys(body).length === 0) {
 		return {
@@ -1850,11 +1904,13 @@ async function executeBulkEditTasksTool(app, request, args) {
 	};
 }
 
-async function executeCompleteTaskRunTool(app, request, args) {
+async function executeCompleteTaskRunTool(app, request, args, timezoneOffsetMinutes) {
+	const allowsHistoricalCompletion =
+		typeof args.startedAt === 'string' && typeof args.completedAt === 'string';
 	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
 		userId: request.auth.userId,
 		taskQuery: args.taskQuery,
-		allowedStatuses: ['active']
+		allowedStatuses: allowsHistoricalCompletion ? ['active', 'daymap', 'inactive'] : ['active']
 	});
 
 	if (!resolvedTask.ok) {
@@ -1872,11 +1928,11 @@ async function executeCompleteTaskRunTool(app, request, args) {
 	const body = {};
 
 	if (typeof args.startedAt === 'string') {
-		body.startedAt = args.startedAt;
+		body.startedAt = normalizeAssistantDateTimeArgument(args.startedAt, timezoneOffsetMinutes);
 	}
 
 	if (typeof args.completedAt === 'string') {
-		body.completedAt = args.completedAt;
+		body.completedAt = normalizeAssistantDateTimeArgument(args.completedAt, timezoneOffsetMinutes);
 	}
 
 	if (Object.hasOwn(args, 'instanceNote')) {
@@ -3366,7 +3422,7 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'complete_task_run',
 			description:
-				'Mark an active task done, with optional startedAt and completedAt corrections plus an optional instance note. Use this when the user says they finished something or wants the end time corrected.',
+				'Mark a task run done. Use this for active tasks, or for historical completion of daymap/inactive tasks when you have both startedAt and completedAt. You can also attach an optional instance note.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery'],
@@ -3527,11 +3583,11 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 		case 'create_task':
 			return executeCreateTaskTool(app, request, parsedArguments);
 		case 'edit_task':
-			return executeEditTaskTool(app, request, parsedArguments);
+			return executeEditTaskTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'bulk_edit_tasks':
 			return executeBulkEditTasksTool(app, request, parsedArguments);
 		case 'complete_task_run':
-			return executeCompleteTaskRunTool(app, request, parsedArguments);
+			return executeCompleteTaskRunTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'control_task':
 			return executeControlTaskTool(app, request, parsedArguments);
 		case 'adjust_active_tally':
@@ -3589,7 +3645,8 @@ async function runAssistantChat(app, request, body) {
 		content: buildAssistantSystemPrompt({
 			username: request.auth.username,
 			localDay: getCurrentLocalDay(timezoneOffsetMinutes),
-			currentPath: typeof body.currentPath === 'string' ? body.currentPath : ''
+			currentPath: typeof body.currentPath === 'string' ? body.currentPath : '',
+			timezoneOffsetMinutes
 		})
 	};
 	const openAiMessages = [

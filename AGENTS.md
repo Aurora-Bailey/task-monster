@@ -372,7 +372,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `bulk_edit_tasks`
     - shared metadata cleanup across a matched task set, such as removing pomodoro from all inactive tasks
   - `complete_task_run`
-    - marks an active task done and can correct `startedAt`, `completedAt`, and `instanceNote` in one call
+    - marks an active task done, or records a historical daymap/inactive completion when both times are supplied, and can correct `startedAt`, `completedAt`, and `instanceNote` in one call
   - `control_task`
     - activate, move to daymap, move to inactive, queue, unqueue, or archive
   - `adjust_active_tally`
@@ -389,6 +389,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
   - time-correction requests should be passed as actual tool arguments, not approximated with notes
+  - for historical completion of non-active tasks, the assistant should pass both `startedAt` and `completedAt`
+  - assistant time tool arguments are local user times, not UTC; the prompt includes the current local offset and backend normalization corrects accidental `Z` timestamps
   - `"pause"` and similar language should resolve toward daymap
   - `"inactive"` and `"backlog"` should resolve toward fully unmapping back to inactive
   - structured replies should use markdown when it helps

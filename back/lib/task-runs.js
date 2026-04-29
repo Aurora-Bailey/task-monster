@@ -79,6 +79,39 @@ async function closeOpenTaskRun(
 	);
 }
 
+async function createCompletedTaskRun(
+	db,
+	{
+		userId,
+		taskId,
+		startedAt,
+		endedAt = new Date(),
+		endingReason = 'done',
+		trackingType = 'time',
+		tallyUnit = null,
+		tallyTarget = null,
+		startTallyCount = null,
+		tallyCount = null,
+		instanceNote = null
+	}
+) {
+	return db.collection('task_runs').insertOne({
+		userId: toObjectId(userId),
+		taskId: toObjectId(taskId),
+		trackingType,
+		tallyUnit,
+		tallyTarget,
+		startTallyCount,
+		tallyCount,
+		instanceNote,
+		startedAt,
+		endedAt,
+		endingReason,
+		createdAt: startedAt,
+		updatedAt: endedAt
+	});
+}
+
 async function updateOpenTaskRunTally(
 	db,
 	{ userId, taskId, tallyCount = 0, updatedAt = new Date() }
@@ -134,6 +167,7 @@ async function updateOpenTaskRunFields(
 
 module.exports = {
 	closeOpenTaskRun,
+	createCompletedTaskRun,
 	openTaskRun,
 	updateOpenTaskRunFields,
 	updateOpenTaskRunInstanceNote,
