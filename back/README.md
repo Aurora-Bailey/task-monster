@@ -244,8 +244,9 @@ Assistant request model:
   - `currentPath`
 - request validation currently allows up to 64 inbound messages
 - the backend then sanitizes and trims to the most recent 12 `user` / `assistant` messages before calling OpenAI
-- there is no server-side conversation persistence
-  - the drawer owns the visible thread state in the browser
+- each successful user + assistant turn is persisted to the `assistant_messages` collection
+- route: `GET /assistant/history`
+  - returns the most recent persisted messages for the authenticated user in chronological order
 - the backend currently uses the Chat Completions API shape, not the Responses API
 - legacy task docs can be normalized with:
   - `npm run migrate:pomodoro`
@@ -271,7 +272,7 @@ Assistant prompt policy:
 Assistant UI/runtime coupling:
 
 - the frontend only sends the most recent 12 messages on each request
-- the current drawer has no durable history store
+- the drawer hydrates from `GET /assistant/history` and currently loads the latest 12 persisted messages
 - `currentPath` is included so the system prompt knows which page the user is viewing
 
 Assistant create-task guard:
@@ -285,7 +286,7 @@ Assistant create-task guard:
   - `3.` create the exact requested task anyway
 - exact duplicate creation now requires the tool argument `allowDuplicate: true`, which should only be used after the user explicitly chooses option `3`
 - the current matcher intentionally guards more aggressively on exact, prefix, and strong token matches than on loose one-word substring overlap
-- because there is no durable server-side chat state, a bare follow-up `1`, `2`, or `3` only works while the relevant prior assistant choice is still present in the drawer conversation history
+- a bare follow-up `1`, `2`, or `3` still depends on the relevant prior choice being present in the current 12-message working window that the drawer sends back to the backend
 
 ## Current quirk
 

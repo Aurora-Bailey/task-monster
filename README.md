@@ -139,7 +139,8 @@ Assistant route:
     - `currentPath`
   - the frontend only sends the most recent 12 conversation messages
   - the backend accepts a larger payload window, then sanitizes/trims to the most recent 12 user/assistant messages before calling OpenAI
-  - there is no server-side conversation persistence; the visible thread lives in the client drawer state
+  - each successful user/assistant turn is persisted in Mongo under the authenticated user account in `assistant_messages`
+  - the drawer reloads from backend history instead of starting empty on page refresh
   - the backend now gives the model a higher-level domain tool surface instead of asking it to compose low-level route semantics
   - current v2 actions include:
     - board snapshot reads with exhaustive counts and preview-only task lists
@@ -161,6 +162,10 @@ Assistant route:
     - `get_board_snapshot` counts are exhaustive, but its task lists are previews only
     - for “all inactive tasks”, “every daymap-locked task”, or similar full-set claims, the assistant should use `filter_tasks`
     - for status-wide cleanup, the assistant should use `bulk_edit_tasks` instead of looping many single-task edits
+- `GET /assistant/history`
+  - authenticated assistant history route used to hydrate the drawer on load
+  - returns the latest persisted assistant/user messages in chronological order
+  - the drawer currently asks for the latest 12, which guarantees at least the last 6 are present when enough history exists
 
 Task routes:
 

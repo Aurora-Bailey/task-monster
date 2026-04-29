@@ -114,6 +114,13 @@ async function ensureDatabaseIndexes(db) {
 			name: 'panic_runs_userId_day_endedAt_startedAt'
 		}
 	);
+
+	await db.collection('assistant_messages').createIndex(
+		{ userId: 1, createdAt: -1, _id: -1 },
+		{
+			name: 'assistant_messages_userId_createdAt_id'
+		}
+	);
 }
 
 module.exports = {

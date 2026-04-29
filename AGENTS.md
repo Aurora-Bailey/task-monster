@@ -261,7 +261,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/lib/assistant-markdown.js`
 - Assistant drawer:
   - `front/src/lib/AssistantDrawer.svelte`
-  - conversation state is local component state only; page reload clears it
+  - restores the latest persisted backend history slice on first open after reload
 - Shared task card:
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
@@ -333,6 +333,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - active/daymap/inactive/done/stats listen for that event and reload as needed
   - arrow-key navigation is intentionally disabled while the drawer is open
   - the drawer only sends the most recent 12 messages to the backend on each request
+  - the drawer hydrates from `GET /assistant/history`
 - Panic controls live in the header, not on the active page itself
 - Local DB upgrade note:
   - if older task docs still carry legacy alarm fields, run `cd back && npm run migrate:pomodoro`
@@ -349,10 +350,11 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Validation and history window:
   - route schema currently accepts up to 64 inbound messages
   - backend sanitization then trims to the most recent 12 `user` / `assistant` messages
-  - there is no server-side chat persistence or transcript collection right now
-  - the drawer thread is a frontend-only in-memory session
+  - each successful user + assistant turn is persisted in Mongo in `assistant_messages`
+  - `GET /assistant/history` returns the latest persisted messages in chronological order
 - Backend implementation:
   - `back/lib/assistant.js`
+  - `back/lib/assistant-history.js`
   - currently uses the OpenAI Chat Completions API, not the Responses API
 - Current v2 tool surface:
   - `get_board_snapshot`
@@ -402,7 +404,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
     - `2.` create a clearer, more specific variant
     - `3.` create the exact requested task with `allowDuplicate: true`
   - a bare follow-up `1`, `2`, or `3` should be interpreted as selecting that last duplicate-task choice
-  - that bare follow-up only works while the relevant prior choice is still present in the drawer's in-memory conversation history
+  - that bare follow-up only works while the relevant prior choice is still present in the current 12-message working window sent back to the backend
   - current matching is intentionally stricter for single-word loose matches so things like `work` do not too eagerly collide with `homework`
 
 ## Filler vs real data

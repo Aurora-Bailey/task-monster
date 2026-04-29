@@ -3,7 +3,11 @@
 	import { tick } from 'svelte';
 
 	import { renderAssistantMarkdown } from '$lib/assistant-markdown';
-	import { dispatchAssistantRefresh, sendAssistantChat } from '$lib/assistant-client';
+	import {
+		dispatchAssistantRefresh,
+		loadAssistantHistory,
+		sendAssistantChat
+	} from '$lib/assistant-client';
 
 	let {
 		open = false,
@@ -16,9 +20,15 @@
 	let draft = $state('');
 	let errorMessage = $state('');
 	let isSending = $state(false);
+	let isLoadingHistory = $state(false);
+	let historyLoaded = $state(false);
+	let historyAttempted = $state(false);
+	let loadedHistoryForUsername = $state('');
 	let scrollViewport = $state(null);
 	let draftInput = $state(null);
 	const MAX_CONVERSATION_MESSAGES = 12;
+	const HISTORY_LOAD_LIMIT = 12;
+	const MAX_MESSAGE_CONTENT_LENGTH = 8000;
 
 	function closeDrawer() {
 		onClose();
@@ -35,7 +45,7 @@
 			.slice(-MAX_CONVERSATION_MESSAGES)
 			.map((message) => ({
 				role: message.role,
-				content: message.content
+				content: String(message.content || '').slice(0, MAX_MESSAGE_CONTENT_LENGTH)
 			}));
 	}
 
@@ -52,10 +62,36 @@
 		}
 	}
 
+	async function hydrateHistory({ force = false } = {}) {
+		if (isLoadingHistory || (historyLoaded && !force)) {
+			return;
+		}
+
+		isLoadingHistory = true;
+		errorMessage = '';
+
+		try {
+			const persistedMessages = await loadAssistantHistory({
+				limit: HISTORY_LOAD_LIMIT
+			});
+			messages = persistedMessages;
+			historyLoaded = true;
+			await scrollToBottom();
+		} catch (error) {
+			errorMessage = error.message;
+		} finally {
+			isLoadingHistory = false;
+
+			if (open) {
+				await focusInput();
+			}
+		}
+	}
+
 	async function submitDraft() {
 		const content = draft.trim();
 
-		if (!content || isSending) {
+		if (!content || isSending || isLoadingHistory) {
 			return;
 		}
 
@@ -112,7 +148,27 @@
 	}
 
 	$effect(() => {
+		if ((username || '') === loadedHistoryForUsername) {
+			return;
+		}
+
+		loadedHistoryForUsername = username || '';
+		messages = [];
+		draft = '';
+		errorMessage = '';
+		historyLoaded = false;
+		historyAttempted = false;
+	});
+
+	$effect(() => {
 		if (!open) {
+			historyAttempted = false;
+			return;
+		}
+
+		if (!historyLoaded && !historyAttempted) {
+			historyAttempted = true;
+			void hydrateHistory();
 			return;
 		}
 
@@ -147,8 +203,16 @@
 			</button>
 
 			<div class="assistant-thread" bind:this={scrollViewport}>
+				{#if isLoadingHistory}
+					<article class="message-row">
+						<div class="message-bubble message-bubble-pending">
+							<p>Loading recent assistant history…</p>
+						</div>
+					</article>
+				{/if}
+
 				{#if messages.length > 0}
-					{#each messages as message, index (`${message.role}-${index}`)}
+					{#each messages as message, index (message.id || `${message.role}-${index}`)}
 						<article
 							class:user-message={message.role === 'user'}
 							class:assistant-message={message.role === 'assistant'}
@@ -192,11 +256,11 @@
 					bind:value={draft}
 					rows="1"
 					placeholder="Ask Task Monster to do something on your account"
-					disabled={isSending}
+					disabled={isSending || isLoadingHistory}
 					onkeydown={handleTextareaKeydown}
 				></textarea>
 
-				<button type="submit" disabled={isSending || !draft.trim()}>
+				<button type="submit" disabled={isSending || isLoadingHistory || !draft.trim()}>
 					{isSending ? 'Working…' : 'Send'}
 				</button>
 			</form>

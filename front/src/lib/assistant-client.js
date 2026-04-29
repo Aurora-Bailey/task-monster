@@ -5,6 +5,26 @@ import { authorizedRequest } from './session';
 
 export const ASSISTANT_REFRESH_EVENT = 'taskmonster:assistant-refresh';
 
+export async function loadAssistantHistory({ limit = 12 } = {}) {
+	const response = await authorizedRequest(`/assistant/history?limit=${encodeURIComponent(limit)}`);
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to load assistant history.'));
+	}
+
+	const body = await readApiBody(response);
+
+	return Array.isArray(body?.messages)
+		? body.messages.map((message) => ({
+				id: typeof message?.id === 'string' ? message.id : null,
+				role: message?.role === 'assistant' ? 'assistant' : 'user',
+				content: typeof message?.content === 'string' ? message.content : '',
+				actions: Array.isArray(message?.actions) ? message.actions : [],
+				createdAt: typeof message?.createdAt === 'string' ? message.createdAt : null
+			}))
+		: [];
+}
+
 export async function sendAssistantChat({ messages, timezoneOffsetMinutes, currentPath }) {
 	const response = await authorizedRequest('/assistant/chat', {
 		method: 'POST',
