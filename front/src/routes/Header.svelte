@@ -260,7 +260,13 @@
 		const handleGlobalKeydown = async (event) => {
 			void primeBellAudio();
 
-			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+			if (
+				event.defaultPrevented ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.altKey ||
+				event.shiftKey
+			) {
 				return;
 			}
 
@@ -485,7 +491,7 @@
 <AssistantDrawer
 	open={showAssistantDrawer}
 	username={user?.username || ''}
-	currentPath={currentPath}
+	{currentPath}
 	onClose={closeAssistantDrawer}
 />
 
@@ -539,7 +545,11 @@
 				>
 					Keep panic on
 				</button>
-				<button class="panic-modal__button panic-modal__button-primary" type="submit" disabled={isPanicBusy}>
+				<button
+					class="panic-modal__button panic-modal__button-primary"
+					type="submit"
+					disabled={isPanicBusy}
+				>
 					{isPanicBusy ? 'Saving...' : 'Return to focus'}
 				</button>
 			</div>
@@ -554,10 +564,14 @@
 		align-items: center;
 		gap: 1rem;
 		padding: 0.9rem 1rem;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.34));
+		background: linear-gradient(
+			180deg,
+			var(--surface-1),
+			color-mix(in srgb, var(--surface-1) 64%, transparent)
+		);
 		backdrop-filter: blur(16px);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-		box-shadow: 0 16px 32px rgba(44, 62, 80, 0.08);
+		border-bottom: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.corner {
@@ -583,7 +597,7 @@
 		font-weight: 800;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: rgba(13, 24, 36, 0.82);
+		color: var(--color-heading);
 	}
 
 	nav,
@@ -620,12 +634,10 @@
 		align-items: stretch;
 		gap: 0.2rem;
 		list-style: none;
-		background: rgba(255, 255, 255, 0.62);
-		border: 1px solid rgba(255, 255, 255, 0.72);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
 		border-radius: 999px;
-		box-shadow:
-			0 18px 32px rgba(44, 62, 80, 0.08),
-			inset 0 1px 0 rgba(255, 255, 255, 0.85);
+		box-shadow: var(--surface-shadow), var(--surface-inset);
 	}
 
 	nav a {
@@ -634,7 +646,7 @@
 		justify-content: center;
 		padding: 0.72rem 1rem;
 		border-radius: 999px;
-		color: rgba(13, 24, 36, 0.62);
+		color: var(--color-muted);
 		font-weight: 800;
 		font-size: 0.78rem;
 		text-transform: uppercase;
@@ -649,13 +661,13 @@
 
 	nav a:hover {
 		transform: translateY(-1px);
-		color: var(--color-theme-2);
+		color: var(--color-accent);
 	}
 
 	nav a[aria-current='page'] {
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
-		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 32%, transparent);
 	}
 
 	.panic-button {
@@ -761,14 +773,14 @@
 		justify-content: center;
 		padding: 0.7rem 0.9rem;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.62);
-		border: 1px solid rgba(255, 255, 255, 0.72);
-		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 		font-size: 0.76rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(13, 24, 36, 0.72);
+		color: var(--color-muted);
 		text-decoration: none;
 	}
 
@@ -785,14 +797,14 @@
 	}
 
 	.user-pill[aria-current='page'] {
-		background: linear-gradient(135deg, rgba(64, 117, 166, 0.18), rgba(91, 147, 200, 0.12));
-		color: var(--color-theme-2);
-		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.16);
+		background: color-mix(in srgb, var(--color-accent) 16%, var(--surface-2));
+		color: var(--color-accent);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 18%, transparent);
 	}
 
 	.logout-button:hover {
 		transform: translateY(-1px);
-		color: var(--color-theme-2);
+		color: var(--color-accent);
 	}
 
 	.logout-button:disabled {
@@ -805,7 +817,7 @@
 		padding: 0 1rem 0.75rem;
 		font-size: 0.78rem;
 		font-weight: 700;
-		color: #9f2d27;
+		color: var(--color-danger);
 		text-align: right;
 	}
 
@@ -814,7 +826,7 @@
 		padding: 0 1rem 0.75rem;
 		font-size: 0.78rem;
 		font-weight: 700;
-		color: #b54d12;
+		color: var(--color-warning);
 		text-align: center;
 	}
 
@@ -979,7 +991,9 @@
 
 		to {
 			filter: saturate(1.18) brightness(1.18);
-			box-shadow: 0 0 0 3px rgba(242, 72, 57, 0.15), 0 16px 30px rgba(190, 31, 31, 0.38);
+			box-shadow:
+				0 0 0 3px rgba(242, 72, 57, 0.15),
+				0 16px 30px rgba(190, 31, 31, 0.38);
 		}
 	}
 
@@ -1066,12 +1080,10 @@
 			display: grid;
 			grid-template-columns: repeat(6, minmax(0, 1fr));
 			gap: 0.12rem;
-			background: rgba(255, 255, 255, 0.82);
-			border: 1px solid rgba(255, 255, 255, 0.82);
+			background: var(--surface-2);
+			border: 1px solid var(--surface-border);
 			border-radius: 999px;
-			box-shadow:
-				0 22px 45px rgba(25, 36, 48, 0.2),
-				inset 0 1px 0 rgba(255, 255, 255, 0.9);
+			box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 			backdrop-filter: blur(22px);
 			pointer-events: auto;
 		}
@@ -1091,7 +1103,7 @@
 			gap: 0.18rem;
 			padding: 0.25rem 0.1rem;
 			border-radius: 999px;
-			color: rgba(13, 24, 36, 0.56);
+			color: var(--color-muted);
 			text-decoration: none;
 			transition:
 				color 0.18s ease,
@@ -1102,13 +1114,13 @@
 
 		.mobile-bottom-nav__item:hover {
 			transform: translateY(-1px);
-			color: var(--color-theme-2);
+			color: var(--color-accent);
 		}
 
 		.mobile-bottom-nav__item[aria-current='page'] {
-			background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-			color: white;
-			box-shadow: 0 12px 24px rgba(64, 117, 166, 0.24);
+			background: var(--accent-gradient);
+			color: var(--color-accent-contrast);
+			box-shadow: 0 12px 24px color-mix(in srgb, var(--color-accent) 28%, transparent);
 		}
 
 		.mobile-bottom-nav__item span {

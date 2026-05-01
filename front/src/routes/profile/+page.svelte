@@ -3,6 +3,7 @@
 
 	import { readApiBody, readApiError } from '$lib/api';
 	import { authorizedRequest, revokeSession, session } from '$lib/session';
+	import { THEMES, setTheme, theme } from '$lib/theme';
 
 	const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
 		month: 'short',
@@ -50,6 +51,10 @@
 		}
 
 		return userAgent.length > 88 ? `${userAgent.slice(0, 88)}...` : userAgent;
+	}
+
+	function handleThemeSelect(themeId) {
+		setTheme(themeId);
 	}
 
 	async function loadProfile() {
@@ -116,10 +121,48 @@
 		<p class="eyebrow">Profile</p>
 		<h1>Account and session control</h1>
 		<p class="lede">
-			{$session.user?.username || 'Your account'} can review recent login traffic, see which
-			sessions are still alive, and void any token from here.
+			{$session.user?.username || 'Your account'} can review recent login traffic, see which sessions
+			are still alive, and void any token from here.
 		</p>
 	</div>
+
+	<section class="panel theme-panel" aria-labelledby="theme-panel-heading">
+		<div class="panel-header">
+			<div>
+				<p class="section-label">Display</p>
+				<h2 id="theme-panel-heading">Theme engine</h2>
+			</div>
+			<span class="pill">Local only</span>
+		</div>
+
+		<p class="theme-copy">
+			Pick the app skin for this browser. This only writes the selected theme key to local storage,
+			not your account.
+		</p>
+
+		<div class="theme-grid" aria-label="Theme choices">
+			{#each THEMES as themeOption}
+				<button
+					class="theme-option"
+					class:is-selected={$theme === themeOption.id}
+					type="button"
+					aria-pressed={$theme === themeOption.id}
+					style={`--swatch-0: ${themeOption.swatch[0]}; --swatch-1: ${themeOption.swatch[1]}; --swatch-2: ${themeOption.swatch[2]};`}
+					onclick={() => handleThemeSelect(themeOption.id)}
+				>
+					<span class="theme-swatch" aria-hidden="true">
+						<span></span>
+						<span></span>
+						<span></span>
+					</span>
+					<span class="theme-option__text">
+						<strong>{themeOption.label}</strong>
+						<span>{themeOption.description}</span>
+					</span>
+				</button>
+			{/each}
+		</div>
+	</section>
 
 	{#if isLoading}
 		<div class="status-card">
@@ -162,7 +205,9 @@
 							<article class="session-card">
 								<div class="session-topline">
 									<div>
-										<h3>{item.isCurrent ? 'This device' : `Session ending in ${item.tokenPreview}`}</h3>
+										<h3>
+											{item.isCurrent ? 'This device' : `Session ending in ${item.tokenPreview}`}
+										</h3>
 										<p>{formatUserAgent(item.userAgent)}</p>
 									</div>
 									<span class:item-current={item.isCurrent} class="session-badge">
@@ -272,7 +317,7 @@
 		font-weight: 800;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: var(--color-theme-2);
+		color: var(--color-accent);
 	}
 
 	h1,
@@ -286,7 +331,7 @@
 		font-size: clamp(2.2rem, 5vw, 3.8rem);
 		line-height: 0.95;
 		letter-spacing: -0.05em;
-		color: rgba(10, 20, 30, 0.92);
+		color: var(--color-heading);
 	}
 
 	h2 {
@@ -298,13 +343,14 @@
 	}
 
 	.lede,
+	.theme-copy,
 	.panel-header p:last-child,
 	.session-topline p,
 	.attempt-topline p,
 	.status-card p,
 	.empty-card p {
 		margin: 0;
-		color: rgba(10, 20, 30, 0.66);
+		color: var(--color-muted);
 	}
 
 	.section-grid {
@@ -318,9 +364,9 @@
 	.empty-card,
 	.session-card,
 	.attempt-card {
-		background: rgba(255, 255, 255, 0.64);
-		border: 1px solid rgba(255, 255, 255, 0.74);
-		box-shadow: 0 18px 36px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.panel {
@@ -329,6 +375,109 @@
 		padding: 1.2rem;
 		border-radius: 26px;
 		align-content: start;
+	}
+
+	.theme-panel {
+		gap: 1.1rem;
+	}
+
+	.theme-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.85rem;
+	}
+
+	.theme-option {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		gap: 0.8rem;
+		min-height: 5.35rem;
+		padding: 0.85rem;
+		border-radius: 22px;
+		border: 1px solid var(--surface-border);
+		background:
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--swatch-2) 10%, transparent),
+				transparent 48%
+			),
+			var(--surface-2);
+		box-shadow: var(--surface-shadow);
+		text-align: left;
+		cursor: pointer;
+		transition:
+			transform 0.16s ease,
+			border-color 0.16s ease,
+			box-shadow 0.16s ease,
+			background-color 0.16s ease;
+	}
+
+	.theme-option:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--swatch-2) 40%, var(--surface-border));
+		box-shadow: var(--surface-shadow-strong);
+	}
+
+	.theme-option:focus-visible {
+		outline: none;
+		box-shadow:
+			0 0 0 4px color-mix(in srgb, var(--swatch-2) 22%, transparent),
+			var(--surface-shadow-strong);
+	}
+
+	.theme-option.is-selected {
+		border-color: color-mix(in srgb, var(--swatch-2) 62%, var(--surface-border));
+		background:
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--swatch-2) 18%, transparent),
+				transparent 54%
+			),
+			var(--surface-3);
+		box-shadow:
+			0 0 0 1px color-mix(in srgb, var(--swatch-2) 20%, transparent),
+			var(--surface-shadow-strong);
+	}
+
+	.theme-swatch {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		width: 3.4rem;
+		height: 3.4rem;
+		overflow: hidden;
+		border-radius: 999px;
+		border: 1px solid color-mix(in srgb, var(--swatch-2) 28%, var(--surface-border));
+		box-shadow: var(--surface-inset);
+	}
+
+	.theme-swatch span:nth-child(1) {
+		background: var(--swatch-0);
+	}
+
+	.theme-swatch span:nth-child(2) {
+		background: var(--swatch-1);
+	}
+
+	.theme-swatch span:nth-child(3) {
+		background: var(--swatch-2);
+	}
+
+	.theme-option__text {
+		display: grid;
+		gap: 0.22rem;
+	}
+
+	.theme-option__text strong {
+		color: var(--color-heading);
+		font-size: 0.92rem;
+		line-height: 1.1;
+	}
+
+	.theme-option__text span {
+		color: var(--color-muted);
+		font-size: 0.78rem;
+		line-height: 1.28;
 	}
 
 	.panel-header,
@@ -346,8 +495,8 @@
 		justify-content: center;
 		padding: 0.45rem 0.7rem;
 		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.12);
-		color: var(--color-theme-2);
+		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		color: var(--color-accent);
 		font-size: 0.74rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -355,23 +504,23 @@
 	}
 
 	.muted-pill {
-		background: rgba(13, 24, 36, 0.08);
-		color: rgba(13, 24, 36, 0.62);
+		background: var(--surface-muted);
+		color: var(--color-muted);
 	}
 
 	.success-pill {
-		background: rgba(67, 142, 94, 0.16);
-		color: #2d6d44;
+		background: color-mix(in srgb, var(--color-success) 16%, transparent);
+		color: var(--color-success);
 	}
 
 	.failed-pill {
-		background: rgba(175, 68, 56, 0.14);
-		color: #9f2d27;
+		background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+		color: var(--color-danger);
 	}
 
 	.blocked-pill {
-		background: rgba(191, 121, 31, 0.16);
-		color: #9a5e12;
+		background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+		color: var(--color-warning);
 	}
 
 	.status-card,
@@ -387,8 +536,8 @@
 	}
 
 	.error-card {
-		border-color: rgba(159, 45, 39, 0.18);
-		background: rgba(255, 245, 244, 0.92);
+		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
 	.session-list,
@@ -411,8 +560,8 @@
 		justify-content: center;
 		padding: 0.4rem 0.65rem;
 		border-radius: 999px;
-		background: rgba(13, 24, 36, 0.08);
-		color: rgba(13, 24, 36, 0.6);
+		background: var(--surface-muted);
+		color: var(--color-muted);
 		font-size: 0.72rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -420,8 +569,8 @@
 	}
 
 	.session-badge.item-current {
-		background: rgba(64, 117, 166, 0.14);
-		color: var(--color-theme-2);
+		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		color: var(--color-accent);
 	}
 
 	.session-meta,
@@ -443,13 +592,13 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(13, 24, 36, 0.46);
+		color: var(--color-soft);
 	}
 
 	.session-meta strong,
 	.attempt-meta strong {
 		font-size: 0.94rem;
-		color: rgba(10, 20, 30, 0.88);
+		color: var(--color-heading);
 	}
 
 	.void-button {
@@ -457,13 +606,13 @@
 		padding: 0.78rem 1rem;
 		border: 0;
 		border-radius: 999px;
-		background: linear-gradient(135deg, rgba(13, 24, 36, 0.9), rgba(44, 62, 80, 0.82));
+		background: var(--control-gradient);
 		color: white;
 		font-size: 0.76rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.16);
+		box-shadow: var(--surface-shadow);
 		cursor: pointer;
 	}
 
@@ -476,9 +625,17 @@
 		.section-grid {
 			grid-template-columns: 1fr;
 		}
+
+		.theme-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
 	}
 
 	@media (max-width: 640px) {
+		.theme-grid {
+			grid-template-columns: 1fr;
+		}
+
 		.session-meta,
 		.attempt-meta {
 			grid-template-columns: 1fr;

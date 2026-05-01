@@ -1,10 +1,10 @@
-	<script>
-		import { onMount } from 'svelte';
+<script>
+	import { onMount } from 'svelte';
 
-		import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
-		import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
-		import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
-		import { loadDailyStats } from '$lib/stats-client';
+	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
+	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
+	import { loadDailyStats } from '$lib/stats-client';
 
 	const overlapColors = {
 		solo: '#6f7d8b',
@@ -25,11 +25,11 @@
 	let selectedDay = $state(null);
 	let summary = $state(null);
 	let overlapBands = $state([]);
-		let breakdown = $state([]);
-		let cadence = $state([]);
-		let panicLog = $state([]);
-		let doneLog = $state([]);
-		let sessionLog = $state([]);
+	let breakdown = $state([]);
+	let cadence = $state([]);
+	let panicLog = $state([]);
+	let doneLog = $state([]);
+	let sessionLog = $state([]);
 	let isLoading = $state(true);
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
@@ -83,10 +83,7 @@
 
 	function getCadenceTierPercent(milliseconds, tierIndex) {
 		const tierStart = tierIndex * HOUR_TIER_MS;
-		const tierMilliseconds = Math.min(
-			Math.max(milliseconds - tierStart, 0),
-			HOUR_TIER_MS
-		);
+		const tierMilliseconds = Math.min(Math.max(milliseconds - tierStart, 0), HOUR_TIER_MS);
 
 		return (tierMilliseconds / HOUR_TIER_MS) * 100;
 	}
@@ -209,38 +206,38 @@
 						value: `${summary.completedCount}`,
 						note: 'Runs that closed with a done outcome on this day.'
 					},
-						{
-							label: 'Paused',
-							value: `${summary.pausedCount}`,
-							note: 'Runs moved back off the table without being finished.'
-						},
-						...(summary.panicCount > 0
-							? [
-									{
-										label: 'On-task panic',
-										value: formatElapsedDuration(summary.taskPanicMilliseconds),
-										note: 'Tracked task time that overlapped with panic mode.'
-									},
-									{
-										label: 'Off rails',
-										value: formatElapsedDuration(summary.panicMilliseconds),
-										note: 'Time logged in panic mode on the selected day.'
-									},
-									{
-										label: 'Panic hits',
-										value: `${summary.panicCount}`,
-										note: 'Separate panic sessions started on this day.'
-									},
-									{
-										label: 'Longest panic',
-										value: formatElapsedDuration(summary.longestPanicMilliseconds),
-										note: 'Longest single off-the-rails stretch.'
-									}
-								]
-							: []),
-						...(summary.tallyUnits > 0
-							? [
-									{
+					{
+						label: 'Paused',
+						value: `${summary.pausedCount}`,
+						note: 'Runs moved back off the table without being finished.'
+					},
+					...(summary.panicCount > 0
+						? [
+								{
+									label: 'On-task panic',
+									value: formatElapsedDuration(summary.taskPanicMilliseconds),
+									note: 'Tracked task time that overlapped with panic mode.'
+								},
+								{
+									label: 'Off rails',
+									value: formatElapsedDuration(summary.panicMilliseconds),
+									note: 'Time logged in panic mode on the selected day.'
+								},
+								{
+									label: 'Panic hits',
+									value: `${summary.panicCount}`,
+									note: 'Separate panic sessions started on this day.'
+								},
+								{
+									label: 'Longest panic',
+									value: formatElapsedDuration(summary.longestPanicMilliseconds),
+									note: 'Longest single off-the-rails stretch.'
+								}
+							]
+						: []),
+					...(summary.tallyUnits > 0
+						? [
+								{
 									label: 'Tallied',
 									value: formatTallyCount(summary.tallyUnits),
 									note: 'Units captured by tally sessions that closed on this day.'
@@ -256,46 +253,46 @@
 			: []
 	);
 
-		onMount(() => {
-			timezoneOffsetMinutes = new Date().getTimezoneOffset();
-			void loadStats();
+	onMount(() => {
+		timezoneOffsetMinutes = new Date().getTimezoneOffset();
+		void loadStats();
 
-			if (typeof window === 'undefined') {
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		const handlePanicUpdated = async () => {
+			try {
+				await loadStats(selectedDay);
+			} catch (error) {
+				loadError = error.message;
+			}
+		};
+		const handleAssistantRefresh = async (event) => {
+			if (
+				event.detail?.refresh?.tasks !== true &&
+				event.detail?.refresh?.stats !== true &&
+				event.detail?.refresh?.panic !== true
+			) {
 				return;
 			}
 
-			const handlePanicUpdated = async () => {
-				try {
-					await loadStats(selectedDay);
-				} catch (error) {
-					loadError = error.message;
-				}
-			};
-			const handleAssistantRefresh = async (event) => {
-				if (
-					event.detail?.refresh?.tasks !== true &&
-					event.detail?.refresh?.stats !== true &&
-					event.detail?.refresh?.panic !== true
-				) {
-					return;
-				}
+			try {
+				await loadStats(selectedDay);
+			} catch (error) {
+				loadError = error.message;
+			}
+		};
 
-				try {
-					await loadStats(selectedDay);
-				} catch (error) {
-					loadError = error.message;
-				}
-			};
+		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
-			window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
-			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
-
-			return () => {
-				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
-				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
-			};
-		});
-	</script>
+		return () => {
+			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+		};
+	});
+</script>
 
 <svelte:head>
 	<title>Stats</title>
@@ -347,7 +344,9 @@
 		<div>
 			<p class="eyebrow">Stats</p>
 			<h1>{selectedDay ? formatDayLabel(selectedDay) : 'Daily stats'}</h1>
-			<p class="lede">Everything on this page is computed from real task-run data in the database.</p>
+			<p class="lede">
+				Everything on this page is computed from real task-run data in the database.
+			</p>
 		</div>
 	</header>
 
@@ -365,7 +364,11 @@
 		</div>
 	{:else if !hasStats}
 		<div class="message-card">
-			<strong>{selectedDay ? `No tracked activity on ${formatDayLabel(selectedDay)}` : 'No tracked activity yet'}</strong>
+			<strong
+				>{selectedDay
+					? `No tracked activity on ${formatDayLabel(selectedDay)}`
+					: 'No tracked activity yet'}</strong
+			>
 			<p>Stats appear after a task creates a real run or panic mode logs time for that day.</p>
 		</div>
 	{:else}
@@ -437,13 +440,15 @@
 				</div>
 			</section>
 
-				<section class="panel panel-wide">
-					<div class="panel-header">
-						<div>
-							<p class="section-label">Cadence</p>
+			<section class="panel panel-wide">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Cadence</p>
 						<h2>Hour by hour</h2>
 					</div>
-					<p>Each stacked tier represents another 60 minutes of tracked time inside the same hour.</p>
+					<p>
+						Each stacked tier represents another 60 minutes of tracked time inside the same hour.
+					</p>
 				</div>
 
 				<div class="cadence-legend" aria-hidden="true">
@@ -479,44 +484,44 @@
 							<span>{item.milliseconds ? formatElapsedDuration(item.milliseconds) : '0s'}</span>
 						</div>
 					{/each}
-					</div>
-				</section>
+				</div>
+			</section>
 
-				<section class="panel">
-					<div class="panel-header">
-						<div>
-							<p class="section-label">Off Rails</p>
-							<h2>Panic log</h2>
-						</div>
-						<p>Every panic window recorded for the selected local day.</p>
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Off Rails</p>
+						<h2>Panic log</h2>
 					</div>
+					<p>Every panic window recorded for the selected local day.</p>
+				</div>
 
-					<div class="done-log">
-						{#if panicLog.length === 0}
-							<p class="empty-note">No panic recorded on this day.</p>
-						{:else}
-							{#each panicLog as item}
-								<article class="panic-item">
-									<div class="done-item__top">
-										<strong>{formatWindow(item.startedAt, item.endedAt)}</strong>
-										<span>{formatElapsedDuration(item.milliseconds)}</span>
-									</div>
-									{#if item.emotionalCharge !== null}
-										<p class="panic-item__charge">{formatPanicCharge(item.emotionalCharge)}</p>
-									{/if}
-									{#if item.note}
-										<p class="panic-item__note">{item.note}</p>
-									{/if}
-								</article>
-							{/each}
-						{/if}
-					</div>
-				</section>
+				<div class="done-log">
+					{#if panicLog.length === 0}
+						<p class="empty-note">No panic recorded on this day.</p>
+					{:else}
+						{#each panicLog as item}
+							<article class="panic-item">
+								<div class="done-item__top">
+									<strong>{formatWindow(item.startedAt, item.endedAt)}</strong>
+									<span>{formatElapsedDuration(item.milliseconds)}</span>
+								</div>
+								{#if item.emotionalCharge !== null}
+									<p class="panic-item__charge">{formatPanicCharge(item.emotionalCharge)}</p>
+								{/if}
+								{#if item.note}
+									<p class="panic-item__note">{item.note}</p>
+								{/if}
+							</article>
+						{/each}
+					{/if}
+				</div>
+			</section>
 
-				<section class="panel">
-					<div class="panel-header">
-						<div>
-							<p class="section-label">Done</p>
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Done</p>
 						<h2>Completion log</h2>
 					</div>
 					<p>Runs that actually closed with a done result on this day.</p>
@@ -545,7 +550,9 @@
 													<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
 												</div>
 												{#if panicItem.emotionalCharge !== null}
-													<p class="panic-item__charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+													<p class="panic-item__charge">
+														{formatPanicCharge(panicItem.emotionalCharge)}
+													</p>
 												{/if}
 												{#if panicItem.note}
 													<p class="task-panic-entry__note">{panicItem.note}</p>
@@ -582,7 +589,8 @@
 							<span>{formatWindow(row.startedAt, row.endedAt)}</span>
 							<strong>{row.name}</strong>
 							<span>{formatLedgerValue(row)}</span>
-							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span>
+							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span
+							>
 							{#if row.instanceNote}
 								<p class="ledger-note">{row.instanceNote}</p>
 							{/if}
@@ -595,7 +603,9 @@
 												<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
 											</div>
 											{#if panicItem.emotionalCharge !== null}
-												<p class="panic-item__charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+												<p class="panic-item__charge">
+													{formatPanicCharge(panicItem.emotionalCharge)}
+												</p>
 											{/if}
 											{#if panicItem.note}
 												<p class="task-panic-entry__note">{panicItem.note}</p>
@@ -639,25 +649,27 @@
 		justify-content: center;
 		min-height: 2.9rem;
 		padding: 0.75rem 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.74);
+		border: 1px solid var(--surface-border);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		box-shadow: var(--surface-shadow);
 		font-size: 0.8rem;
 		font-weight: 800;
 		letter-spacing: 0.04em;
-		color: rgba(13, 24, 36, 0.72);
+		color: var(--color-muted);
+		cursor: pointer;
 	}
 
 	.day-pill.selected-day {
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
-		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
 	}
 
 	.day-pill:disabled,
 	.pager-arrow:disabled {
 		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.stats-header {
@@ -813,7 +825,11 @@
 		height: 100%;
 		min-width: 0.35rem;
 		border-radius: 999px;
-		background: linear-gradient(135deg, var(--fill-color), color-mix(in srgb, var(--fill-color) 62%, white));
+		background: linear-gradient(
+			135deg,
+			var(--fill-color),
+			color-mix(in srgb, var(--fill-color) 62%, white)
+		);
 	}
 
 	.cadence-chart {
@@ -906,48 +922,48 @@
 		background: linear-gradient(180deg, #8a5bd1, #b88af0);
 	}
 
-		.done-item {
-			display: grid;
-			gap: 0.35rem;
-			padding: 0.95rem 1rem;
+	.done-item {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.95rem 1rem;
 		border-radius: 16px;
 		background:
 			linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 253, 0.92)),
 			linear-gradient(135deg, color-mix(in srgb, var(--task-accent) 14%, white), white 65%);
-			border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
-		}
+		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
+	}
 
-		.panic-item {
-			display: grid;
-			gap: 0.35rem;
-			padding: 0.95rem 1rem;
-			border-radius: 16px;
-			background:
-				linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 241, 238, 0.94)),
-				linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.14));
-			border: 1px solid rgba(242, 72, 57, 0.18);
-		}
+	.panic-item {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.95rem 1rem;
+		border-radius: 16px;
+		background:
+			linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 241, 238, 0.94)),
+			linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.14));
+		border: 1px solid rgba(242, 72, 57, 0.18);
+	}
 
-		.panic-item__charge {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: fit-content;
-			padding: 0.38rem 0.62rem;
-			border-radius: 999px;
-			background: rgba(242, 72, 57, 0.12);
-			color: #a33e14;
-			font-size: 0.72rem;
-			font-weight: 800;
-			letter-spacing: 0.08em;
-			text-transform: uppercase;
-		}
+	.panic-item__charge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: fit-content;
+		padding: 0.38rem 0.62rem;
+		border-radius: 999px;
+		background: rgba(242, 72, 57, 0.12);
+		color: #a33e14;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
 
-		.panic-item__note {
-			margin: 0;
-			color: rgba(20, 28, 38, 0.78);
-			white-space: pre-wrap;
-		}
+	.panic-item__note {
+		margin: 0;
+		color: rgba(20, 28, 38, 0.78);
+		white-space: pre-wrap;
+	}
 
 	.done-item__instance-note {
 		margin: 0;

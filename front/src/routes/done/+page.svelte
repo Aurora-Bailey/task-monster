@@ -5,7 +5,12 @@
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
-	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
+	import {
+		DEFAULT_TASK_SORT_MODE,
+		loadStoredTaskSort,
+		sortTasks,
+		storeTaskSort
+	} from '$lib/task-sort';
 	import { loadDoneHistory, updateTaskNote } from '$lib/tasks-client';
 
 	const completedAtFormatter = new Intl.DateTimeFormat(undefined, {
@@ -222,14 +227,20 @@
 		</div>
 	{:else if tasks.length === 0}
 		<div class="message-card">
-			<strong>{selectedDay ? `Nothing finished on ${formatDayLabel(selectedDay)}` : 'No completed tasks yet'}</strong>
+			<strong
+				>{selectedDay
+					? `Nothing finished on ${formatDayLabel(selectedDay)}`
+					: 'No completed tasks yet'}</strong
+			>
 			<p>
 				{selectedDay
 					? 'Pick another day in the pager or close a few tasks to start building out the log.'
 					: 'Finished task runs will land here once you start closing things out.'}
 			</p>
 			{#if availableDays.length > 0}
-				<p class="history-hint">Most recent day with completions: {formatDayLabel(availableDays[0])}</p>
+				<p class="history-hint">
+					Most recent day with completions: {formatDayLabel(availableDays[0])}
+				</p>
 			{/if}
 		</div>
 	{:else}
@@ -243,17 +254,17 @@
 
 		<div class="task-grid">
 			{#each sortedTasks as task}
-					<TaskCard
-						task={task}
-						variant="done"
-						editableTaskId={task.taskId}
-						doneDurationLabel={formatDoneMeasure(task)}
-						doneTallyCount={task.tallyCount}
-						panicDurationLabel={formatPanicDuration(task)}
-						effectiveDurationLabel={formatEffectiveDuration(task)}
-						completedAtLabel={formatCompletedAt(task.completedAt)}
-						onSaveNote={handleSaveNote}
-					/>
+				<TaskCard
+					{task}
+					variant="done"
+					editableTaskId={task.taskId}
+					doneDurationLabel={formatDoneMeasure(task)}
+					doneTallyCount={task.tallyCount}
+					panicDurationLabel={formatPanicDuration(task)}
+					effectiveDurationLabel={formatEffectiveDuration(task)}
+					completedAtLabel={formatCompletedAt(task.completedAt)}
+					onSaveNote={handleSaveNote}
+				/>
 			{/each}
 		</div>
 	{/if}
@@ -286,37 +297,39 @@
 		justify-content: center;
 		min-height: 2.9rem;
 		padding: 0.75rem 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.74);
+		border: 1px solid var(--surface-border);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 28px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		box-shadow: var(--surface-shadow);
 		font-size: 0.8rem;
 		font-weight: 800;
 		letter-spacing: 0.04em;
-		color: rgba(13, 24, 36, 0.72);
+		color: var(--color-muted);
+		cursor: pointer;
 	}
 
 	.day-pill.selected-day {
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
-		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.28);
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
 	}
 
 	.day-pill:disabled,
 	.pager-arrow:disabled {
 		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
-		color: rgba(10, 20, 30, 0.7);
+		color: var(--color-muted);
 	}
 
 	.history-hint {
 		margin-top: 0.35rem;
 		font-size: 0.88rem;
-		color: rgba(10, 20, 30, 0.56);
+		color: var(--color-soft);
 	}
 
 	.message-card {
@@ -324,20 +337,20 @@
 		gap: 0.4rem;
 		padding: 1rem 1.1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.message-card strong {
 		font-size: 1.15rem;
 		letter-spacing: -0.02em;
-		color: rgba(10, 20, 30, 0.82);
+		color: var(--color-heading);
 	}
 
 	.error-card {
-		border-color: rgba(159, 45, 39, 0.18);
-		background: rgba(255, 245, 244, 0.92);
+		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
 	.task-grid {

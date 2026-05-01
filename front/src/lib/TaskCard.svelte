@@ -59,12 +59,16 @@
 	const hasPomodoro = $derived(task.trackingType !== 'tally' && task.pomodoro);
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
-	const isQueuedDaymapTask = $derived(isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0);
+	const isQueuedDaymapTask = $derived(
+		isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0
+	);
 	const showsDaymapLock = $derived(isDaymapCard && task.mode === 'repeatable');
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active' || variant === 'daymap');
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
-	const canEditInstanceNote = $derived(variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote));
+	const canEditInstanceNote = $derived(
+		variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote)
+	);
 	const showsNextDue = $derived(Boolean(task.nextDueAt));
 	const showsLastDone = $derived(Boolean(task.lastCompletedAt));
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
@@ -85,7 +89,9 @@
 				: 'Stay with one clear slice. Capture distractions and keep the cut clean.'
 			: ''
 	);
-	const activeTallyCountValue = $derived(Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0);
+	const activeTallyCountValue = $derived(
+		Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0
+	);
 	const resolvedDoneTallyCount = $derived(
 		Number.isInteger(doneTallyCount)
 			? doneTallyCount
@@ -93,13 +99,17 @@
 				? task.lastCompletedTallyCount
 				: 0
 	);
-	const visibleTitleChips = $derived([
-		variant === 'done' ? 'Completed' : null,
-		task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
-		task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null,
-		hasPomodoro ? `${task.pomodoro.label} pomodoro` : null,
-		hasPomodoro ? `${formatMinutes(task.pomodoro.focusMinutes)} / ${formatMinutes(task.pomodoro.shortBreakMinutes)}` : null
-	].filter(Boolean));
+	const visibleTitleChips = $derived(
+		[
+			variant === 'done' ? 'Completed' : null,
+			task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
+			task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null,
+			hasPomodoro ? `${task.pomodoro.label} pomodoro` : null,
+			hasPomodoro
+				? `${formatMinutes(task.pomodoro.focusMinutes)} / ${formatMinutes(task.pomodoro.shortBreakMinutes)}`
+				: null
+		].filter(Boolean)
+	);
 
 	let draftNote = $state('');
 	let lastCommittedNote = $state('');
@@ -411,16 +421,12 @@
 					class="daymap-lock-button"
 					class:is-locked={task.daymapLocked}
 					type="button"
-					aria-label={
-						task.daymapLocked
-							? `Unlock ${task.name} from looping back to daymap`
-							: `Lock ${task.name} to loop back to daymap`
-					}
-					title={
-						task.daymapLocked
-							? 'Locked to return to daymap after done'
-							: 'Return to inactive after done'
-					}
+					aria-label={task.daymapLocked
+						? `Unlock ${task.name} from looping back to daymap`
+						: `Lock ${task.name} to loop back to daymap`}
+					title={task.daymapLocked
+						? 'Locked to return to daymap after done'
+						: 'Return to inactive after done'}
 					disabled={busyAction !== null}
 					onpointerdown={stopEventPropagation}
 					onclick={handleDaymapLockClick}
@@ -448,11 +454,9 @@
 					class="queue-button"
 					class:is-queued={isQueuedDaymapTask}
 					type="button"
-					aria-label={
-						isQueuedDaymapTask
-							? `Remove ${task.name} from the queue`
-							: `Add ${task.name} to the queue`
-					}
+					aria-label={isQueuedDaymapTask
+						? `Remove ${task.name} from the queue`
+						: `Add ${task.name} to the queue`}
 					title={isQueuedDaymapTask ? 'Remove from queue' : 'Add to queue'}
 					disabled={busyAction !== null}
 					onpointerdown={stopEventPropagation}
@@ -641,7 +645,13 @@
 
 					<div class="tally-readout">
 						<span>Progress</span>
-						<strong>{formatTallyProgress(activeTallyCountValue, task.tallyTarget, tallyUnitLabel)}</strong>
+						<strong
+							>{formatTallyProgress(
+								activeTallyCountValue,
+								task.tallyTarget,
+								tallyUnitLabel
+							)}</strong
+						>
 					</div>
 
 					<button
@@ -663,7 +673,9 @@
 
 				<div class="runtime-stat">
 					<span>{variant === 'done' ? 'Completed' : 'Pomodoro'}</span>
-					<strong>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'Manual run'}</strong>
+					<strong
+						>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'Manual run'}</strong
+					>
 				</div>
 			</div>
 
@@ -683,43 +695,43 @@
 		{/if}
 	{/if}
 
-		{#if panicDurationLabel}
-			<p class="task-card__panic-duration">{panicDurationLabel}</p>
-		{/if}
+	{#if panicDurationLabel}
+		<p class="task-card__panic-duration">{panicDurationLabel}</p>
+	{/if}
 
-		{#if effectiveDurationLabel}
-			<p class="task-card__effective-duration">{effectiveDurationLabel}</p>
-		{/if}
+	{#if effectiveDurationLabel}
+		<p class="task-card__effective-duration">{effectiveDurationLabel}</p>
+	{/if}
 
-		{#if showsTaskPanicLog}
-			<div class="task-card__panic-log">
-				<div class="task-card__panic-log-header">
-					<span>Task Panic Log</span>
-				</div>
-
-				<div class="task-card__panic-log-list">
-					{#each taskPanicLog as panicItem}
-						<article class="task-card__panic-item">
-							<div class="task-card__panic-item-top">
-								<strong>{formatPanicWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
-								<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
-							</div>
-
-							{#if panicItem.emotionalCharge !== null}
-								<p class="task-card__panic-charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
-							{/if}
-
-							{#if panicItem.note}
-								<p class="task-card__panic-note">{panicItem.note}</p>
-							{/if}
-						</article>
-					{/each}
-				</div>
+	{#if showsTaskPanicLog}
+		<div class="task-card__panic-log">
+			<div class="task-card__panic-log-header">
+				<span>Task Panic Log</span>
 			</div>
-		{/if}
 
-		{#if showsActions}
-			<div class="task-card__actions split-actions">
+			<div class="task-card__panic-log-list">
+				{#each taskPanicLog as panicItem}
+					<article class="task-card__panic-item">
+						<div class="task-card__panic-item-top">
+							<strong>{formatPanicWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
+							<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
+						</div>
+
+						{#if panicItem.emotionalCharge !== null}
+							<p class="task-card__panic-charge">{formatPanicCharge(panicItem.emotionalCharge)}</p>
+						{/if}
+
+						{#if panicItem.note}
+							<p class="task-card__panic-note">{panicItem.note}</p>
+						{/if}
+					</article>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	{#if showsActions}
+		<div class="task-card__actions split-actions">
 			{#if isDaymapCard}
 				<button
 					class="action-button subtle-button"
@@ -752,7 +764,7 @@
 					disabled={busyAction !== null}
 					onclick={() =>
 						onDone(task.id, {
-							instanceNote: canEditInstanceNote ? draftInstanceNote : task.instanceNote ?? ''
+							instanceNote: canEditInstanceNote ? draftInstanceNote : (task.instanceNote ?? '')
 						})}
 				>
 					{busyAction === 'done' ? 'Closing...' : 'Done'}
@@ -769,23 +781,29 @@
 		padding: 1.2rem;
 		border-radius: 20px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.88)),
-			linear-gradient(135deg, color-mix(in srgb, var(--task-accent) 14%, white), white 65%);
-		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
-		box-shadow:
-			0 18px 40px rgba(44, 62, 80, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.75);
+			linear-gradient(
+				180deg,
+				var(--surface-2),
+				color-mix(in srgb, var(--surface-1) 84%, transparent)
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--task-accent) 14%, transparent),
+				transparent 68%
+			);
+		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, var(--surface-border));
+		box-shadow: var(--surface-shadow), var(--surface-inset);
 		position: relative;
 		overflow: hidden;
 	}
 
 	.task-card.is-inactive {
 		border-width: 2px;
-		border-color: color-mix(in srgb, var(--task-accent) 58%, white);
+		border-color: color-mix(in srgb, var(--task-accent) 58%, var(--surface-border));
 		box-shadow:
-			0 20px 42px rgba(44, 62, 80, 0.11),
-			0 0 0 1px color-mix(in srgb, var(--task-accent) 16%, white),
-			inset 0 1px 0 rgba(255, 255, 255, 0.75);
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 16%, transparent),
+			var(--surface-inset);
 		cursor: pointer;
 		transition:
 			transform 0.16s ease,
@@ -795,19 +813,19 @@
 
 	.task-card.is-inactive:hover {
 		transform: translateY(-2px);
-		border-color: color-mix(in srgb, var(--task-accent) 82%, white);
+		border-color: color-mix(in srgb, var(--task-accent) 82%, var(--surface-border));
 		box-shadow:
-			0 24px 48px rgba(44, 62, 80, 0.14),
-			0 0 0 1px color-mix(in srgb, var(--task-accent) 22%, white),
-			inset 0 1px 0 rgba(255, 255, 255, 0.82);
+			var(--surface-shadow-strong),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 22%, transparent),
+			var(--surface-inset);
 	}
 
 	.task-card.is-inactive:focus-visible {
 		outline: none;
 		box-shadow:
-			0 0 0 4px color-mix(in srgb, var(--task-accent) 24%, white),
-			0 24px 48px rgba(44, 62, 80, 0.16),
-			inset 0 1px 0 rgba(255, 255, 255, 0.82);
+			0 0 0 4px color-mix(in srgb, var(--task-accent) 24%, transparent),
+			var(--surface-shadow-strong),
+			var(--surface-inset);
 	}
 
 	.task-card.is-inactive.is-busy {
@@ -820,13 +838,17 @@
 		position: absolute;
 		inset: 0 auto 0 0;
 		width: 0.38rem;
-		background: linear-gradient(180deg, var(--task-accent), color-mix(in srgb, var(--task-accent) 55%, white));
+		background: linear-gradient(
+			180deg,
+			var(--task-accent),
+			color-mix(in srgb, var(--task-accent) 55%, var(--surface-3))
+		);
 	}
 
 	.task-card.is-active {
 		box-shadow:
-			0 22px 44px rgba(44, 62, 80, 0.14),
-			0 0 0 1px color-mix(in srgb, var(--task-accent) 20%, white);
+			var(--surface-shadow-strong),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 20%, transparent);
 	}
 
 	.task-card__header,
@@ -868,10 +890,10 @@
 		width: 2.35rem;
 		height: 2.35rem;
 		padding: 0;
-		border: 1px solid rgba(20, 28, 38, 0.1);
+		border: 1px solid var(--surface-border-strong);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.92);
-		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
+		background: var(--surface-2);
+		box-shadow: var(--surface-shadow);
 		cursor: pointer;
 		transition:
 			transform 0.15s ease,
@@ -882,7 +904,7 @@
 	}
 
 	.daymap-lock-button {
-		color: rgba(20, 28, 38, 0.58);
+		color: var(--color-muted);
 	}
 
 	.queue-button span {
@@ -892,9 +914,9 @@
 	}
 
 	.queue-button.is-queued {
-		background: color-mix(in srgb, var(--task-accent) 18%, white);
-		border-color: color-mix(in srgb, var(--task-accent) 34%, white);
-		color: color-mix(in srgb, var(--task-accent) 68%, black);
+		background: color-mix(in srgb, var(--task-accent) 18%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--task-accent) 34%, var(--surface-border));
+		color: color-mix(in srgb, var(--task-accent) 72%, var(--color-heading));
 	}
 
 	.daymap-lock-button svg {
@@ -903,22 +925,22 @@
 	}
 
 	.daymap-lock-button.is-locked {
-		background: linear-gradient(180deg, rgba(255, 251, 236, 0.98), rgba(255, 246, 214, 0.95));
-		border-color: rgba(200, 155, 43, 0.35);
-		color: #c89b2b;
+		background: color-mix(in srgb, var(--color-warning) 15%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-warning) 35%, var(--surface-border));
+		color: var(--color-warning);
 		box-shadow:
-			0 12px 24px rgba(44, 62, 80, 0.1),
-			0 0 0 1px rgba(200, 155, 43, 0.08);
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent);
 	}
 
 	.daymap-lock-button:not(.is-locked) {
-		color: rgba(20, 28, 38, 0.34);
+		color: var(--color-soft);
 	}
 
 	.daymap-lock-button:hover,
 	.queue-button:hover {
 		transform: translateY(-1px);
-		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.daymap-lock-button:disabled,
@@ -931,7 +953,7 @@
 	.queue-button__spinner {
 		width: 0.92rem;
 		height: 0.92rem;
-		border: 2px solid rgba(20, 28, 38, 0.16);
+		border: 2px solid var(--surface-border-strong);
 		border-top-color: var(--task-accent);
 		border-radius: 999px;
 		animation: note-spin 0.8s linear infinite;
@@ -944,11 +966,11 @@
 		width: 2.3rem;
 		height: 2.3rem;
 		padding: 0;
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		border: 1px solid var(--surface-border-strong);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.92);
-		color: rgba(20, 28, 38, 0.56);
-		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
+		background: var(--surface-2);
+		color: var(--color-muted);
+		box-shadow: var(--surface-shadow);
 		cursor: pointer;
 		transition:
 			transform 0.15s ease,
@@ -963,8 +985,8 @@
 
 	.archive-button:hover {
 		transform: translateY(-1px);
-		color: #9f2d27;
-		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+		color: var(--color-danger);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.archive-button:disabled {
@@ -983,7 +1005,7 @@
 		font-size: 1.25rem;
 		font-weight: 700;
 		letter-spacing: -0.02em;
-		color: rgba(13, 24, 36, 0.92);
+		color: var(--color-heading);
 	}
 
 	.task-card__title-chips {
@@ -998,22 +1020,22 @@
 
 	.runtime-stat,
 	.pomodoro-panel {
-		background: rgba(255, 255, 255, 0.88);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
 	}
 
 	.task-card__title-chips span {
 		padding: 0 0 0.22rem;
-		border-bottom: 2px solid rgba(20, 28, 38, 0.14);
+		border-bottom: 2px solid var(--surface-border-strong);
 		font-size: 0.78rem;
 		font-weight: 700;
-		color: rgba(20, 28, 38, 0.72);
+		color: var(--color-muted);
 		line-height: 1.15;
 	}
 
 	.task-card__title-chips span.highlight-chip {
-		border-bottom-color: color-mix(in srgb, var(--task-accent) 48%, white);
-		color: color-mix(in srgb, var(--task-accent) 65%, black);
+		border-bottom-color: color-mix(in srgb, var(--task-accent) 48%, var(--surface-border));
+		color: color-mix(in srgb, var(--task-accent) 68%, var(--color-heading));
 	}
 
 	.task-card__timing-meta {
@@ -1022,45 +1044,53 @@
 		font-size: 0.78rem;
 		font-weight: 500;
 		letter-spacing: 0.01em;
-		color: rgba(20, 28, 38, 0.34);
+		color: var(--color-soft);
 	}
 
 	.task-card__timing-day {
 		font-weight: 800;
-		color: rgba(20, 28, 38, 0.62);
+		color: var(--color-muted);
 	}
 
 	.task-card__next-due {
-		color: color-mix(in srgb, var(--task-accent) 60%, rgba(20, 28, 38, 0.42));
+		color: color-mix(in srgb, var(--task-accent) 60%, var(--color-muted));
 	}
 
 	.task-card__note-block {
 		padding: 0.9rem 1rem;
 		margin-left: 0.35rem;
-		border-left: 3px solid color-mix(in srgb, var(--task-accent) 38%, white);
+		border-left: 3px solid color-mix(in srgb, var(--task-accent) 38%, var(--surface-border));
 		border-radius: 0 14px 14px 0;
 		background:
-			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
-			rgba(255, 255, 255, 0.88);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+			linear-gradient(
+				180deg,
+				var(--surface-2),
+				color-mix(in srgb, var(--surface-1) 88%, transparent)
+			),
+			var(--surface-1);
+		box-shadow: var(--surface-inset);
 	}
 
 	.task-card__note-block-instance {
 		background:
-			linear-gradient(180deg, rgba(251, 249, 246, 0.98), rgba(247, 243, 238, 0.96)),
-			rgba(255, 255, 255, 0.88);
-		border-left-color: color-mix(in srgb, var(--task-accent) 24%, #dba86c);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--color-warning) 8%, var(--surface-2)),
+				var(--surface-1)
+			),
+			var(--surface-1);
+		border-left-color: color-mix(in srgb, var(--task-accent) 24%, var(--color-warning));
 	}
 
 	.task-card__note-label {
 		display: inline-block;
-		font-family: 'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', Consolas, 'Liberation Mono',
-			Menlo, monospace;
+		font-family:
+			'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.48);
+		color: var(--color-soft);
 	}
 
 	.task-card__note-header {
@@ -1080,7 +1110,7 @@
 	}
 
 	.task-card__note {
-		color: rgba(20, 28, 38, 0.72);
+		color: var(--color-muted);
 		line-height: 1.5;
 		white-space: pre-wrap;
 	}
@@ -1095,11 +1125,11 @@
 		resize: vertical;
 		font: inherit;
 		line-height: 1.5;
-		color: rgba(20, 28, 38, 0.72);
+		color: var(--color-muted);
 	}
 
 	.task-card__note-input::placeholder {
-		color: rgba(20, 28, 38, 0.42);
+		color: var(--color-soft);
 	}
 
 	.task-card__note-input:focus {
@@ -1109,7 +1139,7 @@
 	.task-card__note-error {
 		margin-top: 0.45rem;
 		font-size: 0.82rem;
-		color: #9f2d27;
+		color: var(--color-danger);
 	}
 
 	.note-spinner,
@@ -1126,19 +1156,19 @@
 	}
 
 	.note-spinner {
-		border: 2px solid rgba(79, 110, 214, 0.18);
+		border: 2px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
 		border-top-color: var(--task-accent);
 		animation: note-spin 0.8s linear infinite;
 	}
 
 	.note-check {
-		background: rgba(75, 159, 103, 0.14);
-		color: #2f8a4f;
+		background: color-mix(in srgb, var(--color-success) 14%, transparent);
+		color: var(--color-success);
 	}
 
 	.note-error {
-		background: rgba(159, 45, 39, 0.12);
-		color: #9f2d27;
+		background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+		color: var(--color-danger);
 	}
 
 	.task-card__runtime {
@@ -1159,12 +1189,12 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.46);
+		color: var(--color-soft);
 	}
 
 	.runtime-stat strong {
 		font-size: 1rem;
-		color: rgba(20, 28, 38, 0.84);
+		color: var(--color-heading);
 	}
 
 	.task-card__panic-duration {
@@ -1173,7 +1203,7 @@
 		font-size: 0.78rem;
 		font-weight: 700;
 		letter-spacing: 0.02em;
-		color: rgba(176, 79, 22, 0.82);
+		color: var(--color-warning);
 	}
 
 	.task-card__effective-duration {
@@ -1182,7 +1212,7 @@
 		font-size: 0.78rem;
 		font-weight: 700;
 		letter-spacing: 0.02em;
-		color: rgba(45, 112, 86, 0.84);
+		color: var(--color-success);
 	}
 
 	.task-card__panic-log {
@@ -1198,7 +1228,7 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.48);
+		color: var(--color-soft);
 	}
 
 	.task-card__panic-log-list {
@@ -1212,9 +1242,13 @@
 		padding: 0.9rem 0.95rem;
 		border-radius: 16px;
 		background:
-			linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 243, 238, 0.94)),
-			linear-gradient(135deg, rgba(255, 159, 63, 0.14), rgba(242, 72, 57, 0.1));
-		border: 1px solid rgba(242, 72, 57, 0.16);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--color-warning) 9%, var(--surface-2)),
+				color-mix(in srgb, var(--color-danger) 7%, var(--surface-1))
+			),
+			var(--surface-1);
+		border: 1px solid color-mix(in srgb, var(--color-danger) 16%, var(--surface-border));
 	}
 
 	.task-card__panic-item-top {
@@ -1226,13 +1260,13 @@
 
 	.task-card__panic-item-top strong {
 		font-size: 0.88rem;
-		color: rgba(20, 28, 38, 0.82);
+		color: var(--color-heading);
 	}
 
 	.task-card__panic-item-top span {
 		font-size: 0.82rem;
 		font-weight: 700;
-		color: rgba(163, 62, 20, 0.82);
+		color: var(--color-warning);
 	}
 
 	.task-card__panic-charge {
@@ -1243,8 +1277,8 @@
 		margin: 0;
 		padding: 0.35rem 0.6rem;
 		border-radius: 999px;
-		background: rgba(242, 72, 57, 0.12);
-		color: #a33e14;
+		background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+		color: var(--color-warning);
 		font-size: 0.72rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -1253,7 +1287,7 @@
 
 	.task-card__panic-note {
 		margin: 0;
-		color: rgba(20, 28, 38, 0.76);
+		color: var(--color-muted);
 		white-space: pre-wrap;
 	}
 
@@ -1261,31 +1295,39 @@
 		padding: 0.95rem 1rem;
 		border-radius: 18px;
 		background:
-			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
-			rgba(255, 255, 255, 0.88);
-		border-color: rgba(79, 110, 214, 0.16);
+			linear-gradient(
+				180deg,
+				var(--surface-2),
+				color-mix(in srgb, var(--surface-1) 90%, transparent)
+			),
+			var(--surface-1);
+		border-color: color-mix(in srgb, var(--color-accent) 16%, var(--surface-border));
 	}
 
 	.pomodoro-panel.break-panel {
 		background:
-			linear-gradient(180deg, rgba(255, 247, 236, 0.98), rgba(255, 251, 245, 0.95)),
-			rgba(255, 255, 255, 0.88);
-		border-color: rgba(191, 121, 31, 0.16);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--color-warning) 11%, var(--surface-2)),
+				var(--surface-1)
+			),
+			var(--surface-1);
+		border-color: color-mix(in srgb, var(--color-warning) 18%, var(--surface-border));
 	}
 
 	.pomodoro-panel strong {
 		display: block;
 		margin-bottom: 0.25rem;
-		color: rgba(20, 28, 38, 0.82);
+		color: var(--color-heading);
 	}
 
 	.pomodoro-panel.break-panel strong {
-		color: #9a5e12;
+		color: var(--color-warning);
 	}
 
 	.pomodoro-panel p {
 		font-size: 0.88rem;
-		color: rgba(20, 28, 38, 0.66);
+		color: var(--color-muted);
 	}
 
 	.pomodoro-panel__stats {
@@ -1300,13 +1342,13 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.46);
+		color: var(--color-soft);
 	}
 
 	.pomodoro-panel__stats strong {
 		margin: 0;
 		font-size: 0.98rem;
-		color: rgba(20, 28, 38, 0.84);
+		color: var(--color-heading);
 	}
 
 	.tally-panel {
@@ -1317,9 +1359,13 @@
 		padding: 0.9rem 1rem;
 		border-radius: 18px;
 		background:
-			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(243, 247, 251, 0.96)),
-			rgba(255, 255, 255, 0.88);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+			linear-gradient(
+				180deg,
+				var(--surface-2),
+				color-mix(in srgb, var(--surface-1) 90%, transparent)
+			),
+			var(--surface-1);
+		border: 1px solid var(--surface-border);
 	}
 
 	.tally-readout {
@@ -1333,12 +1379,12 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.46);
+		color: var(--color-soft);
 	}
 
 	.tally-readout strong {
 		font-size: 1.05rem;
-		color: rgba(20, 28, 38, 0.84);
+		color: var(--color-heading);
 	}
 
 	.tally-button {
@@ -1370,15 +1416,19 @@
 	}
 
 	.tally-button-plus {
-		background: linear-gradient(135deg, #4b9f67, #6cbc83);
-		color: white;
-		box-shadow: 0 12px 24px rgba(75, 159, 103, 0.2);
+		background: linear-gradient(
+			135deg,
+			var(--color-success),
+			color-mix(in srgb, var(--color-success) 72%, var(--color-accent-contrast))
+		);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 12px 24px color-mix(in srgb, var(--color-success) 22%, transparent);
 	}
 
 	.tally-button-minus {
-		background: rgba(20, 28, 38, 0.08);
-		color: rgba(20, 28, 38, 0.76);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: var(--surface-muted);
+		color: var(--color-muted);
+		border: 1px solid var(--surface-border-strong);
 	}
 
 	.task-card__actions {
@@ -1421,15 +1471,19 @@
 	}
 
 	.success-button {
-		background: linear-gradient(135deg, #4b9f67, #6cbc83);
-		color: white;
-		box-shadow: 0 12px 24px rgba(75, 159, 103, 0.2);
+		background: linear-gradient(
+			135deg,
+			var(--color-success),
+			color-mix(in srgb, var(--color-success) 72%, var(--color-accent-contrast))
+		);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 12px 24px color-mix(in srgb, var(--color-success) 22%, transparent);
 	}
 
 	.subtle-button {
-		background: rgba(20, 28, 38, 0.08);
-		color: rgba(20, 28, 38, 0.76);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: var(--surface-muted);
+		color: var(--color-muted);
+		border: 1px solid var(--surface-border-strong);
 	}
 
 	@keyframes note-spin {

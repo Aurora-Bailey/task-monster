@@ -34,6 +34,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - install icons live in `front/static/icons/`
   - service worker registration happens from `front/src/routes/+layout.svelte` in production builds only
   - manifest URLs intentionally stay relative so the app works at both `/` and the GitHub Pages `/task-monster` base path
+- Frontend theme support is browser-local only.
+  - theme definitions and persistence live in `front/src/lib/theme.js`
+  - the selected theme key is stored in `localStorage` under `task_monster_theme`
+  - `front/src/app.html` applies the saved theme before Svelte boots to avoid a light-theme flash
+  - `front/src/routes/profile/+page.svelte` exposes the theme picker
+  - root theme tokens live in `front/src/routes/layout.css`
 - Root `.env` is the env source of truth for the current frontend and backend runtime
   - tracked template: `.env.example`
   - backend loads `../.env` at startup

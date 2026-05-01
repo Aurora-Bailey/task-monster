@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 
 	import { initializeSession, session } from '$lib/session';
+	import { initializeTheme } from '$lib/theme';
 	import { normalizeAppPathname } from '$lib/routing';
 	import Header from './Header.svelte';
 	import './layout.css';
@@ -13,8 +14,37 @@
 	let { children } = $props();
 	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
 
+	function clearDevelopmentServiceWorkers() {
+		if (!('serviceWorker' in navigator)) {
+			return;
+		}
+
+		void navigator.serviceWorker.getRegistrations().then((registrations) => {
+			for (const registration of registrations) {
+				if (registration.scope.startsWith(window.location.origin)) {
+					void registration.unregister();
+				}
+			}
+		});
+
+		if ('caches' in window) {
+			void caches.keys().then((cacheNames) => {
+				for (const cacheName of cacheNames) {
+					if (cacheName.startsWith('task-monster-pwa-')) {
+						void caches.delete(cacheName);
+					}
+				}
+			});
+		}
+	}
+
 	function registerServiceWorker() {
-		if (dev || !('serviceWorker' in navigator)) {
+		if (!('serviceWorker' in navigator)) {
+			return;
+		}
+
+		if (dev) {
+			clearDevelopmentServiceWorkers();
 			return;
 		}
 
@@ -35,6 +65,7 @@
 	}
 
 	onMount(() => {
+		initializeTheme();
 		initializeSession();
 		registerServiceWorker();
 	});
@@ -42,9 +73,7 @@
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
 	const isMarketingRoute = $derived(currentPath === '/' || currentPath === '/demo-board');
 	const isAuthRoute = $derived(currentPath === '/auth');
-	const isLegalRoute = $derived(
-		currentPath === '/privacy' || currentPath === '/terms'
-	);
+	const isLegalRoute = $derived(currentPath === '/privacy' || currentPath === '/terms');
 	const allowsGuest = $derived(PUBLIC_ROUTE_PATHS.has(currentPath));
 	const isSessionReady = $derived(
 		$session.status === 'guest' || $session.status === 'authenticated'
@@ -150,9 +179,9 @@
 		max-width: 26rem;
 		padding: 1.8rem;
 		border-radius: 26px;
-		background: rgba(255, 255, 255, 0.68);
-		border: 1px solid rgba(255, 255, 255, 0.75);
-		box-shadow: 0 26px 56px rgba(44, 62, 80, 0.1);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.boot-kicker {
@@ -171,7 +200,7 @@
 
 	.boot-card p:last-child {
 		margin: 0;
-		color: rgba(0, 0, 0, 0.62);
+		color: var(--color-muted);
 	}
 
 	.site-footer {
@@ -181,7 +210,7 @@
 		align-items: center;
 		gap: 0.45rem;
 		padding: 12px;
-		color: rgba(0, 0, 0, 0.45);
+		color: var(--color-soft);
 		font-size: 0.82rem;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
@@ -201,7 +230,7 @@
 	}
 
 	.site-footer a {
-		color: rgba(10, 20, 30, 0.62);
+		color: var(--color-muted);
 		text-decoration: none;
 		font-weight: 700;
 	}

@@ -3,7 +3,12 @@
 	<head>
 		<meta charset="utf-8" />
 		<title>Task Monster</title>
-		<link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/icons/favicon-32.png" />
+		<link
+			rel="icon"
+			type="image/png"
+			sizes="32x32"
+			href="%sveltekit.assets%/icons/favicon-32.png"
+		/>
 		<link rel="apple-touch-icon" href="%sveltekit.assets%/icons/apple-touch-icon.png" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -13,6 +18,39 @@
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-title" content="Task Monster" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<script>
+			(() => {
+				const themes = new Set([
+					'light',
+					'dark',
+					'neo-candy-tokyo-night',
+					'vampire-candy',
+					'magica-pink',
+					'ultra-white'
+				]);
+				const themeMetaColors = {
+					light: '#4075a6',
+					dark: '#111b2a',
+					'neo-candy-tokyo-night': '#08091f',
+					'vampire-candy': '#14030b',
+					'magica-pink': '#d9369b',
+					'ultra-white': '#ffffff'
+				};
+				const darkThemes = new Set(['dark', 'neo-candy-tokyo-night', 'vampire-candy']);
+
+				try {
+					const storedTheme = localStorage.getItem('task_monster_theme');
+					const theme = themes.has(storedTheme) ? storedTheme : 'light';
+					const themeColor = themeMetaColors[theme] || themeMetaColors.light;
+
+					document.documentElement.dataset.theme = theme;
+					document.documentElement.style.colorScheme = darkThemes.has(theme) ? 'dark' : 'light';
+					document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
+				} catch {
+					document.documentElement.dataset.theme = 'light';
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -1,4 +1,4 @@
-	<script>
+<script>
 	import { TASK_SORT_OPTIONS } from '$lib/task-sort';
 
 	let { value = 'date', options = TASK_SORT_OPTIONS, onChange = () => {} } = $props();
@@ -29,9 +29,9 @@
 		gap: 0.8rem;
 		padding: 0.85rem 1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.sort-label {
@@ -39,7 +39,7 @@
 		font-weight: 800;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(10, 20, 30, 0.45);
+		color: var(--color-soft);
 	}
 
 	.sort-options {
@@ -54,20 +54,33 @@
 		justify-content: center;
 		min-height: 2.4rem;
 		padding: 0.65rem 0.9rem;
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		border: 1px solid var(--surface-border-strong);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.92);
+		background: var(--surface-2);
 		font-size: 0.76rem;
 		font-weight: 800;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		color: rgba(13, 24, 36, 0.68);
+		color: var(--color-muted);
+		box-shadow: var(--surface-inset);
+		cursor: pointer;
+		transition:
+			transform 0.15s ease,
+			border-color 0.15s ease,
+			box-shadow 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.sort-options button:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--color-accent) 28%, var(--surface-border));
+		color: var(--color-accent);
 	}
 
 	.sort-options button.selected-option {
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
-		box-shadow: 0 14px 28px rgba(64, 117, 166, 0.24);
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 24%, transparent);
 		border-color: transparent;
 	}
 
