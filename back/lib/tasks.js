@@ -64,6 +64,7 @@ const serializedTaskJsonSchema = {
 		'panicMeasuredAt',
 		'effectiveMilliseconds',
 		'taskPanicLog',
+		'nextDueAt',
 		'lastCompletedAt',
 		'lastInactivatedAt',
 		'createdAt',
@@ -97,6 +98,7 @@ const serializedTaskJsonSchema = {
 			type: 'array',
 			items: serializedPanicLogItemJsonSchema
 		},
+		nextDueAt: { type: ['string', 'null'] },
 		lastCompletedAt: { type: ['string', 'null'] },
 		lastInactivatedAt: { type: ['string', 'null'] },
 		createdAt: { type: 'string' },
@@ -131,6 +133,7 @@ const serializedCompletedTaskJsonSchema = {
 		'panicMilliseconds',
 		'effectiveMilliseconds',
 		'taskPanicLog',
+		'nextDueAt',
 		'lastCompletedAt',
 		'lastInactivatedAt',
 		'createdAt',
@@ -169,6 +172,7 @@ const serializedCompletedTaskJsonSchema = {
 			type: 'array',
 			items: serializedPanicLogItemJsonSchema
 		},
+		nextDueAt: { type: ['string', 'null'] },
 		lastCompletedAt: { type: ['string', 'null'] },
 		lastInactivatedAt: { type: ['string', 'null'] },
 		createdAt: { type: 'string' },
@@ -237,6 +241,7 @@ function serializeTask(task) {
 			? task.effectiveMilliseconds
 			: 0,
 		taskPanicLog: Array.isArray(task.taskPanicLog) ? task.taskPanicLog : [],
+		nextDueAt: task.nextDueAt ? task.nextDueAt.toISOString() : null,
 		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null,
 		lastInactivatedAt: task.lastInactivatedAt ? task.lastInactivatedAt.toISOString() : null,
 		createdAt: task.createdAt.toISOString(),

@@ -94,6 +94,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - The daymap sort bar has a daymap-only `Queue` mode
   - queued tasks rise to the top in queue-number order
   - unqueued tasks stay below them
+- All board pages share `Date`, `Color`, `A-Z`, `Next`, and `Last` sort buttons
+  - `Next` sorts by the optional `nextDueAt` timestamp, with undated tasks below dated ones
+  - `Last` sorts by the most recent completed time
 - The add page exposes pomodoro presets directly for time tasks
   - `none`: manual run with no focus/break bell
   - `short`: 15/5
@@ -140,6 +143,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - status-wide cleanup should come back through backend-owned bulk edit actions rather than long chains of single edits
   - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
   - metadata edits still flow through the broad task edit route
+  - `next due` is currently AI-only; there is no manual set/clear UI on the frontend yet
 
 ## Data source notes
 

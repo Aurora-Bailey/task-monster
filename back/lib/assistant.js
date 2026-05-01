@@ -247,6 +247,7 @@ function summarizeTask(task, openTaskRun) {
 		instanceNote,
 		activatedAt: task.activatedAt ? task.activatedAt.toISOString() : null,
 		mappedAt: task.mappedAt ? task.mappedAt.toISOString() : null,
+		nextDueAt: task.nextDueAt ? task.nextDueAt.toISOString() : null,
 		lastCompletedAt: task.lastCompletedAt ? task.lastCompletedAt.toISOString() : null
 	};
 }
@@ -296,6 +297,7 @@ function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked })
 		startState,
 		queued,
 		daymapLocked,
+		nextDueAt: body.nextDueAt ?? null,
 		tallyUnit: body.tallyUnit ?? null,
 		tallyTarget: body.tallyTarget ?? null
 	};
@@ -710,6 +712,13 @@ function buildTaskEditRequestBody(
 		body.note = typeof args.note === 'string' ? args.note : null;
 	}
 
+	if (Object.hasOwn(args, 'nextDueAt')) {
+		body.nextDueAt =
+			typeof args.nextDueAt === 'string'
+				? normalizeAssistantDateTimeArgument(args.nextDueAt, timezoneOffsetMinutes)
+				: null;
+	}
+
 	if (Object.hasOwn(args, 'tallyUnit')) {
 		body.tallyUnit = typeof args.tallyUnit === 'string' ? args.tallyUnit : null;
 	}
@@ -757,6 +766,10 @@ function selectTasksForAssistantFilter(tasks, args = {}) {
 	const query = typeof args.query === 'string' ? args.query.trim() : '';
 	const queryNormalized = normalizeText(query);
 	const queryTokens = tokenizeText(query);
+	const nextDueBeforeTime =
+		typeof args.nextDueBefore === 'string' ? new Date(args.nextDueBefore).getTime() : null;
+	const nextDueAfterTime =
+		typeof args.nextDueAfter === 'string' ? new Date(args.nextDueAfter).getTime() : null;
 	const filteredTasks = tasks.filter((task) => {
 		const taskState = buildTaskState(task);
 
@@ -799,6 +812,24 @@ function selectTasksForAssistantFilter(tasks, args = {}) {
 			args.daymapLocked !== (task.daymapLocked === true)
 		) {
 			return false;
+		}
+
+		const nextDueAtTime = task.nextDueAt instanceof Date ? task.nextDueAt.getTime() : null;
+
+		if (typeof args.hasNextDue === 'boolean' && args.hasNextDue !== (nextDueAtTime !== null)) {
+			return false;
+		}
+
+		if (nextDueBeforeTime !== null) {
+			if (nextDueAtTime === null || nextDueAtTime > nextDueBeforeTime) {
+				return false;
+			}
+		}
+
+		if (nextDueAfterTime !== null) {
+			if (nextDueAtTime === null || nextDueAtTime < nextDueAfterTime) {
+				return false;
+			}
 		}
 
 		if (!queryNormalized) {
@@ -910,7 +941,7 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath, timezoneO
 		'- If a task is not active but the user gives an explicit historical start and end time, still use complete_task_run with both startedAt and completedAt.',
 		'- Use control_task for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
-		'- For metadata edits like name, category, mode, pomodoro, bell sound, tally target, task note, or active started time, prefer the edit_task tool.',
+		'- For metadata edits like name, category, mode, pomodoro, bell sound, next due, tally target, task note, or active started time, prefer the edit_task tool.',
 		'- If the user asks to correct when a run started or ended, pass the corrected time in the tool arguments. Do not treat a timing correction as a note.',
 		'- For startedAt and completedAt tool arguments, use the user local timezone offset above. Do not send UTC Z times for ordinary local user requests.',
 		'- Never change startedAt as a substitute for a requested completedAt unless the user explicitly asked to change the start time.',
@@ -1319,7 +1350,7 @@ async function executeDaySummaryTool(app, request, args, timezoneOffsetMinutes) 
 	};
 }
 
-async function executeCreateTaskTool(app, request, args) {
+async function executeCreateTaskTool(app, request, args, timezoneOffsetMinutes) {
 	const trackingType = args.trackingType || 'time';
 	const mode = args.mode || 'repeatable';
 	const colorKey = args.colorKey;
@@ -1406,6 +1437,10 @@ async function executeCreateTaskTool(app, request, args) {
 					: DEFAULT_BELL_SOUND_KEY
 				: null,
 		note: typeof args.note === 'string' ? args.note : null,
+		nextDueAt:
+			typeof args.nextDueAt === 'string'
+				? normalizeAssistantDateTimeArgument(args.nextDueAt, timezoneOffsetMinutes)
+				: null,
 		tallyUnit: null,
 		tallyTarget: null
 	};
@@ -1718,7 +1753,7 @@ async function executeEditTaskTool(app, request, args, timezoneOffsetMinutes) {
 	};
 }
 
-async function executeBulkEditTasksTool(app, request, args) {
+async function executeBulkEditTasksTool(app, request, args, timezoneOffsetMinutes) {
 	const filter = !Array.isArray(args.filter) && typeof args.filter === 'object' && args.filter
 		? args.filter
 		: null;
@@ -1744,7 +1779,8 @@ async function executeBulkEditTasksTool(app, request, args) {
 	const body = buildTaskEditRequestBody(changes, {
 		allowName: false,
 		allowStartedAt: false,
-		allowActiveTallyCount: false
+		allowActiveTallyCount: false,
+		timezoneOffsetMinutes
 	});
 
 	if (Object.keys(body).length === 0) {
@@ -3090,6 +3126,17 @@ const ASSISTANT_TOOLS = [
 					daymapLocked: {
 						type: 'boolean'
 					},
+					hasNextDue: {
+						type: 'boolean'
+					},
+					nextDueBefore: {
+						type: 'string',
+						format: 'date-time'
+					},
+					nextDueAfter: {
+						type: 'string',
+						format: 'date-time'
+					},
 					includeNotes: {
 						type: 'boolean'
 					},
@@ -3224,6 +3271,10 @@ const ASSISTANT_TOOLS = [
 						type: 'string',
 						maxLength: 2000
 					},
+					nextDueAt: {
+						type: ['string', 'null'],
+						format: 'date-time'
+					},
 					startState: {
 						type: 'string',
 						enum: [...TASK_START_STATE_VALUES]
@@ -3248,7 +3299,7 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'edit_task',
 			description:
-				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, tally settings, daymap lock, task note, or active started time changes.',
+				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, next due, tally settings, daymap lock, task note, or active started time changes.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery'],
@@ -3287,6 +3338,10 @@ const ASSISTANT_TOOLS = [
 					note: {
 						type: ['string', 'null'],
 						maxLength: 2000
+					},
+					nextDueAt: {
+						type: ['string', 'null'],
+						format: 'date-time'
 					},
 					tallyUnit: {
 						type: ['string', 'null'],
@@ -3366,6 +3421,17 @@ const ASSISTANT_TOOLS = [
 							daymapLocked: {
 								type: 'boolean'
 							},
+							hasNextDue: {
+								type: 'boolean'
+							},
+							nextDueBefore: {
+								type: 'string',
+								format: 'date-time'
+							},
+							nextDueAfter: {
+								type: 'string',
+								format: 'date-time'
+							},
 							includeArchived: {
 								type: 'boolean'
 							}
@@ -3398,6 +3464,10 @@ const ASSISTANT_TOOLS = [
 							note: {
 								type: ['string', 'null'],
 								maxLength: 2000
+							},
+							nextDueAt: {
+								type: ['string', 'null'],
+								format: 'date-time'
 							},
 							tallyUnit: {
 								type: ['string', 'null'],
@@ -3581,11 +3651,11 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 		case 'get_day_summary':
 			return executeDaySummaryTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'create_task':
-			return executeCreateTaskTool(app, request, parsedArguments);
+			return executeCreateTaskTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'edit_task':
 			return executeEditTaskTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'bulk_edit_tasks':
-			return executeBulkEditTasksTool(app, request, parsedArguments);
+			return executeBulkEditTasksTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'complete_task_run':
 			return executeCompleteTaskRunTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'control_task':

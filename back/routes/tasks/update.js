@@ -72,6 +72,10 @@ const updateTaskSchema = {
 				type: ['string', 'null'],
 				maxLength: 2000
 			},
+			nextDueAt: {
+				type: ['string', 'null'],
+				format: 'date-time'
+			},
 			daymapLocked: {
 				type: 'boolean'
 			},
@@ -146,6 +150,7 @@ async function updateTaskRoute(app) {
 			const providedTallyUnit = Object.hasOwn(request.body, 'tallyUnit');
 			const providedTallyTarget = Object.hasOwn(request.body, 'tallyTarget');
 			const providedActiveTallyCount = Object.hasOwn(request.body, 'activeTallyCount');
+			const providedNextDueAt = Object.hasOwn(request.body, 'nextDueAt');
 
 			if (typeof request.body.name === 'string') {
 				const nextName = request.body.name.trim();
@@ -192,6 +197,33 @@ async function updateTaskRoute(app) {
 					label: 'Changed: task note',
 					value: nextTask.note ? `"${nextTask.note}"` : 'cleared'
 				});
+			}
+
+			if (providedNextDueAt) {
+				let nextDueAt = null;
+
+				if (typeof request.body.nextDueAt === 'string') {
+					nextDueAt = new Date(request.body.nextDueAt);
+
+					if (Number.isNaN(nextDueAt.getTime())) {
+						return reply.code(400).send({
+							message: 'Next due time is not valid.'
+						});
+					}
+				}
+
+				const currentNextDueAtTime =
+					task.nextDueAt instanceof Date ? task.nextDueAt.getTime() : null;
+				const nextDueAtTime = nextDueAt instanceof Date ? nextDueAt.getTime() : null;
+
+				if (currentNextDueAtTime !== nextDueAtTime) {
+					nextTask.nextDueAt = nextDueAt;
+					changes.push({
+						field: 'next due',
+						label: 'Changed: next due',
+						value: nextDueAt ? nextDueAt.toISOString() : 'cleared'
+					});
+				}
 			}
 
 			if (Object.hasOwn(request.body, 'daymapLocked') && request.body.daymapLocked !== (task.daymapLocked === true)) {
@@ -393,6 +425,7 @@ async function updateTaskRoute(app) {
 				tallyTarget: nextTask.tallyTarget,
 				activeTallyCount: nextTask.activeTallyCount,
 				note: nextTask.note ?? null,
+				nextDueAt: nextTask.nextDueAt ?? null,
 				daymapLocked: nextTask.daymapLocked === true,
 				activatedAt: nextTask.activatedAt ?? null,
 				updatedAt

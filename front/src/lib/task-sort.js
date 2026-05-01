@@ -10,7 +10,9 @@ export const DEFAULT_TASK_SORT_MODE = 'color';
 export const TASK_SORT_OPTIONS = [
 	{ value: 'date', label: 'Date' },
 	{ value: 'color', label: 'Color' },
-	{ value: 'alpha', label: 'A-Z' }
+	{ value: 'alpha', label: 'A-Z' },
+	{ value: 'next', label: 'Next' },
+	{ value: 'last', label: 'Last' }
 ];
 export const DAYMAP_TASK_SORT_OPTIONS = [...TASK_SORT_OPTIONS, { value: 'queue', label: 'Queue' }];
 
@@ -101,6 +103,69 @@ function compareByQueue(left, right) {
 	return 0;
 }
 
+function getTaskNextDueTime(task) {
+	if (!task.nextDueAt) {
+		return null;
+	}
+
+	const nextDueTime = new Date(task.nextDueAt).getTime();
+
+	return Number.isNaN(nextDueTime) ? null : nextDueTime;
+}
+
+function getTaskLastDoneTime(task, variant) {
+	const lastDoneSource =
+		variant === 'done'
+			? task.completedAt || task.endedAt || task.lastCompletedAt
+			: task.lastCompletedAt;
+
+	if (!lastDoneSource) {
+		return null;
+	}
+
+	const lastDoneTime = new Date(lastDoneSource).getTime();
+
+	return Number.isNaN(lastDoneTime) ? null : lastDoneTime;
+}
+
+function compareByNextDue(left, right) {
+	const leftTime = getTaskNextDueTime(left);
+	const rightTime = getTaskNextDueTime(right);
+
+	if (leftTime !== null && rightTime !== null) {
+		return leftTime - rightTime;
+	}
+
+	if (leftTime !== null) {
+		return -1;
+	}
+
+	if (rightTime !== null) {
+		return 1;
+	}
+
+	return 0;
+}
+
+function compareByLastDone(left, right, variant) {
+	const leftTime = getTaskLastDoneTime(left, variant);
+	const rightTime = getTaskLastDoneTime(right, variant);
+
+	if (leftTime !== null && rightTime !== null) {
+		return rightTime - leftTime;
+	}
+
+	if (leftTime !== null) {
+		return -1;
+	}
+
+	if (rightTime !== null) {
+		return 1;
+	}
+
+	return 0;
+}
+
 export function sortTasks(items, { mode = DEFAULT_TASK_SORT_MODE, variant = 'inactive' } = {}) {
 	return [...items].sort((left, right) => {
 		if (mode === 'queue') {
@@ -124,6 +189,24 @@ export function sortTasks(items, { mode = DEFAULT_TASK_SORT_MODE, variant = 'ina
 			return (
 				compareByAlpha(left, right) ||
 				compareByColor(left, right) ||
+				compareByDate(left, right, variant)
+			);
+		}
+
+		if (mode === 'next') {
+			return (
+				compareByNextDue(left, right) ||
+				compareByColor(left, right) ||
+				compareByAlpha(left, right) ||
+				compareByDate(left, right, variant)
+			);
+		}
+
+		if (mode === 'last') {
+			return (
+				compareByLastDone(left, right, variant) ||
+				compareByColor(left, right) ||
+				compareByAlpha(left, right) ||
 				compareByDate(left, right, variant)
 			);
 		}

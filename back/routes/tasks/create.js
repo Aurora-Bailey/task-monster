@@ -60,6 +60,10 @@ const createTaskSchema = {
 			note: {
 				type: ['string', 'null'],
 				maxLength: 2000
+			},
+			nextDueAt: {
+				type: ['string', 'null'],
+				format: 'date-time'
 			}
 		}
 	},
@@ -96,6 +100,7 @@ async function createTaskRoute(app) {
 					? request.body.bellSound
 					: DEFAULT_BELL_SOUND_KEY;
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
+			const nextDueAtInput = request.body.nextDueAt;
 
 			if (!name) {
 				return reply.code(400).send({
@@ -125,6 +130,19 @@ async function createTaskRoute(app) {
 			let bellSound = null;
 			let tallyUnit = null;
 			let tallyTarget = null;
+			let nextDueAt = null;
+
+			if (typeof nextDueAtInput === 'string') {
+				const parsedNextDueAt = new Date(nextDueAtInput);
+
+				if (Number.isNaN(parsedNextDueAt.getTime())) {
+					return reply.code(400).send({
+						message: 'Next due time is not valid.'
+					});
+				}
+
+				nextDueAt = parsedNextDueAt;
+			}
 
 			if (trackingType === 'time') {
 				if (pomodoroPresetKey !== null && !isValidPomodoroPresetKey(pomodoroPresetKey)) {
@@ -187,6 +205,7 @@ async function createTaskRoute(app) {
 				tallyTarget,
 				activeTallyCount: 0,
 				lastCompletedTallyCount: null,
+				nextDueAt,
 				note,
 				daymapLocked: false,
 				mappedToday: false,

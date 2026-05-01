@@ -319,6 +319,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - daymap lock toggle
   - unmap back to inactive
   - a daymap-only `Queue` sort mode that floats queued tasks to the top in queue-number order
+- All board pages now expose shared `Date`, `Color`, `A-Z`, `Next`, and `Last` sort buttons
+  - `Next` sorts tasks with a `nextDueAt` first by soonest due time
+  - `Last` sorts by the most recent completed time
+- Task cards can now show:
+  - `Next due`
+  - `Last done`
 - Active page includes:
   - browser audio break-bell behavior
   - tally increment and decrement controls
@@ -369,7 +375,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `create_task`
     - still guarded against close duplicates in `inactive` and `daymap`
   - `edit_task`
-    - metadata, note, pomodoro, bell sound, tally settings, daymap lock, and active `startedAt`
+    - metadata, note, next due, pomodoro, bell sound, tally settings, daymap lock, and active `startedAt`
   - `bulk_edit_tasks`
     - shared metadata cleanup across a matched task set, such as removing pomodoro from all inactive tasks
   - `complete_task_run`
@@ -387,6 +393,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - board snapshot task arrays are previews only and must not be treated as exhaustive sections
   - for full-set checks like “all inactive tasks with pomodoro” it should call `filter_tasks`
   - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
+  - `nextDueAt` is an optional task field and is currently AI-settable only; there is no manual frontend editor for it yet
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
   - time-correction requests should be passed as actual tool arguments, not approximated with notes
