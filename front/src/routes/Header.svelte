@@ -3,6 +3,18 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import {
+		Bot,
+		CalendarDays,
+		ChartNoAxesColumn,
+		CircleCheck,
+		CirclePlay,
+		Flame,
+		Inbox,
+		LogOut,
+		Plus,
+		UserRound
+	} from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
 	import AssistantDrawer from '$lib/AssistantDrawer.svelte';
@@ -42,12 +54,12 @@
 	let lastPomodoroBellKeys = new Map();
 
 	const navLinks = [
-		{ href: '/add', label: 'Add' },
-		{ href: '/inactive', label: 'Inactive' },
-		{ href: '/daymap', label: 'Daymap' },
-		{ href: '/active', label: 'Active' },
-		{ href: '/done', label: 'Done' },
-		{ href: '/stats', label: 'Stats' }
+		{ href: '/add', label: 'Add', icon: Plus },
+		{ href: '/inactive', label: 'Inactive', icon: Inbox },
+		{ href: '/daymap', label: 'Daymap', icon: CalendarDays },
+		{ href: '/active', label: 'Active', icon: CirclePlay },
+		{ href: '/done', label: 'Done', icon: CircleCheck },
+		{ href: '/stats', label: 'Stats', icon: ChartNoAxesColumn }
 	];
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
@@ -358,9 +370,9 @@
 		</a>
 	</div>
 
-	<nav>
+	<nav class="header-actions" aria-label="Header controls">
 		<div class="nav-tools">
-			<ul>
+			<ul class="desktop-route-list" aria-label="Primary">
 				{#each navLinks as link}
 					<li>
 						<a href={resolve(link.href)} aria-current={isCurrent(link.href) ? 'page' : undefined}>
@@ -375,9 +387,13 @@
 				class:is-active={panicIsActive}
 				type="button"
 				title={panicButtonTitle}
+				aria-label={panicButtonTitle}
 				disabled={isPanicBusy || isPanicLoading}
 				onclick={handlePanicToggle}
 			>
+				<span class="mobile-action-icon" aria-hidden="true">
+					<Flame size={22} strokeWidth={2.4} />
+				</span>
 				<span class="panic-button__label">
 					{#if isPanicBusy}
 						{panicIsActive ? 'Stopping...' : 'Starting...'}
@@ -395,8 +411,12 @@
 				class:is-open={showAssistantDrawer}
 				type="button"
 				title={assistantButtonTitle}
+				aria-label={assistantButtonTitle}
 				onclick={showAssistantDrawer ? closeAssistantDrawer : openAssistantDrawer}
 			>
+				<span class="mobile-action-icon" aria-hidden="true">
+					<Bot size={22} strokeWidth={2.35} />
+				</span>
 				<span class="assistant-button__label">AI</span>
 				<span class="assistant-button__meta">{showAssistantDrawer ? 'Open' : 'Ready'}</span>
 			</button>
@@ -409,15 +429,50 @@
 				class="user-pill"
 				href={resolve('/profile')}
 				aria-current={isCurrent('/profile') ? 'page' : undefined}
+				aria-label={`Profile for ${user.username}`}
+				title={`Profile for ${user.username}`}
 			>
-				{user.username}
+				<span class="mobile-session-icon" aria-hidden="true">
+					<UserRound size={20} strokeWidth={2.3} />
+				</span>
+				<span class="session-label">{user.username}</span>
 			</a>
-			<button class="logout-button" type="button" onclick={handleLogout} disabled={isLoggingOut}>
-				{isLoggingOut ? 'Logging out...' : 'Log out'}
+			<button
+				class="logout-button"
+				type="button"
+				title="Log out"
+				aria-label={isLoggingOut ? 'Logging out' : 'Log out'}
+				onclick={handleLogout}
+				disabled={isLoggingOut}
+			>
+				<span class="mobile-session-icon" aria-hidden="true">
+					<LogOut size={20} strokeWidth={2.3} />
+				</span>
+				<span class="session-label">{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
 			</button>
 		{/if}
 	</div>
 </header>
+
+<nav class="mobile-bottom-nav" aria-label="Primary">
+	<ul class="mobile-bottom-nav__list">
+		{#each navLinks as link}
+			{@const NavIcon = link.icon}
+			<li>
+				<a
+					class="mobile-bottom-nav__item"
+					href={resolve(link.href)}
+					aria-current={isCurrent(link.href) ? 'page' : undefined}
+					aria-label={link.label}
+					title={link.label}
+				>
+					<NavIcon size={22} strokeWidth={2.35} aria-hidden="true" />
+					<span>{link.label}</span>
+				</a>
+			</li>
+		{/each}
+	</ul>
+</nav>
 
 {#if logoutError}
 	<p class="logout-error">{logoutError}</p>
@@ -542,6 +597,15 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.7rem;
+	}
+
+	.mobile-bottom-nav {
+		display: none;
+	}
+
+	.mobile-action-icon,
+	.mobile-session-icon {
+		display: none;
 	}
 
 	.session-tools {
@@ -706,6 +770,14 @@
 		text-transform: uppercase;
 		color: rgba(13, 24, 36, 0.72);
 		text-decoration: none;
+	}
+
+	.user-pill .session-label,
+	.logout-button .session-label,
+	.user-pill .mobile-session-icon,
+	.logout-button .mobile-session-icon {
+		display: inline-flex;
+		align-items: center;
 	}
 
 	.logout-button {
@@ -911,22 +983,161 @@
 		}
 	}
 
-	@media (max-width: 760px) {
+	@media (max-width: 1024px) {
 		header {
-			grid-template-columns: 1fr auto;
+			position: sticky;
+			top: 0;
+			z-index: 65;
+			grid-template-columns: auto 1fr auto;
+			gap: 0.55rem;
+			padding: 0.68rem 0.85rem;
 		}
 
-		nav {
-			grid-column: 1 / -1;
-			order: 3;
+		.header-actions {
+			justify-content: flex-end;
 		}
 
 		.nav-tools {
-			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 0.45rem;
+		}
+
+		.desktop-route-list {
+			display: none;
 		}
 
 		.brand span {
-			letter-spacing: 0.12em;
+			max-width: 9.5rem;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			letter-spacing: 0.1em;
+		}
+
+		.panic-button,
+		.assistant-button,
+		.user-pill,
+		.logout-button {
+			width: 2.75rem;
+			min-width: 2.75rem;
+			height: 2.75rem;
+			min-height: 2.75rem;
+			padding: 0;
+			border-radius: 999px;
+		}
+
+		.mobile-action-icon,
+		.mobile-session-icon {
+			display: block;
+			flex: 0 0 auto;
+		}
+
+		.panic-button__label,
+		.panic-button__time,
+		.assistant-button__label,
+		.assistant-button__meta,
+		.session-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		.mobile-bottom-nav {
+			position: fixed;
+			left: 0.75rem;
+			right: 0.75rem;
+			bottom: calc(0.65rem + env(safe-area-inset-bottom));
+			z-index: 70;
+			display: block;
+			pointer-events: none;
+		}
+
+		.mobile-bottom-nav__list {
+			width: min(100%, 44rem);
+			min-height: 4.6rem;
+			margin: 0 auto;
+			padding: 0.5rem;
+			display: grid;
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+			gap: 0.12rem;
+			background: rgba(255, 255, 255, 0.82);
+			border: 1px solid rgba(255, 255, 255, 0.82);
+			border-radius: 999px;
+			box-shadow:
+				0 22px 45px rgba(25, 36, 48, 0.2),
+				inset 0 1px 0 rgba(255, 255, 255, 0.9);
+			backdrop-filter: blur(22px);
+			pointer-events: auto;
+		}
+
+		.mobile-bottom-nav li {
+			min-width: 0;
+		}
+
+		.mobile-bottom-nav__item {
+			position: relative;
+			height: 100%;
+			min-height: 3.45rem;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.18rem;
+			padding: 0.25rem 0.1rem;
+			border-radius: 999px;
+			color: rgba(13, 24, 36, 0.56);
+			text-decoration: none;
+			transition:
+				color 0.18s ease,
+				background-color 0.18s ease,
+				transform 0.18s ease,
+				box-shadow 0.18s ease;
+		}
+
+		.mobile-bottom-nav__item:hover {
+			transform: translateY(-1px);
+			color: var(--color-theme-2);
+		}
+
+		.mobile-bottom-nav__item[aria-current='page'] {
+			background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
+			color: white;
+			box-shadow: 0 12px 24px rgba(64, 117, 166, 0.24);
+		}
+
+		.mobile-bottom-nav__item span {
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			font-size: 0.62rem;
+			font-weight: 900;
+			line-height: 1;
+			letter-spacing: 0;
+			text-transform: none;
+			opacity: 0;
+			max-height: 0;
+			transition:
+				opacity 0.18s ease,
+				max-height 0.18s ease;
+		}
+
+		.mobile-bottom-nav__item[aria-current='page'] span {
+			opacity: 1;
+			max-height: 0.85rem;
+		}
+
+		:global(.app main) {
+			padding-bottom: calc(5.9rem + env(safe-area-inset-bottom));
+		}
+
+		:global(.app .site-footer) {
+			padding-bottom: calc(5.7rem + env(safe-area-inset-bottom));
 		}
 	}
 
@@ -935,28 +1146,53 @@
 			display: none;
 		}
 
-		.user-pill {
-			display: none;
+		header {
+			grid-template-columns: auto 1fr auto;
+			padding-inline: 0.72rem;
 		}
 
-		ul {
-			width: 100%;
+		.corner img {
+			width: 2.05rem;
+			height: 2.05rem;
 		}
 
-		li {
-			flex: 1;
+		.session-tools {
+			gap: 0.4rem;
 		}
 
-		nav a {
-			padding-inline: 0.7rem;
+		.user-pill,
+		.logout-button {
+			width: 2.52rem;
+			min-width: 2.52rem;
+			height: 2.52rem;
+			min-height: 2.52rem;
 		}
 
-		.panic-button {
-			width: 100%;
-		}
-
+		.panic-button,
 		.assistant-button {
-			width: 100%;
+			width: 2.52rem;
+			min-width: 2.52rem;
+			height: 2.52rem;
+			min-height: 2.52rem;
+		}
+
+		.mobile-bottom-nav {
+			left: 0.55rem;
+			right: 0.55rem;
+			bottom: calc(0.5rem + env(safe-area-inset-bottom));
+		}
+
+		.mobile-bottom-nav__list {
+			min-height: 4.25rem;
+			padding: 0.4rem;
+		}
+
+		.mobile-bottom-nav__item {
+			min-height: 3.25rem;
+		}
+
+		.mobile-bottom-nav__item span {
+			display: none;
 		}
 
 		.panic-modal__actions {
