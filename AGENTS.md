@@ -28,6 +28,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - GitHub Pages serves the frontend under the repo base path, so production builds set `BASE_PATH=/${{ github.event.repository.name }}`
   - production frontend API calls point at Render backend `https://task-monster-api.onrender.com`
   - `front/svelte.config.js` uses `@sveltejs/adapter-static` with `fallback: '404.html'` for SPA route refreshes
+- Frontend PWA support is manual static-file support.
+  - app metadata lives in `front/static/manifest.webmanifest`
+  - service worker lives in `front/static/sw.js`
+  - install icons live in `front/static/icons/`
+  - service worker registration happens from `front/src/routes/+layout.svelte` in production builds only
+  - manifest URLs intentionally stay relative so the app works at both `/` and the GitHub Pages `/task-monster` base path
 - Root `.env` is the env source of truth for the current frontend and backend runtime
   - tracked template: `.env.example`
   - backend loads `../.env` at startup

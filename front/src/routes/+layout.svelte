@@ -1,4 +1,5 @@
 <script>
+	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -12,8 +13,30 @@
 	let { children } = $props();
 	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
 
+	function registerServiceWorker() {
+		if (dev || !('serviceWorker' in navigator)) {
+			return;
+		}
+
+		const register = () => {
+			navigator.serviceWorker
+				.register(resolve('/sw.js'), { scope: resolve('/') })
+				.catch((error) => {
+					console.error('Service worker registration failed', error);
+				});
+		};
+
+		if (document.readyState === 'complete') {
+			register();
+			return;
+		}
+
+		window.addEventListener('load', register, { once: true });
+	}
+
 	onMount(() => {
 		initializeSession();
+		registerServiceWorker();
 	});
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
