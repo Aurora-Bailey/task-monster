@@ -1,3 +1,7 @@
+<script>
+	import { resolve } from '$app/paths';
+</script>
+
 <svelte:head>
 	<title>Terms &amp; Conditions</title>
 	<meta
@@ -179,7 +183,7 @@
 		<section id="privacy">
 			<h2>XI. Privacy</h2>
 			<p>
-				Your use of Task Monster is also governed by the <a href="/privacy">Privacy Policy</a>,
+				Your use of Task Monster is also governed by the <a href={resolve('/privacy')}>Privacy Policy</a>,
 				which describes how information is collected, used, and handled, including information
 				related to the SMS Assistant.
 			</p>

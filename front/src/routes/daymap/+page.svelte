@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -61,7 +62,7 @@
 
 		try {
 			await activateTask(taskId);
-			await goto('/active');
+			await goto(resolve('/active'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -75,7 +76,7 @@
 
 		try {
 			await unmapTask(taskId);
-			await goto('/inactive');
+			await goto(resolve('/inactive'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {

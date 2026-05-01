@@ -1,6 +1,7 @@
 <script>
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount, tick } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -315,7 +316,7 @@
 				return;
 			}
 
-			await goto('/daymap');
+			await goto(resolve('/daymap'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -380,7 +381,7 @@
 				return;
 			}
 
-			await goto('/done');
+			await goto(resolve('/done'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {

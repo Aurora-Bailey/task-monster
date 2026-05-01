@@ -16,6 +16,7 @@
 		stopPanic
 	} from '$lib/panic-client';
 	import { getPomodoroState } from '$lib/pomodoro';
+	import { normalizeAppPathname } from '$lib/routing';
 	import { logoutAccount } from '$lib/session';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { loadActiveTasks, TASKS_UPDATED_EVENT } from '$lib/tasks-client';
@@ -49,8 +50,10 @@
 		{ href: '/stats', label: 'Stats' }
 	];
 
+	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
+
 	function isCurrent(href) {
-		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+		return currentPath === href || currentPath.startsWith(`${href}/`);
 	}
 
 	function getCurrentNavIndex(pathname) {
@@ -273,7 +276,7 @@
 				return;
 			}
 
-			const currentIndex = getCurrentNavIndex(page.url.pathname);
+			const currentIndex = getCurrentNavIndex(currentPath);
 
 			if (currentIndex === -1) {
 				return;
@@ -427,7 +430,7 @@
 <AssistantDrawer
 	open={showAssistantDrawer}
 	username={user?.username || ''}
-	currentPath={page.url.pathname}
+	currentPath={currentPath}
 	onClose={closeAssistantDrawer}
 />
 

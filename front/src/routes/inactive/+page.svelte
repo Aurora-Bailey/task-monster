@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -37,7 +38,7 @@
 
 		try {
 			await moveTaskToDaymap(taskId);
-			await goto('/daymap');
+			await goto(resolve('/daymap'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {

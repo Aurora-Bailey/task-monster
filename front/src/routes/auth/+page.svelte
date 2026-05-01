@@ -45,7 +45,7 @@
 				await loginAccount({ username, password });
 			}
 
-			await goto('/active', {
+			await goto(resolve('/active'), {
 				replaceState: true
 			});
 		} catch (error) {

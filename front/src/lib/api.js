@@ -1,4 +1,6 @@
-export const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL || 'http://127.0.0.1:3001';
+import { PUBLIC_API_BASE_URL } from '$env/static/public';
+
+export const API_BASE_URL = PUBLIC_API_BASE_URL || 'http://127.0.0.1:3001';
 
 export async function requestApi(path, { method = 'GET', body, headers = {}, token } = {}) {
 	const requestHeaders = new Headers(headers);

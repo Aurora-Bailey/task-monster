@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { get, writable } from 'svelte/store';
 
 import { readApiBody, readApiError, requestApi } from './api';
@@ -128,7 +129,7 @@ async function clearClientSession({ redirectToAuth = true } = {}) {
 	setGuestSession();
 
 	if (browser && redirectToAuth) {
-		await goto('/auth', {
+		await goto(resolve('/auth'), {
 			replaceState: true
 		});
 	}

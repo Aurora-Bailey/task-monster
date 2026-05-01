@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 
 	import { initializeSession, session } from '$lib/session';
+	import { normalizeAppPathname } from '$lib/routing';
 	import Header from './Header.svelte';
 	import './layout.css';
 
@@ -15,14 +16,13 @@
 		initializeSession();
 	});
 
-	const isMarketingRoute = $derived(
-		page.url.pathname === '/' || page.url.pathname === '/demo-board'
-	);
-	const isAuthRoute = $derived(page.url.pathname === '/auth');
+	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
+	const isMarketingRoute = $derived(currentPath === '/' || currentPath === '/demo-board');
+	const isAuthRoute = $derived(currentPath === '/auth');
 	const isLegalRoute = $derived(
-		page.url.pathname === '/privacy' || page.url.pathname === '/terms'
+		currentPath === '/privacy' || currentPath === '/terms'
 	);
-	const allowsGuest = $derived(PUBLIC_ROUTE_PATHS.has(page.url.pathname));
+	const allowsGuest = $derived(PUBLIC_ROUTE_PATHS.has(currentPath));
 	const isSessionReady = $derived(
 		$session.status === 'guest' || $session.status === 'authenticated'
 	);
@@ -30,11 +30,11 @@
 
 	$effect(() => {
 		if (isSessionReady && $session.status === 'guest' && !allowsGuest) {
-			goto('/auth', { replaceState: true });
+			goto(resolve('/auth'), { replaceState: true });
 		}
 
 		if (isSessionReady && $session.status === 'authenticated' && isAuthRoute) {
-			goto('/active', { replaceState: true });
+			goto(resolve('/active'), { replaceState: true });
 		}
 	});
 </script>

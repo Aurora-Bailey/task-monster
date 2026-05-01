@@ -13,6 +13,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend install: `cd front && npm install`
 - Frontend dev: `cd front && npm run dev`
 - Frontend build check: `cd front && npm run build`
+- Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
 - Backend install: `cd back && npm install`
 - Backend dev: `cd back && npm run dev`
 - Backend start: `cd back && npm start`
@@ -22,6 +23,11 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend is client-rendered only.
   - `front/src/routes/+layout.js` sets `ssr = false`
   - every current page route sets `csr = true`
+- Frontend production hosting is GitHub Pages.
+  - `.github/workflows/deploy-frontend.yml` builds and deploys `front/` from the `production` branch
+  - GitHub Pages serves the frontend under the repo base path, so production builds set `BASE_PATH=/${{ github.event.repository.name }}`
+  - production frontend API calls point at Render backend `https://task-monster-api.onrender.com`
+  - `front/svelte.config.js` uses `@sveltejs/adapter-static` with `fallback: '404.html'` for SPA route refreshes
 - Root `.env` is the env source of truth for the current frontend and backend runtime
   - tracked template: `.env.example`
   - backend loads `../.env` at startup

@@ -9,10 +9,10 @@
 	);
 
 	const screenshots = {
-		daymap: '/images/marketing/daymap-board.png',
-		active: '/images/marketing/active-run.png',
-		add: '/images/marketing/add-task-builder.png',
-		notes: '/images/marketing/task-note-surface.png'
+		daymap: resolve('/images/marketing/daymap-board.png'),
+		active: resolve('/images/marketing/active-run.png'),
+		add: resolve('/images/marketing/add-task-builder.png'),
+		notes: resolve('/images/marketing/task-note-surface.png')
 	};
 </script>
 
