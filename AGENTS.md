@@ -32,6 +32,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - tracked template: `.env.example`
   - backend loads `../.env` at startup
   - frontend Vite config points `envDir` at the repo root
+  - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
 - `/` is now a public marketing landing page
 - `/demo-board` is also public and currently acts as a screenshot-led product tour without requiring auth
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
