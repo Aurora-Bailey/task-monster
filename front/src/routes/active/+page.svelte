@@ -29,22 +29,53 @@
 	let panic = $state(null);
 	let showDoneModal = $state(false);
 	let doneModalTaskId = $state(null);
-	let doneModalBaseCompletedAtMs = $state(0);
-	let doneModalAdjustmentMs = $state(0);
+	let doneModalStartedAtValue = $state('');
+	let doneModalCompletedAtValue = $state('');
 	let doneModalInstanceNote = $state('');
+	let doneModalSetNextDue = $state(false);
+	let doneModalNextDueAtValue = $state('');
+	let doneModalNextDueDirty = $state(false);
 	let doneModalNoteInput = $state(null);
 
 	let clockIntervalId = null;
+	const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-	const DONE_ADJUST_MINUTE_MS = 60 * 1000;
-	const DONE_ADJUST_HOUR_MS = 60 * 60 * 1000;
-	const doneModalDateFormatter = new Intl.DateTimeFormat(undefined, {
-		month: 'long',
-		day: 'numeric',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit'
-	});
+	function padDateTimePart(value) {
+		return String(value).padStart(2, '0');
+	}
+
+	function formatDateTimeLocalValue(date) {
+		return [
+			date.getFullYear(),
+			padDateTimePart(date.getMonth() + 1),
+			padDateTimePart(date.getDate())
+		].join('-') +
+			'T' +
+			[
+				padDateTimePart(date.getHours()),
+				padDateTimePart(date.getMinutes())
+			].join(':');
+	}
+
+	function parseDateTimeLocalValue(value) {
+		if (typeof value !== 'string' || !value.trim()) {
+			return null;
+		}
+
+		const parsed = new Date(value);
+
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	function getDefaultDoneModalNextDueValue(completedAtValue) {
+		const completedAt = parseDateTimeLocalValue(completedAtValue);
+
+		if (!completedAt) {
+			return '';
+		}
+
+		return formatDateTimeLocalValue(new Date(completedAt.getTime() + ONE_DAY_MS));
+	}
 
 	async function loadTasks() {
 		isLoading = true;
@@ -160,32 +191,24 @@
 		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
 	}
 
-	function getDoneModalMinAdjustmentMs(task) {
-		if (!task?.activatedAt || !doneModalBaseCompletedAtMs) {
-			return 0;
-		}
-
-		return Math.min(0, new Date(task.activatedAt).getTime() - doneModalBaseCompletedAtMs);
-	}
-
-	function getClampedDoneModalAdjustmentMs(task, adjustmentMs) {
-		return Math.max(getDoneModalMinAdjustmentMs(task), adjustmentMs);
-	}
-
 	function getDoneModalStartedAtMs(task) {
-		if (!task?.activatedAt) {
-			return 0;
+		const startedAt = parseDateTimeLocalValue(doneModalStartedAtValue);
+
+		if (startedAt) {
+			return startedAt.getTime();
 		}
 
-		return new Date(task.activatedAt).getTime() - Math.max(0, doneModalAdjustmentMs);
+		return task?.activatedAt ? new Date(task.activatedAt).getTime() : 0;
 	}
 
 	function getDoneModalCompletedAtMs(task) {
-		if (!task || !doneModalBaseCompletedAtMs) {
-			return 0;
+		const completedAt = parseDateTimeLocalValue(doneModalCompletedAtValue);
+
+		if (completedAt) {
+			return completedAt.getTime();
 		}
 
-		return doneModalBaseCompletedAtMs + Math.min(0, getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs));
+		return task ? Date.now() : 0;
 	}
 
 	function getDoneModalTrackedMilliseconds(task) {
@@ -196,42 +219,31 @@
 		return Math.max(0, getDoneModalCompletedAtMs(task) - getDoneModalStartedAtMs(task));
 	}
 
-	function canAdjustDoneModal(task, deltaMs) {
-		if (!task) {
-			return false;
+	function getDoneModalNextDueDate() {
+		if (!doneModalSetNextDue) {
+			return null;
 		}
 
-		if (deltaMs > 0) {
-			return true;
-		}
-
-		return getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs + deltaMs) !== doneModalAdjustmentMs;
+		return parseDateTimeLocalValue(doneModalNextDueAtValue);
 	}
 
-	function formatDoneModalStartedAt(task) {
-		return doneModalDateFormatter.format(new Date(getDoneModalStartedAtMs(task)));
+	function handleDoneModalCompletedAtInput() {
+		if (!doneModalNextDueDirty) {
+			doneModalNextDueAtValue = getDefaultDoneModalNextDueValue(doneModalCompletedAtValue);
+		}
 	}
 
-	function formatDoneModalCompletedAt(task) {
-		return doneModalDateFormatter.format(new Date(getDoneModalCompletedAtMs(task)));
+	function handleDoneModalNextDueInput() {
+		doneModalNextDueDirty = true;
 	}
 
-	function formatDoneModalAdjustment(task) {
-		if (!task) {
-			return 'No time removed';
+	function handleDoneModalNextDueToggle() {
+		doneModalSetNextDue = !doneModalSetNextDue;
+
+		if (doneModalSetNextDue && !doneModalNextDueAtValue) {
+			doneModalNextDueAtValue = getDefaultDoneModalNextDueValue(doneModalCompletedAtValue);
+			doneModalNextDueDirty = false;
 		}
-
-		const adjustedMilliseconds = getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs);
-
-		if (adjustedMilliseconds > 0) {
-			return `Adding ${formatElapsedDuration(adjustedMilliseconds)}`;
-		}
-
-		if (adjustedMilliseconds < 0) {
-			return `Removing ${formatElapsedDuration(Math.abs(adjustedMilliseconds))}`;
-		}
-
-		return 'No time change';
 	}
 
 	async function openDoneModal(taskId, { instanceNote = '' } = {}) {
@@ -243,9 +255,16 @@
 
 		actionError = '';
 		doneModalTaskId = taskId;
-		doneModalBaseCompletedAtMs = Date.now();
-		doneModalAdjustmentMs = 0;
+		doneModalStartedAtValue = formatDateTimeLocalValue(
+			task.activatedAt ? new Date(task.activatedAt) : new Date()
+		);
+		doneModalCompletedAtValue = formatDateTimeLocalValue(new Date());
 		doneModalInstanceNote = instanceNote ?? task.instanceNote ?? '';
+		doneModalSetNextDue = false;
+		doneModalNextDueAtValue = task.mode === 'repeatable'
+			? getDefaultDoneModalNextDueValue(doneModalCompletedAtValue)
+			: '';
+		doneModalNextDueDirty = false;
 		showDoneModal = true;
 		await tick();
 		doneModalNoteInput?.focus();
@@ -258,19 +277,12 @@
 
 		showDoneModal = false;
 		doneModalTaskId = null;
-		doneModalBaseCompletedAtMs = 0;
-		doneModalAdjustmentMs = 0;
+		doneModalStartedAtValue = '';
+		doneModalCompletedAtValue = '';
 		doneModalInstanceNote = '';
-	}
-
-	function adjustDoneModalCompletion(deltaMs) {
-		const task = getTaskById(doneModalTaskId);
-
-		if (!task) {
-			return;
-		}
-
-		doneModalAdjustmentMs = getClampedDoneModalAdjustmentMs(task, doneModalAdjustmentMs + deltaMs);
+		doneModalSetNextDue = false;
+		doneModalNextDueAtValue = '';
+		doneModalNextDueDirty = false;
 	}
 
 	async function handleTally(taskId, delta) {
@@ -327,13 +339,38 @@
 		}
 
 		actionError = '';
+		const startedAt = parseDateTimeLocalValue(doneModalStartedAtValue);
+		const completedAt = parseDateTimeLocalValue(doneModalCompletedAtValue);
+
+		if (!startedAt || !completedAt) {
+			actionError = 'Enter a valid local start time and finish time.';
+			return;
+		}
+
+		if (completedAt.getTime() < startedAt.getTime()) {
+			actionError = 'Finish time cannot be earlier than start time.';
+			return;
+		}
+
+		let nextDueAt;
+
+		if (task.mode === 'repeatable' && doneModalSetNextDue) {
+			nextDueAt = getDoneModalNextDueDate();
+
+			if (!nextDueAt) {
+				actionError = 'Enter a valid next due time.';
+				return;
+			}
+		}
+
 		setBusy(task.id, 'done');
 
 		try {
 			await doneTask(task.id, {
 				instanceNote: doneModalInstanceNote,
-				startedAt: new Date(getDoneModalStartedAtMs(task)).toISOString(),
-				completedAt: new Date(getDoneModalCompletedAtMs(task)).toISOString()
+				startedAt: startedAt.toISOString(),
+				completedAt: completedAt.toISOString(),
+				nextDueAt: nextDueAt?.toISOString()
 			});
 			closeDoneModal();
 			const nextTasks = await loadActiveTasks();
@@ -464,63 +501,56 @@
 
 				<div class="done-modal__field">
 					<div class="done-modal__field-header">
-						<span>Adjust tracked time</span>
-						<strong>{formatDoneModalAdjustment(selectedDoneTask)}</strong>
+						<span>Tracked time</span>
+						<strong>{formatElapsedDuration(getDoneModalTrackedMilliseconds(selectedDoneTask))}</strong>
 					</div>
 
-					<p class="done-modal__adjust-note">
-						Use `+` to move the start earlier. Use `-` to move the finish earlier.
-					</p>
+					<p class="done-modal__adjust-note">Edit the actual local start and finish time for this run.</p>
 
-					<div class="done-modal__adjust-controls">
-						<button
-							class="done-modal__adjust-button"
-							type="button"
-							disabled={!canAdjustDoneModal(selectedDoneTask, -DONE_ADJUST_HOUR_MS)}
-							onclick={() => adjustDoneModalCompletion(-DONE_ADJUST_HOUR_MS)}
-						>
-							-1h
-						</button>
-						<button
-							class="done-modal__adjust-button"
-							type="button"
-							disabled={!canAdjustDoneModal(selectedDoneTask, -DONE_ADJUST_MINUTE_MS)}
-							onclick={() => adjustDoneModalCompletion(-DONE_ADJUST_MINUTE_MS)}
-						>
-							-1m
-						</button>
-						<button
-							class="done-modal__adjust-button"
-							type="button"
-							disabled={!canAdjustDoneModal(selectedDoneTask, DONE_ADJUST_MINUTE_MS)}
-							onclick={() => adjustDoneModalCompletion(DONE_ADJUST_MINUTE_MS)}
-						>
-							+1m
-						</button>
-						<button
-							class="done-modal__adjust-button"
-							type="button"
-							disabled={!canAdjustDoneModal(selectedDoneTask, DONE_ADJUST_HOUR_MS)}
-							onclick={() => adjustDoneModalCompletion(DONE_ADJUST_HOUR_MS)}
-						>
-							+1h
-						</button>
+					<div class="done-modal__panel">
+						<div class="done-modal__time-grid">
+							<label class="done-modal__time-field">
+								<span>Start time</span>
+								<input bind:value={doneModalStartedAtValue} type="datetime-local" />
+							</label>
+							<label class="done-modal__time-field">
+								<span>Finish time</span>
+								<input
+									bind:value={doneModalCompletedAtValue}
+									type="datetime-local"
+									oninput={handleDoneModalCompletedAtInput}
+								/>
+							</label>
+						</div>
 					</div>
 
-					<div class="done-modal__summary">
-						<div>
-							<span>Start time</span>
-							<strong>{formatDoneModalStartedAt(selectedDoneTask)}</strong>
+					{#if selectedDoneTask.mode === 'repeatable'}
+						<div class="done-modal__panel done-modal__next-due">
+							<div class="done-modal__time-grid">
+								<label class="done-modal__time-field">
+									<span>Due date</span>
+									<input
+										bind:value={doneModalNextDueAtValue}
+										class="done-modal__next-due-input"
+										type="datetime-local"
+										disabled={!doneModalSetNextDue}
+										oninput={handleDoneModalNextDueInput}
+									/>
+								</label>
+								<div class="done-modal__time-field done-modal__toggle-field">
+									<span>Due status</span>
+									<button
+										class:done-modal__toggle-active={doneModalSetNextDue}
+										class="done-modal__toggle"
+										type="button"
+										onclick={handleDoneModalNextDueToggle}
+									>
+										{doneModalSetNextDue ? 'Set' : 'Unset'}
+									</button>
+								</div>
+							</div>
 						</div>
-						<div>
-							<span>Finish time</span>
-							<strong>{formatDoneModalCompletedAt(selectedDoneTask)}</strong>
-						</div>
-						<div>
-							<span>Tracked time</span>
-							<strong>{formatElapsedDuration(getDoneModalTrackedMilliseconds(selectedDoneTask))}</strong>
-						</div>
-					</div>
+					{/if}
 				</div>
 
 				<div class="done-modal__actions">
@@ -745,13 +775,52 @@
 			inset 0 1px 0 rgba(255, 255, 255, 0.74);
 	}
 
-	.done-modal__adjust-controls {
+	.done-modal__time-grid {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6rem;
 	}
 
-	.done-modal__adjust-button,
+	.done-modal__time-field {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.done-modal__toggle-field {
+		align-content: end;
+	}
+
+	.done-modal__time-field input,
+	.done-modal__next-due-input {
+		min-height: 3rem;
+		padding: 0.8rem 0.95rem;
+		border: 1px solid rgba(20, 28, 38, 0.12);
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		font: inherit;
+		color: rgba(20, 28, 38, 0.78);
+	}
+
+	.done-modal__time-field input:focus,
+	.done-modal__next-due-input:focus {
+		outline: none;
+		border-color: rgba(64, 117, 166, 0.4);
+		box-shadow:
+			0 0 0 3px rgba(64, 117, 166, 0.14),
+			inset 0 1px 0 rgba(255, 255, 255, 0.74);
+	}
+
+	.done-modal__panel {
+		display: grid;
+		gap: 0.7rem;
+		padding: 0.9rem 1rem;
+		border-radius: 18px;
+		background: rgba(255, 255, 255, 0.78);
+		border: 1px solid rgba(20, 28, 38, 0.08);
+	}
+
+	.done-modal__toggle,
 	.done-modal__button,
 	.done-modal__close {
 		cursor: pointer;
@@ -761,7 +830,9 @@
 			opacity 0.15s ease;
 	}
 
-	.done-modal__adjust-button {
+	.done-modal__toggle {
+		width: 100%;
+		min-height: 3rem;
 		padding: 0.75rem 0.8rem;
 		border: 1px solid rgba(20, 28, 38, 0.1);
 		border-radius: 14px;
@@ -771,24 +842,10 @@
 		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.06);
 	}
 
-	.done-modal__summary {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.8rem;
-	}
-
-	.done-modal__summary div {
-		display: grid;
-		gap: 0.28rem;
-		padding: 0.9rem 1rem;
-		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.82);
-		border: 1px solid rgba(20, 28, 38, 0.08);
-	}
-
-	.done-modal__summary strong {
-		font-size: 0.98rem;
-		color: rgba(10, 20, 30, 0.86);
+	.done-modal__toggle-active {
+		background: linear-gradient(135deg, rgba(75, 159, 103, 0.16), rgba(127, 191, 127, 0.12));
+		border-color: rgba(75, 159, 103, 0.28);
+		color: rgba(41, 100, 58, 0.88);
 	}
 
 	.done-modal__button {
@@ -812,14 +869,14 @@
 		box-shadow: 0 14px 28px rgba(67, 136, 89, 0.22);
 	}
 
-	.done-modal__adjust-button:hover,
+	.done-modal__toggle:hover,
 	.done-modal__button:hover,
 	.done-modal__close:hover {
 		transform: translateY(-1px);
 		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
 	}
 
-	.done-modal__adjust-button:disabled,
+	.done-modal__toggle:disabled,
 	.done-modal__button:disabled,
 	.done-modal__close:disabled {
 		cursor: wait;
@@ -839,9 +896,8 @@
 			align-items: stretch;
 		}
 
-		.done-modal__adjust-controls,
-		.done-modal__summary {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+		.done-modal__time-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

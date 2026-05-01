@@ -328,7 +328,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Active page includes:
   - browser audio break-bell behavior
   - tally increment and decrement controls
-  - done modal with adjustable start and end timing
+  - done modal with direct local start and finish datetime editors
+  - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
 - Some browsers require prior user interaction before break audio can play
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The header now also exposes an `AI` button next to `Panic`
@@ -393,7 +394,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - board snapshot task arrays are previews only and must not be treated as exhaustive sections
   - for full-set checks like “all inactive tasks with pomodoro” it should call `filter_tasks`
   - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
-  - `nextDueAt` is an optional task field and is currently AI-settable only; there is no manual frontend editor for it yet
+  - `nextDueAt` is an optional task field and is still mostly assistant-managed, but the active done modal can now set it for repeatable tasks
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
   - time-correction requests should be passed as actual tool arguments, not approximated with notes

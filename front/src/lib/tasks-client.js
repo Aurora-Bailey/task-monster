@@ -216,13 +216,17 @@ export function unqueueTask(taskId) {
 	return runTaskAction(taskId, 'unqueue');
 }
 
-export function doneTask(taskId, { instanceNote, startedAt, completedAt } = {}) {
+export function doneTask(taskId, { instanceNote, startedAt, completedAt, nextDueAt } = {}) {
 	const body =
-		instanceNote !== undefined || startedAt !== undefined || completedAt !== undefined
+		instanceNote !== undefined ||
+		startedAt !== undefined ||
+		completedAt !== undefined ||
+		nextDueAt !== undefined
 			? {
 					instanceNote,
 					startedAt,
-					completedAt
+					completedAt,
+					nextDueAt
 				}
 			: undefined;
 

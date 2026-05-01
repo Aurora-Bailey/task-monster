@@ -26,6 +26,10 @@ const doneTaskSchema = {
 				type: ['string', 'null'],
 				format: 'date-time'
 			},
+			nextDueAt: {
+				type: ['string', 'null'],
+				format: 'date-time'
+			},
 			instanceNote: {
 				type: ['string', 'null'],
 				maxLength: 4000
@@ -83,11 +87,13 @@ async function doneTaskRoute(app) {
 			const actionedAt = new Date();
 			const requestedStartedAt = request.body?.startedAt;
 			const requestedCompletedAt = request.body?.completedAt;
+			const providedNextDueAt = Object.hasOwn(request.body || {}, 'nextDueAt');
 			const wasActive = task.activeToday === true;
 			let openTaskRun = null;
 			let activeCountBeforeUpdate = 0;
 			let startedAt = actionedAt;
 			let completedAt = actionedAt;
+			let nextDueAt = task.nextDueAt instanceof Date ? task.nextDueAt : null;
 
 			if (wasActive) {
 				openTaskRun = await app.mongo.db.collection('task_runs').findOne(
@@ -147,6 +153,28 @@ async function doneTaskRoute(app) {
 				completedAt = new Date(Math.min(parsedCompletedAt.getTime(), actionedAt.getTime()));
 			}
 
+			if (providedNextDueAt) {
+				if (task.mode === 'one-time' && request.body.nextDueAt !== null) {
+					return reply.code(400).send({
+						message: 'One-time tasks do not use next due.'
+					});
+				}
+
+				if (typeof request.body.nextDueAt === 'string') {
+					const parsedNextDueAt = new Date(request.body.nextDueAt);
+
+					if (Number.isNaN(parsedNextDueAt.getTime())) {
+						return reply.code(400).send({
+							message: 'Invalid next due time.'
+						});
+					}
+
+					nextDueAt = parsedNextDueAt;
+				} else {
+					nextDueAt = null;
+				}
+			}
+
 			completedAt = new Date(Math.max(startedAt.getTime(), completedAt.getTime()));
 			startedAt = new Date(Math.min(startedAt.getTime(), completedAt.getTime()));
 			const changes = [];
@@ -190,6 +218,20 @@ async function doneTaskRoute(app) {
 				});
 			}
 
+			if (providedNextDueAt) {
+				const currentNextDueAtTime =
+					task.nextDueAt instanceof Date ? task.nextDueAt.getTime() : null;
+				const nextDueAtTime = nextDueAt instanceof Date ? nextDueAt.getTime() : null;
+
+				if (currentNextDueAtTime !== nextDueAtTime) {
+					changes.push({
+						field: 'next due',
+						label: 'Changed: next due',
+						value: nextDueAt ? nextDueAt.toISOString() : 'cleared'
+					});
+				}
+			}
+
 			const result = await app.mongo.db.collection('tasks').findOneAndUpdate(
 				{
 					_id: task._id,
@@ -207,6 +249,7 @@ async function doneTaskRoute(app) {
 						lastCompletedTallyCount: completedTallyCount,
 						lastCompletedAt: completedAt,
 						lastInactivatedAt: completedAt,
+						nextDueAt: task.mode === 'repeatable' ? nextDueAt : null,
 						archived: task.mode === 'one-time',
 						updatedAt: actionedAt
 					}

@@ -230,7 +230,7 @@ The current in-app assistant can:
 - create tasks
 - edit task metadata, note fields, next due, bell sound, pomodoro, tally settings, daymap lock, and active started time
 - bulk-edit shared metadata across a matched task set
-- complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt` and optional `instanceNote`
+- complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt`, optional `instanceNote`, and optional `nextDueAt`
 - control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
 - update active tally counts
 - start or stop panic mode through one unified tool
@@ -261,7 +261,7 @@ Assistant prompt policy:
 - full-set checks should use `filter_tasks`
 - `filter_tasks` can now narrow by whether a next due exists and by due-before / due-after timestamps
 - status-wide cleanup should use `bulk_edit_tasks` instead of manual pagination or long single-task edit loops
-- `nextDueAt` is an optional task field and is currently intended to be set or cleared through the assistant rather than the main add/edit UI
+- `nextDueAt` is an optional task field; it is still broadly assistant-managed, but the active done modal can now set it for repeatable tasks during confirmation
 - broad task lookup should use `search_tasks` instead of pagination loops
 - timing corrections should be passed as tool arguments, not approximated with notes
 - if a non-active task is being completed historically, both `startedAt` and `completedAt` should be supplied

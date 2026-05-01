@@ -15,6 +15,9 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
+	const timingWeekdayFormatter = new Intl.DateTimeFormat(undefined, {
+		weekday: 'long'
+	});
 	const lastDoneDateFormatter = new Intl.DateTimeFormat(undefined, {
 		month: 'long',
 		day: 'numeric',
@@ -258,10 +261,14 @@
 
 	function formatLastDone(value) {
 		const date = new Date(value);
+		const weekdayLabel = timingWeekdayFormatter.format(date);
 		const dateLabel = lastDoneDateFormatter.format(date);
 		const timeLabel = lastDoneTimeFormatter.format(date).replace(' AM', 'am').replace(' PM', 'pm');
 
-		return `${dateLabel} @ ${timeLabel}`;
+		return {
+			weekdayLabel,
+			dateTimeLabel: `${dateLabel} @ ${timeLabel}`
+		};
 	}
 
 	function formatNextDue(value) {
@@ -489,11 +496,19 @@
 	</div>
 
 	{#if showsNextDue}
-		<p class="task-card__timing-meta task-card__next-due">Next due: {formatNextDue(task.nextDueAt)}</p>
+		{@const nextDueMeta = formatNextDue(task.nextDueAt)}
+		<p class="task-card__timing-meta task-card__next-due">
+			Next due:
+			<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>, {nextDueMeta.dateTimeLabel}
+		</p>
 	{/if}
 
 	{#if showsLastDone}
-		<p class="task-card__timing-meta task-card__last-done">Last done: {formatLastDone(task.lastCompletedAt)}</p>
+		{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
+		<p class="task-card__timing-meta task-card__last-done">
+			Last done:
+			<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>, {lastDoneMeta.dateTimeLabel}
+		</p>
 	{/if}
 
 	{#if task.note || canEditNote}
@@ -1008,6 +1023,11 @@
 		font-weight: 500;
 		letter-spacing: 0.01em;
 		color: rgba(20, 28, 38, 0.34);
+	}
+
+	.task-card__timing-day {
+		font-weight: 800;
+		color: rgba(20, 28, 38, 0.62);
 	}
 
 	.task-card__next-due {

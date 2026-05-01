@@ -113,9 +113,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - pomodoro focus/break runtime for time tasks
   - tally increment/decrement for tally tasks
 - Marking a task done from `/active` opens a modal that can:
-  - adjust the run start time
-  - adjust the completion time
+  - edit the run start time directly with a local datetime input
+  - edit the completion time directly with a local datetime input
   - attach an instance note
+  - for repeatable tasks, optionally set `nextDueAt` with its own local datetime input
 - Active pomodoro breaks use browser audio bells
   - focus is silent
   - breaks ring once per minute
@@ -143,7 +144,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - status-wide cleanup should come back through backend-owned bulk edit actions rather than long chains of single edits
   - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
   - metadata edits still flow through the broad task edit route
-  - `next due` is currently AI-only; there is no manual set/clear UI on the frontend yet
+  - `next due` is mostly AI-managed, but the active done modal can now set it for repeatable tasks directly
 
 ## Data source notes
 
