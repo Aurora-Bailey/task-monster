@@ -69,6 +69,78 @@ export const THEMES = [
 		colorScheme: 'light'
 	},
 	{
+		id: 'deep-royal-purple-gold',
+		label: 'Deep Royal Purple Gold',
+		description: 'Velvet purple halls with molten gold command lights.',
+		swatch: ['#14051f', '#5b2a86', '#f2c14e'],
+		themeColor: '#14051f',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'black-widow',
+		label: 'Black Widow',
+		description: 'Gloss-black webbing, venom red, and cold silver edges.',
+		swatch: ['#050507', '#c1121f', '#d8dbe2'],
+		themeColor: '#050507',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'kawaii',
+		label: 'Kawaii',
+		description: 'Strawberry milk, soft lilac, and bubblegum controls.',
+		swatch: ['#ffe7f3', '#f7d9ff', '#ff6fb1'],
+		themeColor: '#ffe7f3',
+		colorScheme: 'light'
+	},
+	{
+		id: 'spooky',
+		label: 'Spooky',
+		description: 'Pumpkin glow, ghost fog, and purple midnight glass.',
+		swatch: ['#120819', '#ff8a1f', '#8b5cf6'],
+		themeColor: '#120819',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'ancient-book',
+		label: 'Ancient Book',
+		description: 'Aged parchment, walnut ink, and illuminated margins.',
+		swatch: ['#ead8b8', '#8b5e34', '#3b2a1a'],
+		themeColor: '#ead8b8',
+		colorScheme: 'light'
+	},
+	{
+		id: 'tea-and-leaves',
+		label: 'Tea and Leaves',
+		description: 'Matcha steam, pressed leaves, and ceramic cream.',
+		swatch: ['#f1ecd7', '#76925c', '#2f4f2f'],
+		themeColor: '#f1ecd7',
+		colorScheme: 'light'
+	},
+	{
+		id: 'metal',
+		label: 'Metal',
+		description: 'Brushed graphite, chrome highlights, and blue arc light.',
+		swatch: ['#101318', '#7d8793', '#9fd4ff'],
+		themeColor: '#101318',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'hard-rock',
+		label: 'Hard Rock',
+		description: 'Stage black, amplifier red, amber bulbs, and worn leather.',
+		swatch: ['#090706', '#d72638', '#f7b538'],
+		themeColor: '#090706',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'lain',
+		label: 'Lain',
+		description: 'Washed monitor whites, wired shadows, and signal green.',
+		swatch: ['#edf0ec', '#11151c', '#00a676'],
+		themeColor: '#edf0ec',
+		colorScheme: 'light'
+	},
+	{
 		id: 'ultra-white',
 		label: 'Ultra White',
 		description: 'Clean white canvas, soft silver borders, minimal chroma.',
