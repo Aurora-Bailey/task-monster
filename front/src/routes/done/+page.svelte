@@ -7,6 +7,7 @@
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import {
 		DEFAULT_TASK_SORT_MODE,
+		filterTasks,
 		loadStoredTaskSort,
 		sortTasks,
 		storeTaskSort
@@ -31,6 +32,7 @@
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let searchQuery = $state('');
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -140,7 +142,9 @@
 	);
 	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
 	const canGoOlder = $derived(selectedDay !== null);
-	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'done' }));
+	const sortedTasks = $derived(
+		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'done' })
+	);
 
 	onMount(() => {
 		sortMode = loadStoredTaskSort('done');
@@ -250,23 +254,34 @@
 				sortMode = nextSortMode;
 				storeTaskSort('done', nextSortMode);
 			}}
+			searchValue={searchQuery}
+			onSearchChange={(nextSearchQuery) => {
+				searchQuery = nextSearchQuery;
+			}}
 		/>
 
-		<div class="task-grid">
-			{#each sortedTasks as task}
-				<TaskCard
-					{task}
-					variant="done"
-					editableTaskId={task.taskId}
-					doneDurationLabel={formatDoneMeasure(task)}
-					doneTallyCount={task.tallyCount}
-					panicDurationLabel={formatPanicDuration(task)}
-					effectiveDurationLabel={formatEffectiveDuration(task)}
-					completedAtLabel={formatCompletedAt(task.completedAt)}
-					onSaveNote={handleSaveNote}
-				/>
-			{/each}
-		</div>
+		{#if sortedTasks.length === 0}
+			<div class="message-card">
+				<strong>No matching tasks</strong>
+				<p>Clear search to show this day&apos;s done list.</p>
+			</div>
+		{:else}
+			<div class="task-grid">
+				{#each sortedTasks as task}
+					<TaskCard
+						{task}
+						variant="done"
+						editableTaskId={task.taskId}
+						doneDurationLabel={formatDoneMeasure(task)}
+						doneTallyCount={task.tallyCount}
+						panicDurationLabel={formatPanicDuration(task)}
+						effectiveDurationLabel={formatEffectiveDuration(task)}
+						completedAtLabel={formatCompletedAt(task.completedAt)}
+						onSaveNote={handleSaveNote}
+					/>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </section>
 

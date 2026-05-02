@@ -220,3 +220,40 @@ export function sortTasks(items, { mode = DEFAULT_TASK_SORT_MODE, variant = 'ina
 		);
 	});
 }
+
+function normalizeSearchValue(value) {
+	return String(value ?? '')
+		.trim()
+		.toLowerCase();
+}
+
+function getSearchableTaskText(task) {
+	return [
+		task.name,
+		task.note,
+		task.instanceNote,
+		task.colorKey,
+		task.mode,
+		task.trackingType,
+		task.tallyUnit
+	]
+		.filter(Boolean)
+		.join(' ')
+		.toLowerCase();
+}
+
+export function filterTasks(items, query) {
+	const normalizedQuery = normalizeSearchValue(query);
+
+	if (!normalizedQuery) {
+		return items;
+	}
+
+	const queryParts = normalizedQuery.split(/\s+/).filter(Boolean);
+
+	return items.filter((task) => {
+		const searchableText = getSearchableTaskText(task);
+
+		return queryParts.every((part) => searchableText.includes(part));
+	});
+}

@@ -9,6 +9,7 @@
 	import {
 		DAYMAP_TASK_SORT_OPTIONS,
 		DEFAULT_TASK_SORT_MODE,
+		filterTasks,
 		loadStoredTaskSort,
 		sortTasks,
 		storeTaskSort
@@ -29,6 +30,7 @@
 	let actionError = $state('');
 	let busyTasks = $state({});
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let searchQuery = $state('');
 
 	async function loadTasks() {
 		isLoading = true;
@@ -146,7 +148,9 @@
 		};
 	});
 
-	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'daymap' }));
+	const sortedTasks = $derived(
+		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'daymap' })
+	);
 </script>
 
 <svelte:head>
@@ -190,23 +194,34 @@
 				sortMode = nextSortMode;
 				storeTaskSort('daymap', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
 			}}
+			searchValue={searchQuery}
+			onSearchChange={(nextSearchQuery) => {
+				searchQuery = nextSearchQuery;
+			}}
 		/>
 
-		<div class="task-grid">
-			{#each sortedTasks as task}
-				<TaskCard
-					{task}
-					variant="daymap"
-					editableTaskId={task.id}
-					busyAction={busyTasks[task.id] || null}
-					onActivate={handleActivate}
-					onToggleDaymapLock={handleDaymapLockToggle}
-					onQueueToggle={handleQueueToggle}
-					onSaveNote={handleSaveNote}
-					onUnmap={handleUnmap}
-				/>
-			{/each}
-		</div>
+		{#if sortedTasks.length === 0}
+			<div class="message-card">
+				<strong>No matching tasks</strong>
+				<p>Clear search to show the full daymap.</p>
+			</div>
+		{:else}
+			<div class="task-grid">
+				{#each sortedTasks as task}
+					<TaskCard
+						{task}
+						variant="daymap"
+						editableTaskId={task.id}
+						busyAction={busyTasks[task.id] || null}
+						onActivate={handleActivate}
+						onToggleDaymapLock={handleDaymapLockToggle}
+						onQueueToggle={handleQueueToggle}
+						onSaveNote={handleSaveNote}
+						onUnmap={handleUnmap}
+					/>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </section>
 

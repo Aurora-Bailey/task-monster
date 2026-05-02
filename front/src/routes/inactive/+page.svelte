@@ -8,6 +8,7 @@
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import {
 		DEFAULT_TASK_SORT_MODE,
+		filterTasks,
 		loadStoredTaskSort,
 		sortTasks,
 		storeTaskSort
@@ -25,6 +26,7 @@
 	let actionError = $state('');
 	let busyTasks = $state({});
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let searchQuery = $state('');
 
 	async function loadTasks() {
 		isLoading = true;
@@ -115,7 +117,9 @@
 		};
 	});
 
-	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'inactive' }));
+	const sortedTasks = $derived(
+		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'inactive' })
+	);
 </script>
 
 <svelte:head>
@@ -161,22 +165,33 @@
 				sortMode = nextSortMode;
 				storeTaskSort('inactive', nextSortMode);
 			}}
+			searchValue={searchQuery}
+			onSearchChange={(nextSearchQuery) => {
+				searchQuery = nextSearchQuery;
+			}}
 		/>
 
-		<div class="task-grid">
-			{#each sortedTasks as task}
-				<TaskCard
-					{task}
-					editableTaskId={task.id}
-					clickActionLabel="Move to daymap"
-					busyAction={busyTasks[task.id] || null}
-					showArchiveButton={true}
-					onActivate={handleDaymap}
-					onArchive={handleArchive}
-					onSaveNote={handleSaveNote}
-				/>
-			{/each}
-		</div>
+		{#if sortedTasks.length === 0}
+			<div class="message-card">
+				<strong>No matching tasks</strong>
+				<p>Clear search to show the full inactive list.</p>
+			</div>
+		{:else}
+			<div class="task-grid">
+				{#each sortedTasks as task}
+					<TaskCard
+						{task}
+						editableTaskId={task.id}
+						clickActionLabel="Move to daymap"
+						busyAction={busyTasks[task.id] || null}
+						showArchiveButton={true}
+						onActivate={handleDaymap}
+						onArchive={handleArchive}
+						onSaveNote={handleSaveNote}
+					/>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </section>
 

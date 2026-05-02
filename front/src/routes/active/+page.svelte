@@ -12,6 +12,7 @@
 	import { formatElapsedDuration } from '$lib/task-format';
 	import {
 		DEFAULT_TASK_SORT_MODE,
+		filterTasks,
 		loadStoredTaskSort,
 		sortTasks,
 		storeTaskSort
@@ -32,6 +33,7 @@
 	let busyTasks = $state({});
 	let nowMs = $state(Date.now());
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let searchQuery = $state('');
 	let panic = $state(null);
 	let showDoneModal = $state(false);
 	let doneModalTaskId = $state(null);
@@ -454,7 +456,9 @@
 		}
 	});
 
-	const sortedTasks = $derived(sortTasks(tasks, { mode: sortMode, variant: 'active' }));
+	const sortedTasks = $derived(
+		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'active' })
+	);
 	const selectedDoneTask = $derived(getTaskById(doneModalTaskId));
 </script>
 
@@ -599,28 +603,39 @@
 				sortMode = nextSortMode;
 				storeTaskSort('active', nextSortMode);
 			}}
+			searchValue={searchQuery}
+			onSearchChange={(nextSearchQuery) => {
+				searchQuery = nextSearchQuery;
+			}}
 		/>
 
-		<div class="task-grid">
-			{#each sortedTasks as task}
-				<TaskCard
-					{task}
-					variant="active"
-					editableTaskId={task.id}
-					activeDurationLabel={getActiveDurationLabel(task)}
-					pomodoroStatusLabel={getPomodoroStatusLabel(task)}
-					pomodoroState={getTaskPomodoroState(task)}
-					panicDurationLabel={getPanicDurationLabel(task)}
-					effectiveDurationLabel={getEffectiveDurationLabel(task)}
-					onSaveInstanceNote={handleSaveInstanceNote}
-					busyAction={getBusyAction(task.id)}
-					onDone={handleDone}
-					onInactivate={handleInactivate}
-					onSaveNote={handleSaveNote}
-					onTally={handleTally}
-				/>
-			{/each}
-		</div>
+		{#if sortedTasks.length === 0}
+			<div class="message-card">
+				<strong>No matching tasks</strong>
+				<p>Clear search to show all active tasks.</p>
+			</div>
+		{:else}
+			<div class="task-grid">
+				{#each sortedTasks as task}
+					<TaskCard
+						{task}
+						variant="active"
+						editableTaskId={task.id}
+						activeDurationLabel={getActiveDurationLabel(task)}
+						pomodoroStatusLabel={getPomodoroStatusLabel(task)}
+						pomodoroState={getTaskPomodoroState(task)}
+						panicDurationLabel={getPanicDurationLabel(task)}
+						effectiveDurationLabel={getEffectiveDurationLabel(task)}
+						onSaveInstanceNote={handleSaveInstanceNote}
+						busyAction={getBusyAction(task.id)}
+						onDone={handleDone}
+						onInactivate={handleInactivate}
+						onSaveNote={handleSaveNote}
+						onTally={handleTally}
+					/>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </section>
 
