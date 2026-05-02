@@ -607,7 +607,7 @@
 		border: 0;
 		border-radius: 999px;
 		background: var(--control-gradient);
-		color: white;
+		color: var(--color-accent-contrast);
 		font-size: 0.76rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;

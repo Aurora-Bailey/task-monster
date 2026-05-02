@@ -190,7 +190,7 @@
 	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
-		color: rgba(10, 20, 30, 0.7);
+		color: var(--color-muted);
 	}
 
 	.message-card {
@@ -198,20 +198,20 @@
 		gap: 0.4rem;
 		padding: 1rem 1.1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.message-card strong {
 		font-size: 1.15rem;
 		letter-spacing: -0.02em;
-		color: rgba(10, 20, 30, 0.82);
+		color: var(--color-heading);
 	}
 
 	.error-card {
-		border-color: rgba(159, 45, 39, 0.18);
-		background: rgba(255, 245, 244, 0.92);
+		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
 	.task-grid {

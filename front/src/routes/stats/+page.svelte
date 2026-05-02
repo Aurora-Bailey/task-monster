@@ -678,12 +678,18 @@
 		padding: 1.4rem 1.5rem;
 		border-radius: 24px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.88)),
-			radial-gradient(circle at top, rgba(64, 117, 166, 0.12), rgba(255, 255, 255, 0));
-		border: 1px solid rgba(255, 255, 255, 0.75);
-		box-shadow:
-			0 26px 60px rgba(44, 62, 80, 0.12),
-			inset 0 1px 0 rgba(255, 255, 255, 0.9);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 92%, transparent),
+				color-mix(in srgb, var(--surface-2) 88%, transparent)
+			),
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 12%, transparent),
+				transparent 62%
+			);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 	}
 
 	.eyebrow {
@@ -707,13 +713,13 @@
 		font-size: clamp(2.3rem, 5vw, 3.8rem);
 		line-height: 0.95;
 		letter-spacing: -0.05em;
-		color: rgba(10, 20, 30, 0.92);
+		color: var(--color-heading);
 	}
 
 	h2 {
 		font-size: 1.35rem;
 		letter-spacing: -0.03em;
-		color: rgba(10, 20, 30, 0.88);
+		color: var(--color-heading);
 	}
 
 	.lede,
@@ -723,15 +729,15 @@
 	.summary-card p,
 	.done-item p,
 	.empty-note {
-		color: rgba(10, 20, 30, 0.66);
+		color: var(--color-muted);
 	}
 
 	.message-card,
 	.panel,
 	.summary-card {
-		background: rgba(255, 255, 255, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.message-card {
@@ -742,8 +748,8 @@
 	}
 
 	.error-card {
-		border-color: rgba(159, 45, 39, 0.18);
-		background: rgba(255, 245, 244, 0.92);
+		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
 	.summary-grid {
@@ -765,13 +771,13 @@
 		font-weight: 800;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(10, 20, 30, 0.48);
+		color: var(--color-soft);
 	}
 
 	.summary-card strong {
 		font-size: 1.3rem;
 		letter-spacing: -0.03em;
-		color: rgba(10, 20, 30, 0.88);
+		color: var(--color-heading);
 	}
 
 	.report-grid {
@@ -817,7 +823,7 @@
 	.metric-track {
 		height: 0.7rem;
 		border-radius: 999px;
-		background: rgba(20, 28, 38, 0.08);
+		background: var(--surface-muted);
 		overflow: hidden;
 	}
 
@@ -828,7 +834,7 @@
 		background: linear-gradient(
 			135deg,
 			var(--fill-color),
-			color-mix(in srgb, var(--fill-color) 62%, white)
+			color-mix(in srgb, var(--fill-color) 62%, var(--surface-3))
 		);
 	}
 
@@ -860,18 +866,18 @@
 	}
 
 	.legend-pill-blue {
-		background: rgba(79, 110, 214, 0.14);
-		color: #3e5ab0;
+		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		color: var(--color-accent);
 	}
 
 	.legend-pill-orange {
-		background: rgba(201, 123, 34, 0.14);
-		color: #a35f12;
+		background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+		color: var(--color-warning);
 	}
 
 	.legend-pill-purple {
-		background: rgba(138, 91, 209, 0.14);
-		color: #6f47b6;
+		background: color-mix(in srgb, var(--color-theme-1) 14%, transparent);
+		color: var(--color-theme-1);
 	}
 
 	.cadence-column {
@@ -893,15 +899,19 @@
 		gap: 0.35rem;
 		border-radius: 18px;
 		padding: 0.45rem;
-		background: linear-gradient(180deg, rgba(235, 241, 247, 0.9), rgba(247, 250, 253, 0.9));
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--surface-muted) 62%, var(--surface-2)),
+			var(--surface-2)
+		);
+		border: 1px solid var(--surface-border);
 	}
 
 	.cadence-tier {
 		display: flex;
 		align-items: flex-end;
 		border-radius: 12px;
-		background: rgba(255, 255, 255, 0.78);
+		background: var(--surface-1);
 		overflow: hidden;
 	}
 
@@ -911,15 +921,27 @@
 	}
 
 	.cadence-fill-blue {
-		background: linear-gradient(180deg, var(--color-theme-2), #8fc2f0);
+		background: linear-gradient(
+			180deg,
+			var(--color-accent),
+			color-mix(in srgb, var(--color-accent) 62%, var(--surface-3))
+		);
 	}
 
 	.cadence-fill-orange {
-		background: linear-gradient(180deg, #c97b22, #ebb267);
+		background: linear-gradient(
+			180deg,
+			var(--color-warning),
+			color-mix(in srgb, var(--color-warning) 62%, var(--surface-3))
+		);
 	}
 
 	.cadence-fill-purple {
-		background: linear-gradient(180deg, #8a5bd1, #b88af0);
+		background: linear-gradient(
+			180deg,
+			var(--color-theme-1),
+			color-mix(in srgb, var(--color-theme-1) 62%, var(--surface-3))
+		);
 	}
 
 	.done-item {
@@ -928,9 +950,17 @@
 		padding: 0.95rem 1rem;
 		border-radius: 16px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 253, 0.92)),
-			linear-gradient(135deg, color-mix(in srgb, var(--task-accent) 14%, white), white 65%);
-		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, white);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 94%, transparent),
+				color-mix(in srgb, var(--surface-2) 92%, transparent)
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--task-accent) 14%, var(--surface-3)),
+				var(--surface-2) 65%
+			);
+		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, var(--surface-border));
 	}
 
 	.panic-item {
@@ -939,9 +969,17 @@
 		padding: 0.95rem 1rem;
 		border-radius: 16px;
 		background:
-			linear-gradient(180deg, rgba(255, 249, 245, 0.96), rgba(255, 241, 238, 0.94)),
-			linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.14));
-		border: 1px solid rgba(242, 72, 57, 0.18);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-2) 94%, transparent),
+				color-mix(in srgb, var(--surface-1) 94%, transparent)
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--color-warning) 16%, transparent),
+				color-mix(in srgb, var(--color-danger) 14%, transparent)
+			);
+		border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--surface-border));
 	}
 
 	.panic-item__charge {
@@ -951,8 +989,8 @@
 		width: fit-content;
 		padding: 0.38rem 0.62rem;
 		border-radius: 999px;
-		background: rgba(242, 72, 57, 0.12);
-		color: #a33e14;
+		background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+		color: var(--color-warning);
 		font-size: 0.72rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -961,13 +999,13 @@
 
 	.panic-item__note {
 		margin: 0;
-		color: rgba(20, 28, 38, 0.78);
+		color: var(--color-muted);
 		white-space: pre-wrap;
 	}
 
 	.done-item__instance-note {
 		margin: 0;
-		color: rgba(20, 28, 38, 0.74);
+		color: var(--color-muted);
 		white-space: pre-wrap;
 	}
 
@@ -981,8 +1019,8 @@
 		gap: 0.35rem;
 		padding: 0.8rem 0.9rem;
 		border-radius: 14px;
-		background: rgba(255, 244, 238, 0.78);
-		border: 1px solid rgba(242, 72, 57, 0.14);
+		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-2));
+		border: 1px solid color-mix(in srgb, var(--color-danger) 16%, var(--surface-border));
 	}
 
 	.task-panic-entry__top {
@@ -994,18 +1032,18 @@
 
 	.task-panic-entry__top strong {
 		font-size: 0.84rem;
-		color: rgba(20, 28, 38, 0.82);
+		color: var(--color-heading);
 	}
 
 	.task-panic-entry__top span {
 		font-size: 0.8rem;
 		font-weight: 700;
-		color: rgba(163, 62, 20, 0.82);
+		color: var(--color-warning);
 	}
 
 	.task-panic-entry__note {
 		margin: 0;
-		color: rgba(20, 28, 38, 0.74);
+		color: var(--color-muted);
 		white-space: pre-wrap;
 	}
 
@@ -1035,20 +1073,20 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.48);
+		color: var(--color-soft);
 	}
 
 	.ledger-row {
 		padding: 0.95rem 1rem;
 		border-radius: 16px;
-		background: rgba(255, 255, 255, 0.82);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
 	}
 
 	.ledger-note {
 		grid-column: 1 / -1;
 		margin-top: -0.1rem;
-		color: rgba(20, 28, 38, 0.72);
+		color: var(--color-muted);
 		white-space: pre-wrap;
 	}
 
@@ -1069,18 +1107,18 @@
 	}
 
 	.outcome-done {
-		background: rgba(75, 159, 103, 0.14);
-		color: #2f8a4f;
+		background: color-mix(in srgb, var(--color-success) 14%, transparent);
+		color: var(--color-success);
 	}
 
 	.outcome-inactive {
-		background: rgba(201, 123, 34, 0.14);
-		color: #a35f12;
+		background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+		color: var(--color-warning);
 	}
 
 	.outcome-active {
-		background: rgba(79, 110, 214, 0.14);
-		color: #3e5ab0;
+		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		color: var(--color-accent);
 	}
 
 	@media (max-width: 980px) {

@@ -258,13 +258,13 @@
 													cx="24"
 													cy="24"
 													r="17"
-													fill="#e8edf5"
-													stroke="#8ba0b9"
+													fill="var(--surface-muted)"
+													stroke="var(--color-muted)"
 													stroke-width="2"
 												/>
 												<path
 													d="M16 32 32 16"
-													stroke="#8ba0b9"
+													stroke="var(--color-muted)"
 													stroke-width="2.5"
 													stroke-linecap="round"
 												/>
@@ -273,19 +273,19 @@
 											<svg viewBox="0 0 48 48" fill="none" role="presentation">
 												<path
 													d="M20 9c0-3.3 2.7-6 6-6 2.9 0 5.2 2 5.8 4.7-.8-.3-1.6-.4-2.5-.4-3.4 0-6.7 1.5-9.3 4.1V9Z"
-													fill="#5a9d5d"
+													fill="var(--color-success)"
 												/>
 												<path
 													d="M31.5 8.7c2.6-2.2 6.3-2.3 9.1-.3-2.1 1.6-4.1 3.2-6.6 3.6-1 .2-1.9.2-2.8 0 .1-1.2.1-2.3.3-3.3Z"
-													fill="#7dbb77"
+													fill="color-mix(in srgb, var(--color-success) 72%, var(--color-accent))"
 												/>
 												<path
 													d="M24 14c10.8 0 19 7.1 19 16.4C43 39.3 35 45 24 45S5 39.3 5 30.4C5 21.1 13.2 14 24 14Z"
-													fill="#e55243"
+													fill="var(--color-danger)"
 												/>
 												<path
 													d="M24 19c3.9 0 6.8 1.4 8.5 2.7-1.4-3.8-4.6-6.1-8.5-6.1-4 0-7.2 2.3-8.6 6.1C17.1 20.4 20 19 24 19Z"
-													fill="#f17b66"
+													fill="color-mix(in srgb, var(--color-danger) 72%, var(--color-warning))"
 												/>
 											</svg>
 										{/if}
@@ -441,9 +441,9 @@
 		padding: 1.75rem;
 		box-sizing: border-box;
 		border-radius: 12px;
-		box-shadow: 0 18px 35px rgba(50, 70, 90, 0.18);
-		background-color: rgba(255, 255, 255, 0.95);
-		border: 1px solid rgba(0, 0, 0, 0.08);
+		box-shadow: var(--surface-shadow-strong);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
 	}
 
 	.task-form {
@@ -457,7 +457,7 @@
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(0, 0, 0, 0.55);
+		color: var(--color-muted);
 	}
 
 	.text-input {
@@ -465,7 +465,7 @@
 		box-sizing: border-box;
 		padding: 0 0 0.75rem;
 		border: 0;
-		border-bottom: 2px solid rgba(64, 117, 166, 0.35);
+		border-bottom: 2px solid color-mix(in srgb, var(--color-accent) 34%, var(--field-border));
 		background: transparent;
 		font-size: 1.15rem;
 		color: var(--color-text);
@@ -475,13 +475,13 @@
 	}
 
 	.text-input::placeholder {
-		color: rgba(0, 0, 0, 0.35);
+		color: var(--color-soft);
 	}
 
 	.text-input:focus {
 		outline: none;
 		border-bottom-color: var(--color-theme-2);
-		box-shadow: 0 10px 14px -14px rgba(64, 117, 166, 0.9);
+		box-shadow: 0 10px 14px -14px var(--color-accent);
 	}
 
 	.color-picker {
@@ -502,9 +502,9 @@
 		margin-top: 0.95rem;
 		padding: 0.95rem 1rem;
 		border-radius: 16px;
-		background: rgba(255, 255, 255, 0.78);
-		border: 1px solid rgba(64, 117, 166, 0.12);
-		box-shadow: 0 12px 26px rgba(44, 62, 80, 0.08);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.color-helper__title {
@@ -515,7 +515,7 @@
 		font-size: 0.92rem;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
-		color: rgba(13, 24, 36, 0.82);
+		color: var(--color-heading);
 	}
 
 	.color-helper__dot {
@@ -524,15 +524,15 @@
 		border-radius: 999px;
 		background: var(--selected-color);
 		box-shadow:
-			0 0 0 2px rgba(255, 255, 255, 0.92),
-			0 0 0 3px rgba(0, 0, 0, 0.08);
+			0 0 0 2px var(--surface-2),
+			0 0 0 3px var(--surface-border-strong);
 	}
 
 	.color-helper__description {
 		margin: 0;
 		font-size: 0.95rem;
 		line-height: 1.45;
-		color: rgba(13, 24, 36, 0.72);
+		color: var(--color-muted);
 	}
 
 	.color-option {
@@ -559,10 +559,10 @@
 		height: 2.35rem;
 		border-radius: 999px;
 		background: var(--swatch-color);
-		border: 2px solid rgba(255, 255, 255, 0.95);
+		border: 2px solid var(--surface-3);
 		box-shadow:
-			0 0 0 1px rgba(0, 0, 0, 0.12),
-			0 8px 18px rgba(0, 0, 0, 0.16);
+			0 0 0 1px var(--surface-border-strong),
+			0 8px 18px color-mix(in srgb, var(--color-heading) 14%, transparent);
 		transition:
 			transform 0.16s ease,
 			box-shadow 0.16s ease,
@@ -576,9 +576,9 @@
 	.color-option input:checked + .color-choice .swatch {
 		transform: translateY(-2px) scale(1.05);
 		box-shadow:
-			0 0 0 2px rgba(255, 255, 255, 1),
+			0 0 0 2px var(--surface-3),
 			0 0 0 4px var(--swatch-color),
-			0 12px 20px rgba(0, 0, 0, 0.18);
+			0 12px 20px color-mix(in srgb, var(--color-heading) 18%, transparent);
 	}
 
 	.color-caption {
@@ -589,19 +589,19 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		line-height: 1.2;
-		color: rgba(0, 0, 0, 0.52);
+		color: var(--color-soft);
 		transition:
 			color 0.16s ease,
 			transform 0.16s ease;
 	}
 
 	.color-option input:checked + .color-choice .color-caption {
-		color: rgba(0, 0, 0, 0.76);
+		color: var(--color-heading);
 		transform: translateY(-1px);
 	}
 
 	.color-option:focus-within .color-choice .swatch {
-		outline: 3px solid rgba(64, 117, 166, 0.35);
+		outline: 3px solid var(--focus-ring);
 		outline-offset: 3px;
 	}
 
@@ -617,8 +617,8 @@
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		padding: 0.3rem;
 		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.1);
-		border: 1px solid rgba(64, 117, 166, 0.16);
+		background: color-mix(in srgb, var(--color-accent) 10%, var(--surface-1));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 18%, var(--surface-border));
 	}
 
 	.mode-input {
@@ -634,8 +634,8 @@
 		left: 0.3rem;
 		width: calc(50% - 0.3rem);
 		border-radius: 999px;
-		background: white;
-		box-shadow: 0 10px 24px rgba(64, 117, 166, 0.14);
+		background: var(--surface-3);
+		box-shadow: 0 10px 24px color-mix(in srgb, var(--color-accent) 16%, transparent);
 		transition: transform 0.18s ease;
 	}
 
@@ -650,7 +650,7 @@
 		text-align: center;
 		font-size: 0.92rem;
 		font-weight: 700;
-		color: rgba(0, 0, 0, 0.55);
+		color: var(--color-muted);
 		cursor: pointer;
 		transition: color 0.16s ease;
 	}
@@ -661,7 +661,7 @@
 	}
 
 	.mode-slider:focus-within {
-		outline: 3px solid rgba(64, 117, 166, 0.2);
+		outline: 3px solid var(--focus-ring);
 		outline-offset: 4px;
 	}
 
@@ -694,10 +694,18 @@
 		padding: 1rem 1rem 1.05rem;
 		border-radius: 20px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.94)),
-			radial-gradient(circle at top left, rgba(229, 82, 67, 0.08), transparent 38%);
-		border: 1px solid rgba(64, 117, 166, 0.14);
-		box-shadow: 0 12px 28px rgba(44, 62, 80, 0.08);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 92%, transparent),
+				color-mix(in srgb, var(--surface-2) 92%, transparent)
+			),
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-warning) 10%, transparent),
+				transparent 38%
+			);
+		border: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--surface-border));
+		box-shadow: var(--surface-shadow);
 		transition:
 			transform 0.16s ease,
 			border-color 0.16s ease,
@@ -710,17 +718,25 @@
 	}
 
 	.pomodoro-option input:checked + .pomodoro-card {
-		border-color: rgba(229, 82, 67, 0.4);
+		border-color: color-mix(in srgb, var(--color-warning) 42%, var(--surface-border));
 		box-shadow:
-			0 18px 34px rgba(229, 82, 67, 0.14),
-			0 0 0 1px rgba(229, 82, 67, 0.08);
+			0 18px 34px color-mix(in srgb, var(--color-warning) 14%, transparent),
+			0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent);
 		background:
-			linear-gradient(180deg, rgba(255, 252, 250, 0.98), rgba(255, 247, 242, 0.95)),
-			radial-gradient(circle at top left, rgba(229, 82, 67, 0.16), transparent 42%);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 96%, transparent),
+				color-mix(in srgb, var(--surface-2) 94%, transparent)
+			),
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-warning) 18%, transparent),
+				transparent 42%
+			);
 	}
 
 	.pomodoro-option:focus-within .pomodoro-card {
-		outline: 3px solid rgba(64, 117, 166, 0.25);
+		outline: 3px solid var(--focus-ring);
 		outline-offset: 3px;
 	}
 
@@ -731,8 +747,8 @@
 		width: 2.6rem;
 		height: 2.6rem;
 		border-radius: 999px;
-		background: rgba(255, 245, 241, 0.92);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+		background: color-mix(in srgb, var(--color-warning) 12%, var(--surface-2));
+		box-shadow: var(--surface-inset);
 	}
 
 	.pomodoro-card__icon svg {
@@ -749,7 +765,7 @@
 
 	.pomodoro-card__topline strong {
 		font-size: 1rem;
-		color: rgba(13, 24, 36, 0.88);
+		color: var(--color-heading);
 	}
 
 	.pomodoro-card__topline span {
@@ -757,13 +773,13 @@
 		font-weight: 800;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(229, 82, 67, 0.76);
+		color: var(--color-warning);
 	}
 
 	.pomodoro-card__cadence {
 		font-size: 0.95rem;
 		font-weight: 700;
-		color: rgba(13, 24, 36, 0.76);
+		color: var(--color-muted);
 	}
 
 	.pomodoro-card__meta,
@@ -772,7 +788,7 @@
 	.pomodoro-helper__meta {
 		font-size: 0.9rem;
 		line-height: 1.45;
-		color: rgba(13, 24, 36, 0.66);
+		color: var(--color-muted);
 	}
 
 	.pomodoro-helper {
@@ -782,10 +798,18 @@
 		padding: 1rem 1.05rem;
 		border-radius: 18px;
 		background:
-			linear-gradient(180deg, rgba(255, 251, 249, 0.96), rgba(255, 246, 242, 0.94)),
-			radial-gradient(circle at top left, rgba(229, 82, 67, 0.12), transparent 44%);
-		border: 1px solid rgba(229, 82, 67, 0.12);
-		box-shadow: 0 12px 26px rgba(44, 62, 80, 0.08);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-2) 94%, transparent),
+				color-mix(in srgb, var(--surface-1) 94%, transparent)
+			),
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-warning) 14%, transparent),
+				transparent 44%
+			);
+		border: 1px solid color-mix(in srgb, var(--color-warning) 16%, var(--surface-border));
+		box-shadow: var(--surface-shadow);
 	}
 
 	.pomodoro-helper__eyebrow {
@@ -794,14 +818,14 @@
 		font-weight: 800;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(229, 82, 67, 0.76);
+		color: var(--color-warning);
 	}
 
 	.pomodoro-helper h2 {
 		margin: 0;
 		font-size: 1.2rem;
 		letter-spacing: -0.03em;
-		color: rgba(13, 24, 36, 0.9);
+		color: var(--color-heading);
 	}
 
 	.bell-picker {
@@ -833,9 +857,9 @@
 		gap: 0.22rem;
 		padding: 0.9rem 0.95rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.84);
-		border: 1px solid rgba(64, 117, 166, 0.14);
-		box-shadow: 0 10px 24px rgba(44, 62, 80, 0.06);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 		transition:
 			transform 0.16s ease,
 			border-color 0.16s ease,
@@ -845,7 +869,7 @@
 
 	.bell-card strong {
 		font-size: 0.95rem;
-		color: rgba(13, 24, 36, 0.9);
+		color: var(--color-heading);
 	}
 
 	.bell-card__tone {
@@ -853,13 +877,13 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(64, 117, 166, 0.75);
+		color: var(--color-accent);
 	}
 
 	.bell-card__description {
 		font-size: 0.83rem;
 		line-height: 1.35;
-		color: rgba(13, 24, 36, 0.7);
+		color: var(--color-muted);
 	}
 
 	.bell-option:hover .bell-card {
@@ -868,14 +892,22 @@
 
 	.bell-option input:checked + .bell-card {
 		background:
-			linear-gradient(180deg, rgba(235, 248, 255, 0.98), rgba(222, 243, 255, 0.98)),
-			radial-gradient(circle at top left, rgba(64, 117, 166, 0.14), transparent 48%);
-		border-color: rgba(64, 117, 166, 0.32);
-		box-shadow: 0 14px 30px rgba(44, 62, 80, 0.1);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--color-accent) 9%, var(--surface-3)),
+				color-mix(in srgb, var(--color-accent) 12%, var(--surface-2))
+			),
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-accent) 16%, transparent),
+				transparent 48%
+			);
+		border-color: color-mix(in srgb, var(--color-accent) 34%, var(--surface-border));
+		box-shadow: var(--surface-shadow);
 	}
 
 	.bell-option:focus-within .bell-card {
-		outline: 3px solid rgba(64, 117, 166, 0.2);
+		outline: 3px solid var(--focus-ring);
 		outline-offset: 4px;
 	}
 
@@ -883,7 +915,7 @@
 		margin: 0.8rem 0 0;
 		font-size: 0.88rem;
 		line-height: 1.45;
-		color: rgba(13, 24, 36, 0.74);
+		color: var(--color-muted);
 	}
 
 	.notes-section {
@@ -896,17 +928,17 @@
 		gap: 0.55rem;
 		padding: 1rem 1.1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.7);
-		border: 1px solid rgba(64, 117, 166, 0.12);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
 	}
 
 	.notes-input {
 		width: 100%;
 		box-sizing: border-box;
 		padding: 0.9rem 1rem;
-		border: 1px solid rgba(64, 117, 166, 0.18);
+		border: 1px solid var(--field-border);
 		border-radius: 14px;
-		background: rgba(255, 255, 255, 0.92);
+		background: var(--field-bg);
 		color: var(--color-text);
 		resize: vertical;
 		min-height: 7rem;
@@ -917,13 +949,13 @@
 	}
 
 	.notes-input::placeholder {
-		color: rgba(0, 0, 0, 0.35);
+		color: var(--color-soft);
 	}
 
 	.notes-input:focus {
 		outline: none;
 		border-color: var(--color-theme-2);
-		box-shadow: 0 0 0 4px rgba(64, 117, 166, 0.12);
+		box-shadow: 0 0 0 4px var(--focus-ring);
 	}
 
 	.form-message {
@@ -935,15 +967,15 @@
 	}
 
 	.success-message {
-		background: rgba(67, 142, 94, 0.12);
-		color: #2d6d44;
-		border: 1px solid rgba(67, 142, 94, 0.18);
+		background: color-mix(in srgb, var(--color-success) 14%, var(--surface-1));
+		color: var(--color-success);
+		border: 1px solid color-mix(in srgb, var(--color-success) 22%, var(--surface-border));
 	}
 
 	.error-message {
-		background: rgba(175, 68, 56, 0.1);
-		color: #9f2d27;
-		border: 1px solid rgba(175, 68, 56, 0.16);
+		background: color-mix(in srgb, var(--color-danger) 12%, var(--surface-1));
+		color: var(--color-danger);
+		border: 1px solid color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
 	}
 
 	button {
@@ -951,12 +983,12 @@
 		padding: 0.9rem 1rem;
 		border: 0;
 		border-radius: 10px;
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
 		font-weight: 700;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		box-shadow: 0 12px 24px rgba(64, 117, 166, 0.24);
+		box-shadow: 0 12px 24px color-mix(in srgb, var(--color-accent) 24%, transparent);
 		cursor: pointer;
 	}
 
@@ -971,7 +1003,7 @@
 	}
 
 	button:focus-visible {
-		outline: 3px solid rgba(64, 117, 166, 0.35);
+		outline: 3px solid var(--focus-ring);
 		outline-offset: 3px;
 	}
 </style>

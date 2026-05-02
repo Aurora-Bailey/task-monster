@@ -681,9 +681,13 @@
 		padding: 0.55rem 0.95rem;
 		border: 0;
 		border-radius: 999px;
-		background: linear-gradient(135deg, #ff9f3f, #ff7c21);
-		box-shadow: 0 14px 28px rgba(219, 119, 23, 0.28);
-		color: white;
+		background: linear-gradient(
+			135deg,
+			var(--color-warning),
+			color-mix(in srgb, var(--color-warning) 72%, var(--color-danger))
+		);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-warning) 28%, transparent);
+		color: var(--color-accent-contrast);
 		cursor: pointer;
 		transition:
 			transform 0.2s ease,
@@ -702,11 +706,19 @@
 		padding: 0.55rem 0.95rem;
 		border-radius: 999px;
 		background:
-			radial-gradient(circle at top left, rgba(132, 186, 255, 0.3), transparent 46%),
-			linear-gradient(135deg, rgba(20, 30, 44, 0.94), rgba(11, 17, 28, 0.96));
-		border: 1px solid rgba(132, 186, 255, 0.18);
-		box-shadow: 0 14px 28px rgba(12, 18, 30, 0.24);
-		color: white;
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-accent) 20%, transparent),
+				transparent 46%
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--surface-3) 92%, transparent),
+				color-mix(in srgb, var(--surface-2) 96%, transparent)
+			);
+		border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--surface-border));
+		box-shadow: var(--surface-shadow);
+		color: var(--color-heading);
 		cursor: pointer;
 		transition:
 			transform 0.2s ease,
@@ -737,16 +749,22 @@
 	}
 
 	.panic-button.is-active {
-		background: linear-gradient(135deg, #f24839, #bd1f1f);
-		box-shadow: 0 14px 28px rgba(190, 31, 31, 0.32);
+		background: linear-gradient(
+			135deg,
+			var(--color-danger),
+			color-mix(in srgb, var(--color-danger) 74%, var(--color-warning))
+		);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-danger) 32%, transparent);
 		animation: panic-flash 0.9s ease-in-out infinite alternate;
 	}
 
 	.assistant-button.is-open {
-		border-color: rgba(132, 186, 255, 0.34);
+		border-color: color-mix(in srgb, var(--color-accent) 42%, var(--surface-border));
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
 		box-shadow:
-			0 0 0 3px rgba(132, 186, 255, 0.12),
-			0 14px 28px rgba(12, 18, 30, 0.28);
+			0 0 0 3px var(--focus-ring),
+			0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
 	}
 
 	.assistant-button__label,
@@ -837,7 +855,7 @@
 		display: grid;
 		place-items: center;
 		padding: 1.25rem;
-		background: rgba(12, 18, 26, 0.4);
+		background: color-mix(in srgb, var(--app-bg-color) 58%, transparent);
 		backdrop-filter: blur(10px);
 	}
 
@@ -848,12 +866,18 @@
 		padding: 1.25rem;
 		border-radius: 24px;
 		background:
-			linear-gradient(180deg, rgba(255, 252, 249, 0.98), rgba(255, 245, 240, 0.95)),
-			linear-gradient(135deg, rgba(255, 159, 63, 0.16), rgba(242, 72, 57, 0.12));
-		border: 1px solid rgba(242, 72, 57, 0.16);
-		box-shadow:
-			0 30px 70px rgba(20, 28, 38, 0.28),
-			inset 0 1px 0 rgba(255, 255, 255, 0.8);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 96%, transparent),
+				color-mix(in srgb, var(--surface-2) 94%, transparent)
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--color-warning) 16%, transparent),
+				color-mix(in srgb, var(--color-danger) 12%, transparent)
+			);
+		border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--surface-border));
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 	}
 
 	.panic-modal__header {
@@ -869,14 +893,14 @@
 		font-weight: 800;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: #bd5a18;
+		color: var(--color-warning);
 	}
 
 	.panic-modal h2 {
 		margin: 0;
 		font-size: 1.55rem;
 		letter-spacing: -0.04em;
-		color: rgba(18, 26, 36, 0.92);
+		color: var(--color-heading);
 	}
 
 	.panic-modal__close {
@@ -887,8 +911,8 @@
 		height: 2.4rem;
 		border: 0;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.75);
-		color: rgba(18, 26, 36, 0.62);
+		background: var(--surface-2);
+		color: var(--color-muted);
 		font-size: 1.45rem;
 		line-height: 1;
 		cursor: pointer;
@@ -903,7 +927,7 @@
 		font-size: 0.82rem;
 		font-weight: 800;
 		letter-spacing: 0.04em;
-		color: rgba(18, 26, 36, 0.76);
+		color: var(--color-muted);
 	}
 
 	.panic-modal textarea,
@@ -914,11 +938,11 @@
 	.panic-modal textarea {
 		padding: 0.9rem 1rem;
 		border-radius: 18px;
-		border: 1px solid rgba(18, 26, 36, 0.12);
-		background: rgba(255, 255, 255, 0.82);
-		box-shadow: inset 0 1px 2px rgba(18, 26, 36, 0.04);
+		border: 1px solid var(--field-border);
+		background: var(--field-bg);
+		box-shadow: var(--surface-inset);
 		font: inherit;
-		color: rgba(18, 26, 36, 0.88);
+		color: var(--color-text);
 		resize: vertical;
 	}
 
@@ -926,8 +950,8 @@
 	.panic-modal input[type='range']:focus {
 		outline: none;
 		box-shadow:
-			0 0 0 3px rgba(242, 72, 57, 0.14),
-			inset 0 1px 2px rgba(18, 26, 36, 0.04);
+			0 0 0 3px color-mix(in srgb, var(--color-danger) 16%, transparent),
+			var(--surface-inset);
 	}
 
 	.panic-modal__charge-row,
@@ -942,13 +966,13 @@
 	.panic-modal__charge-row strong {
 		font-size: 1rem;
 		letter-spacing: -0.02em;
-		color: #b44718;
+		color: var(--color-warning);
 	}
 
 	.panic-modal__charge-scale {
 		font-size: 0.74rem;
 		font-weight: 700;
-		color: rgba(18, 26, 36, 0.52);
+		color: var(--color-soft);
 	}
 
 	.panic-modal__button {
@@ -973,15 +997,19 @@
 	}
 
 	.panic-modal__button-secondary {
-		background: rgba(255, 255, 255, 0.75);
-		color: rgba(18, 26, 36, 0.7);
-		border: 1px solid rgba(18, 26, 36, 0.1);
+		background: var(--surface-2);
+		color: var(--color-muted);
+		border: 1px solid var(--surface-border-strong);
 	}
 
 	.panic-modal__button-primary {
-		background: linear-gradient(135deg, #f24839, #bd1f1f);
-		box-shadow: 0 14px 28px rgba(190, 31, 31, 0.26);
-		color: white;
+		background: linear-gradient(
+			135deg,
+			var(--color-danger),
+			color-mix(in srgb, var(--color-danger) 74%, var(--color-warning))
+		);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-danger) 26%, transparent);
+		color: var(--color-accent-contrast);
 	}
 
 	@keyframes panic-flash {
@@ -992,8 +1020,8 @@
 		to {
 			filter: saturate(1.18) brightness(1.18);
 			box-shadow:
-				0 0 0 3px rgba(242, 72, 57, 0.15),
-				0 16px 30px rgba(190, 31, 31, 0.38);
+				0 0 0 3px color-mix(in srgb, var(--color-danger) 15%, transparent),
+				0 16px 30px color-mix(in srgb, var(--color-danger) 38%, transparent);
 		}
 	}
 

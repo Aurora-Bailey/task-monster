@@ -217,13 +217,13 @@
 		font-size: clamp(2.6rem, 6vw, 4.8rem);
 		line-height: 0.92;
 		letter-spacing: -0.06em;
-		color: rgba(10, 20, 30, 0.92);
+		color: var(--color-heading);
 	}
 
 	.lede {
 		margin: 0;
 		font-size: 1.05rem;
-		color: rgba(10, 20, 30, 0.68);
+		color: var(--color-muted);
 	}
 
 	.auth-card {
@@ -232,12 +232,18 @@
 		padding: 1.6rem;
 		border-radius: 28px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.88)),
-			radial-gradient(circle at top, rgba(64, 117, 166, 0.12), rgba(255, 255, 255, 0));
-		border: 1px solid rgba(255, 255, 255, 0.75);
-		box-shadow:
-			0 26px 60px rgba(44, 62, 80, 0.12),
-			inset 0 1px 0 rgba(255, 255, 255, 0.9);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 92%, transparent),
+				color-mix(in srgb, var(--surface-2) 88%, transparent)
+			),
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 12%, transparent),
+				transparent 62%
+			);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 	}
 
 	.mode-switch {
@@ -246,8 +252,8 @@
 		gap: 0.35rem;
 		padding: 0.35rem;
 		border-radius: 999px;
-		background: rgba(64, 117, 166, 0.08);
-		border: 1px solid rgba(64, 117, 166, 0.12);
+		background: color-mix(in srgb, var(--color-accent) 9%, var(--surface-1));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--surface-border));
 	}
 
 	.mode-switch button {
@@ -255,16 +261,16 @@
 		border: 0;
 		border-radius: 999px;
 		background: transparent;
-		color: rgba(10, 20, 30, 0.54);
+		color: var(--color-muted);
 		font-weight: 800;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 	}
 
 	.mode-switch button.active-mode {
-		background: white;
+		background: var(--surface-3);
 		color: var(--color-theme-2);
-		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.1);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.auth-form {
@@ -295,13 +301,13 @@
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(0, 0, 0, 0.55);
+		color: var(--color-muted);
 	}
 
 	.field-note {
 		margin: -0.25rem 0 0.2rem;
 		font-size: 0.88rem;
-		color: rgba(10, 20, 30, 0.56);
+		color: var(--color-muted);
 	}
 
 	.consent-card {
@@ -310,8 +316,8 @@
 		gap: 0.8rem;
 		padding: 0.95rem 1rem;
 		border-radius: 16px;
-		background: rgba(64, 117, 166, 0.06);
-		border: 1px solid rgba(64, 117, 166, 0.14);
+		background: color-mix(in srgb, var(--color-accent) 8%, var(--surface-1));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 16%, var(--surface-border));
 	}
 
 	.checkbox-input {
@@ -324,7 +330,7 @@
 	.consent-copy {
 		font-size: 0.94rem;
 		line-height: 1.55;
-		color: rgba(10, 20, 30, 0.72);
+		color: var(--color-muted);
 	}
 
 	.consent-copy a {
@@ -341,9 +347,9 @@
 		width: 100%;
 		box-sizing: border-box;
 		padding: 0.95rem 1rem;
-		border: 1px solid rgba(64, 117, 166, 0.16);
+		border: 1px solid var(--field-border);
 		border-radius: 16px;
-		background: rgba(255, 255, 255, 0.88);
+		background: var(--field-bg);
 		color: var(--color-text);
 		transition:
 			border-color 0.2s ease,
@@ -351,21 +357,21 @@
 	}
 
 	.text-input::placeholder {
-		color: rgba(0, 0, 0, 0.34);
+		color: var(--color-soft);
 	}
 
 	.text-input:focus {
 		outline: none;
 		border-color: var(--color-theme-2);
-		box-shadow: 0 0 0 4px rgba(64, 117, 166, 0.12);
+		box-shadow: 0 0 0 4px var(--focus-ring);
 	}
 
 	.error-message {
 		margin: 0;
 		padding: 0.85rem 1rem;
 		border-radius: 14px;
-		background: rgba(153, 0, 0, 0.08);
-		color: var(--color-theme-1);
+		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-1));
+		color: var(--color-danger);
 		font-weight: 600;
 	}
 
@@ -374,12 +380,12 @@
 		padding: 0.95rem 1rem;
 		border: 0;
 		border-radius: 16px;
-		background: linear-gradient(135deg, var(--color-theme-2), #5b93c8);
-		color: white;
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
 		font-weight: 800;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		box-shadow: 0 18px 30px rgba(64, 117, 166, 0.24);
+		box-shadow: 0 18px 30px color-mix(in srgb, var(--color-accent) 24%, transparent);
 	}
 
 	.submit-button:disabled {

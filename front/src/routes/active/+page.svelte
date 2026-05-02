@@ -638,7 +638,7 @@
 	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
-		color: rgba(10, 20, 30, 0.7);
+		color: var(--color-muted);
 	}
 
 	.message-card {
@@ -646,20 +646,20 @@
 		gap: 0.4rem;
 		padding: 1rem 1.1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.66);
-		box-shadow: 0 14px 32px rgba(44, 62, 80, 0.08);
+		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.message-card strong {
 		font-size: 1.15rem;
 		letter-spacing: -0.02em;
-		color: rgba(10, 20, 30, 0.82);
+		color: var(--color-heading);
 	}
 
 	.error-card {
-		border-color: rgba(159, 45, 39, 0.18);
-		background: rgba(255, 245, 244, 0.92);
+		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
 	.task-grid {
@@ -682,7 +682,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
-		background: rgba(11, 17, 24, 0.44);
+		background: color-mix(in srgb, var(--app-bg-color) 58%, transparent);
 		backdrop-filter: blur(6px);
 	}
 
@@ -693,12 +693,18 @@
 		padding: 1.25rem;
 		border-radius: 26px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.94)),
-			radial-gradient(circle at top, rgba(64, 117, 166, 0.12), rgba(255, 255, 255, 0));
-		border: 1px solid rgba(255, 255, 255, 0.76);
-		box-shadow:
-			0 28px 64px rgba(16, 24, 35, 0.22),
-			inset 0 1px 0 rgba(255, 255, 255, 0.85);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 94%, transparent),
+				color-mix(in srgb, var(--surface-2) 92%, transparent)
+			),
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 14%, transparent),
+				transparent 62%
+			);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 	}
 
 	.done-modal__header,
@@ -724,7 +730,7 @@
 		font-size: 1.55rem;
 		text-align: left;
 		letter-spacing: -0.04em;
-		color: rgba(10, 20, 30, 0.9);
+		color: var(--color-heading);
 	}
 
 	.done-modal__close {
@@ -734,12 +740,12 @@
 		width: 2.35rem;
 		height: 2.35rem;
 		padding: 0;
-		border: 1px solid rgba(20, 28, 38, 0.1);
+		border: 1px solid var(--surface-border-strong);
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.9);
-		color: rgba(20, 28, 38, 0.56);
+		background: var(--surface-2);
+		color: var(--color-muted);
 		font-size: 1.35rem;
-		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.08);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.done-modal__field {
@@ -752,39 +758,39 @@
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: rgba(20, 28, 38, 0.5);
+		color: var(--color-soft);
 	}
 
 	.done-modal__adjust-note {
 		margin: -0.1rem 0 0;
 		font-size: 0.86rem;
-		color: rgba(20, 28, 38, 0.6);
+		color: var(--color-muted);
 	}
 
 	.done-modal__field strong {
 		font-size: 0.86rem;
-		color: rgba(20, 28, 38, 0.74);
+		color: var(--color-muted);
 	}
 
 	.done-modal textarea {
 		min-height: 8rem;
 		padding: 0.9rem 1rem;
-		border: 1px solid rgba(20, 28, 38, 0.12);
+		border: 1px solid var(--field-border);
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.86);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		background: var(--field-bg);
+		box-shadow: var(--surface-inset);
 		font: inherit;
 		line-height: 1.5;
-		color: rgba(20, 28, 38, 0.74);
+		color: var(--color-text);
 		resize: vertical;
 	}
 
 	.done-modal textarea:focus {
 		outline: none;
-		border-color: rgba(64, 117, 166, 0.4);
+		border-color: color-mix(in srgb, var(--color-accent) 42%, var(--field-border));
 		box-shadow:
-			0 0 0 3px rgba(64, 117, 166, 0.14),
-			inset 0 1px 0 rgba(255, 255, 255, 0.74);
+			0 0 0 3px var(--focus-ring),
+			var(--surface-inset);
 	}
 
 	.done-modal__time-grid {
@@ -806,21 +812,21 @@
 	.done-modal__next-due-input {
 		min-height: 3rem;
 		padding: 0.8rem 0.95rem;
-		border: 1px solid rgba(20, 28, 38, 0.12);
+		border: 1px solid var(--field-border);
 		border-radius: 16px;
-		background: rgba(255, 255, 255, 0.9);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		background: var(--field-bg);
+		box-shadow: var(--surface-inset);
 		font: inherit;
-		color: rgba(20, 28, 38, 0.78);
+		color: var(--color-text);
 	}
 
 	.done-modal__time-field input:focus,
 	.done-modal__next-due-input:focus {
 		outline: none;
-		border-color: rgba(64, 117, 166, 0.4);
+		border-color: color-mix(in srgb, var(--color-accent) 42%, var(--field-border));
 		box-shadow:
-			0 0 0 3px rgba(64, 117, 166, 0.14),
-			inset 0 1px 0 rgba(255, 255, 255, 0.74);
+			0 0 0 3px var(--focus-ring),
+			var(--surface-inset);
 	}
 
 	.done-modal__panel {
@@ -828,8 +834,8 @@
 		gap: 0.7rem;
 		padding: 0.9rem 1rem;
 		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.78);
-		border: 1px solid rgba(20, 28, 38, 0.08);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
 	}
 
 	.done-modal__toggle,
@@ -846,18 +852,18 @@
 		width: 100%;
 		min-height: 3rem;
 		padding: 0.75rem 0.8rem;
-		border: 1px solid rgba(20, 28, 38, 0.1);
+		border: 1px solid var(--surface-border-strong);
 		border-radius: 14px;
-		background: rgba(255, 255, 255, 0.88);
+		background: var(--surface-2);
 		font-weight: 700;
-		color: rgba(20, 28, 38, 0.72);
-		box-shadow: 0 10px 22px rgba(44, 62, 80, 0.06);
+		color: var(--color-muted);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.done-modal__toggle-active {
-		background: linear-gradient(135deg, rgba(75, 159, 103, 0.16), rgba(127, 191, 127, 0.12));
-		border-color: rgba(75, 159, 103, 0.28);
-		color: rgba(41, 100, 58, 0.88);
+		background: color-mix(in srgb, var(--color-success) 16%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-success) 34%, var(--surface-border));
+		color: var(--color-success);
 	}
 
 	.done-modal__button {
@@ -870,22 +876,26 @@
 	}
 
 	.done-modal__button-secondary {
-		background: rgba(255, 255, 255, 0.78);
-		color: rgba(20, 28, 38, 0.68);
-		box-shadow: inset 0 0 0 1px rgba(20, 28, 38, 0.08);
+		background: var(--surface-2);
+		color: var(--color-muted);
+		box-shadow: inset 0 0 0 1px var(--surface-border-strong);
 	}
 
 	.done-modal__button-primary {
-		background: linear-gradient(135deg, #4b9f67, #7fbf7f);
-		color: white;
-		box-shadow: 0 14px 28px rgba(67, 136, 89, 0.22);
+		background: linear-gradient(
+			135deg,
+			var(--color-success),
+			color-mix(in srgb, var(--color-success) 70%, var(--color-accent))
+		);
+		color: var(--color-accent-contrast);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-success) 24%, transparent);
 	}
 
 	.done-modal__toggle:hover,
 	.done-modal__button:hover,
 	.done-modal__close:hover {
 		transform: translateY(-1px);
-		box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.done-modal__toggle:disabled,

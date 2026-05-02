@@ -110,7 +110,7 @@
 				...nextMessages,
 				{
 					role: 'assistant',
-					content: response.reply || 'I didn’t get a usable reply back.',
+					content: response.reply || 'No usable reply.',
 					actions: response.actions
 				}
 			];
@@ -199,7 +199,7 @@
 				{#if isLoadingHistory}
 					<article class="message-row">
 						<div class="message-bubble message-bubble-pending">
-							<p>Loading recent assistant history…</p>
+							<p>Loading history…</p>
 						</div>
 					</article>
 				{/if}
@@ -235,7 +235,7 @@
 				{#if isSending}
 					<article class="message-row">
 						<div class="message-bubble message-bubble-pending">
-							<p>Working through the board…</p>
+							<p>Working…</p>
 						</div>
 					</article>
 				{/if}
@@ -250,7 +250,7 @@
 					bind:this={draftInput}
 					bind:value={draft}
 					rows="1"
-					placeholder="Ask Task Monster to do something on your account"
+					placeholder="Ask Task Monster"
 					disabled={isSending || isLoadingHistory}
 					onkeydown={handleTextareaKeydown}
 				></textarea>
@@ -270,7 +270,7 @@
 		z-index: 85;
 		display: flex;
 		justify-content: flex-end;
-		background: rgba(7, 12, 18, 0.38);
+		background: color-mix(in srgb, var(--app-bg-color) 48%, transparent);
 		backdrop-filter: blur(14px);
 	}
 
@@ -281,12 +281,24 @@
 		display: grid;
 		grid-template-rows: minmax(0, 1fr) auto auto;
 		background:
-			radial-gradient(circle at top left, rgba(74, 111, 214, 0.18), transparent 35%),
-			radial-gradient(circle at 80% 20%, rgba(138, 91, 209, 0.16), transparent 28%),
-			linear-gradient(180deg, rgba(18, 26, 38, 0.98), rgba(10, 14, 22, 0.98));
-		border-left: 1px solid rgba(146, 169, 196, 0.16);
-		box-shadow: -28px 0 64px rgba(0, 0, 0, 0.3);
-		color: rgba(244, 248, 252, 0.92);
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-accent) 18%, transparent),
+				transparent 35%
+			),
+			radial-gradient(
+				circle at 80% 20%,
+				color-mix(in srgb, var(--color-theme-1) 12%, transparent),
+				transparent 30%
+			),
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 98%, transparent),
+				color-mix(in srgb, var(--surface-1) 98%, transparent)
+			);
+		border-left: 1px solid var(--surface-border);
+		box-shadow: -28px 0 64px color-mix(in srgb, var(--color-heading) 22%, transparent);
+		color: var(--color-text);
 	}
 
 	.assistant-close {
@@ -297,40 +309,30 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 2.9rem;
-		height: 2.9rem;
-		border: 1px solid rgba(255, 131, 221, 0.26);
+		width: 2rem;
+		height: 2rem;
+		border: 1px solid var(--surface-border);
 		border-radius: 999px;
-		background:
-			radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), transparent 42%),
-			linear-gradient(
-				135deg,
-				rgba(255, 84, 190, 0.82),
-				rgba(115, 236, 255, 0.72) 62%,
-				rgba(116, 88, 255, 0.8)
-			);
-		box-shadow:
-			0 0 0 1px rgba(111, 225, 255, 0.08),
-			0 16px 32px rgba(10, 8, 28, 0.34),
-			0 0 24px rgba(255, 91, 205, 0.26);
-		color: white;
-		font-size: 1.55rem;
+		background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+		box-shadow: var(--surface-shadow);
+		color: var(--color-soft);
+		font-size: 1.05rem;
 		font-weight: 700;
 		line-height: 1;
+		opacity: 0.72;
 		cursor: pointer;
 		transition:
 			transform 0.18s ease,
 			box-shadow 0.18s ease,
-			filter 0.18s ease;
+			opacity 0.18s ease,
+			background 0.18s ease;
 	}
 
 	.assistant-close:hover {
-		transform: translateY(-1px) scale(1.02);
-		filter: saturate(1.08) brightness(1.04);
-		box-shadow:
-			0 0 0 1px rgba(111, 225, 255, 0.12),
-			0 20px 40px rgba(10, 8, 28, 0.38),
-			0 0 34px rgba(255, 91, 205, 0.34);
+		transform: translateY(-1px);
+		opacity: 1;
+		background: var(--surface-2);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.assistant-thread {
@@ -338,7 +340,7 @@
 		display: grid;
 		align-content: end;
 		gap: 0.85rem;
-		padding: 4.2rem 1rem 0.75rem;
+		padding: 3.5rem 1rem 0.75rem;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
 	}
@@ -367,32 +369,33 @@
 		gap: 0.7rem;
 		padding: 0.9rem 1rem;
 		border-radius: 22px;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(146, 169, 196, 0.12);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-inset);
 	}
 
 	.assistant-message .message-bubble {
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
 			linear-gradient(
-				135deg,
-				rgba(255, 74, 190, 0.16),
-				rgba(83, 242, 255, 0.12) 52%,
-				rgba(157, 110, 255, 0.16)
+				180deg,
+				color-mix(in srgb, var(--surface-3) 86%, transparent),
+				color-mix(in srgb, var(--surface-2) 88%, transparent)
+			),
+			radial-gradient(
+				circle at top left,
+				color-mix(in srgb, var(--color-accent) 12%, transparent),
+				transparent 52%
 			);
-		border-color: rgba(255, 133, 217, 0.18);
-		box-shadow:
-			0 18px 34px rgba(5, 8, 18, 0.28),
-			inset 0 1px 0 rgba(255, 255, 255, 0.06),
-			inset 0 0 0 1px rgba(95, 242, 255, 0.08);
+		border-color: color-mix(in srgb, var(--color-accent) 18%, var(--surface-border));
+		box-shadow: var(--surface-shadow), var(--surface-inset);
 	}
 
 	.user-message .message-bubble {
 		max-width: 86%;
-		background: linear-gradient(135deg, rgba(74, 111, 214, 0.86), rgba(59, 86, 168, 0.92));
-		border-color: rgba(132, 186, 255, 0.18);
-		color: white;
+		background: var(--accent-gradient);
+		border-color: color-mix(in srgb, var(--color-accent) 24%, var(--surface-border));
+		color: var(--color-accent-contrast);
+		box-shadow: 0 16px 32px color-mix(in srgb, var(--color-accent) 22%, transparent);
 	}
 
 	.user-message .message-bubble p,
@@ -402,15 +405,15 @@
 	}
 
 	.assistant-markdown {
-		--md-text: rgba(243, 246, 255, 0.92);
-		--md-soft-text: rgba(213, 222, 245, 0.8);
-		--md-pink: #ff7ad9;
-		--md-cyan: #69efff;
-		--md-lime: #d8ff72;
-		--md-violet: #ae8dff;
-		--md-surface: rgba(10, 13, 28, 0.36);
-		--md-surface-strong: rgba(12, 18, 36, 0.72);
-		--md-border: rgba(111, 225, 255, 0.18);
+		--md-text: var(--color-text);
+		--md-soft-text: var(--color-muted);
+		--md-pink: var(--color-theme-1);
+		--md-cyan: var(--color-accent);
+		--md-lime: var(--color-success);
+		--md-violet: var(--color-accent-2);
+		--md-surface: var(--surface-muted);
+		--md-surface-strong: var(--surface-2);
+		--md-border: var(--surface-border-strong);
 		color: var(--md-text);
 		font-size: 0.95rem;
 		line-height: 1.62;
@@ -425,7 +428,7 @@
 		margin: 0;
 		font-weight: 800;
 		letter-spacing: -0.03em;
-		color: white;
+		color: var(--color-heading);
 		text-wrap: balance;
 	}
 
@@ -481,26 +484,26 @@
 	}
 
 	.assistant-markdown :global(strong) {
-		color: white;
+		color: var(--color-heading);
 		font-weight: 800;
 	}
 
 	.assistant-markdown :global(em) {
-		color: #ffe8ff;
+		color: var(--color-theme-1);
 	}
 
 	.assistant-markdown :global(a) {
 		color: var(--md-cyan);
 		text-decoration: underline;
-		text-decoration-color: rgba(105, 239, 255, 0.42);
+		text-decoration-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
 		text-underline-offset: 0.18em;
 	}
 
 	.assistant-markdown :global(code) {
 		padding: 0.14rem 0.4rem;
 		border-radius: 999px;
-		background: rgba(94, 255, 242, 0.12);
-		border: 1px solid rgba(105, 239, 255, 0.14);
+		background: color-mix(in srgb, var(--color-accent) 12%, var(--surface-1));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 16%, var(--surface-border));
 		color: var(--md-lime);
 		font-size: 0.88em;
 		font-family: 'Fira Mono', monospace;
@@ -510,12 +513,14 @@
 		padding: 0.95rem 1rem;
 		border-radius: 20px;
 		background:
-			linear-gradient(180deg, rgba(15, 21, 42, 0.98), rgba(8, 11, 24, 0.96)),
-			linear-gradient(135deg, rgba(255, 122, 217, 0.16), rgba(105, 239, 255, 0.14));
+			linear-gradient(180deg, var(--md-surface-strong), var(--surface-1)),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--color-theme-1) 12%, transparent),
+				color-mix(in srgb, var(--color-accent) 12%, transparent)
+			);
 		border: 1px solid var(--md-border);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.04),
-			0 14px 30px rgba(0, 0, 0, 0.22);
+		box-shadow: var(--surface-inset), var(--surface-shadow);
 		overflow-x: auto;
 	}
 
@@ -524,7 +529,7 @@
 		border: 0;
 		border-radius: 0;
 		background: transparent;
-		color: #d7e8ff;
+		color: var(--color-text);
 		font-size: 0.86rem;
 		line-height: 1.6;
 	}
@@ -533,8 +538,12 @@
 		padding: 0.75rem 0.9rem;
 		border-left: 3px solid var(--md-pink);
 		border-radius: 0 18px 18px 0;
-		background: linear-gradient(135deg, rgba(255, 122, 217, 0.1), rgba(105, 239, 255, 0.08));
-		color: rgba(244, 232, 255, 0.9);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-theme-1) 10%, var(--surface-1)),
+			color-mix(in srgb, var(--color-accent) 8%, var(--surface-1))
+		);
+		color: var(--color-muted);
 	}
 
 	.assistant-markdown :global(blockquote > p),
@@ -552,10 +561,10 @@
 		height: 1px;
 		background: linear-gradient(
 			90deg,
-			rgba(255, 122, 217, 0),
-			rgba(255, 122, 217, 0.8),
-			rgba(105, 239, 255, 0.85),
-			rgba(255, 122, 217, 0)
+			transparent,
+			color-mix(in srgb, var(--color-theme-1) 80%, transparent),
+			color-mix(in srgb, var(--color-accent) 85%, transparent),
+			transparent
 		);
 	}
 
@@ -574,30 +583,26 @@
 		align-items: center;
 		padding: 0.35rem 0.55rem;
 		border-radius: 999px;
-		background:
-			linear-gradient(180deg, rgba(49, 152, 100, 0.18), rgba(38, 116, 78, 0.24)),
-			radial-gradient(circle at top left, rgba(173, 255, 161, 0.22), transparent 46%);
-		border: 1px solid rgba(142, 255, 180, 0.22);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.06),
-			0 10px 22px rgba(4, 20, 10, 0.18);
+		background: color-mix(in srgb, var(--color-success) 14%, var(--surface-1));
+		border: 1px solid color-mix(in srgb, var(--color-success) 22%, var(--surface-border));
+		box-shadow: var(--surface-inset);
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.04em;
-		color: rgba(226, 255, 232, 0.94);
+		color: var(--color-success);
 	}
 
 	.user-message .message-actions span {
-		background: rgba(255, 255, 255, 0.14);
-		border-color: rgba(255, 255, 255, 0.16);
-		color: rgba(255, 255, 255, 0.92);
+		background: color-mix(in srgb, var(--color-accent-contrast) 16%, transparent);
+		border-color: color-mix(in srgb, var(--color-accent-contrast) 18%, transparent);
+		color: var(--color-accent-contrast);
 	}
 
 	.assistant-error {
 		padding: 0 1.15rem;
 		font-size: 0.82rem;
 		font-weight: 700;
-		color: #ffb9ab;
+		color: var(--color-danger);
 	}
 
 	.assistant-composer {
@@ -606,7 +611,7 @@
 		align-items: end;
 		gap: 0.7rem;
 		padding: 0.85rem 1rem 1rem;
-		border-top: 1px solid rgba(146, 169, 196, 0.14);
+		border-top: 1px solid var(--surface-border);
 	}
 
 	.assistant-composer textarea {
@@ -615,23 +620,23 @@
 		max-height: 8rem;
 		padding: 0.95rem 1rem;
 		border-radius: 18px;
-		border: 1px solid rgba(146, 169, 196, 0.14);
-		background: rgba(255, 255, 255, 0.06);
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--field-border);
+		background: var(--field-bg);
+		box-shadow: var(--surface-inset);
 		font: inherit;
-		color: rgba(246, 248, 251, 0.94);
+		color: var(--color-text);
 		line-height: 1.45;
 		resize: none;
 	}
 
 	.assistant-composer textarea::placeholder {
-		color: rgba(220, 231, 242, 0.44);
+		color: var(--color-soft);
 	}
 
 	.assistant-composer textarea:focus {
 		outline: none;
-		border-color: rgba(132, 186, 255, 0.34);
-		box-shadow: 0 0 0 3px rgba(132, 186, 255, 0.12);
+		border-color: color-mix(in srgb, var(--color-accent) 34%, var(--field-border));
+		box-shadow: 0 0 0 3px var(--focus-ring);
 	}
 
 	.assistant-composer button {
@@ -643,13 +648,9 @@
 		padding: 0.75rem 1.05rem;
 		border: 0;
 		border-radius: 18px;
-		background:
-			radial-gradient(circle at top left, rgba(255, 255, 255, 0.22), transparent 40%),
-			linear-gradient(135deg, #ff57c4, #73ecff 58%, #8a5bd1);
-		box-shadow:
-			0 16px 28px rgba(72, 95, 183, 0.28),
-			0 0 22px rgba(255, 87, 196, 0.22);
-		color: white;
+		background: var(--accent-gradient);
+		box-shadow: 0 16px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
+		color: var(--color-accent-contrast);
 		font-size: 0.8rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;

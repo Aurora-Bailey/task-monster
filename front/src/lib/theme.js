@@ -45,6 +45,30 @@ export const THEMES = [
 		colorScheme: 'light'
 	},
 	{
+		id: 'candy-apple-green',
+		label: 'Candy Apple Green',
+		description: 'Glossy orchard greens with a sharp lime candy shell.',
+		swatch: ['#e6ffd8', '#7ce13a', '#145f2f'],
+		themeColor: '#7ce13a',
+		colorScheme: 'light'
+	},
+	{
+		id: 'deep-earth',
+		label: 'Deep Earth',
+		description: 'Charred soil, cedar shadows, moss, and amber heat.',
+		swatch: ['#17110c', '#4f3825', '#d1964a'],
+		themeColor: '#17110c',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'candy-cloud',
+		label: 'Candy Cloud',
+		description: 'Cotton-candy sky, peach glow, and blue-sugar glass.',
+		swatch: ['#f8ecff', '#d8f4ff', '#ff7cb8'],
+		themeColor: '#d8f4ff',
+		colorScheme: 'light'
+	},
+	{
 		id: 'ultra-white',
 		label: 'Ultra White',
 		description: 'Clean white canvas, soft silver borders, minimal chroma.',

@@ -280,20 +280,20 @@
 		font-size: clamp(2.4rem, 5vw, 4rem);
 		line-height: 0.95;
 		letter-spacing: -0.05em;
-		color: rgba(10, 20, 30, 0.92);
+		color: var(--color-heading);
 	}
 
 	.lede {
 		margin: 0;
 		font-size: 1.05rem;
-		color: rgba(10, 20, 30, 0.68);
+		color: var(--color-muted);
 		max-width: 42rem;
 	}
 
 	.meta {
 		margin: 0;
 		font-size: 0.88rem;
-		color: rgba(10, 20, 30, 0.52);
+		color: var(--color-soft);
 		font-weight: 700;
 	}
 
@@ -301,13 +301,20 @@
 		display: grid;
 		gap: 1.5rem;
 		padding: 1.6rem;
+		border-radius: 28px;
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 249, 255, 0.9)),
-			radial-gradient(circle at top, rgba(64, 117, 166, 0.1), rgba(255, 255, 255, 0));
-		border: 1px solid rgba(255, 255, 255, 0.78);
-		box-shadow:
-			0 26px 60px rgba(44, 62, 80, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.88);
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-3) 94%, transparent),
+				color-mix(in srgb, var(--surface-2) 90%, var(--surface-1))
+			),
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 10%, transparent),
+				transparent 62%
+			);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 	}
 
 	section {
@@ -320,14 +327,14 @@
 		margin: 0;
 		font-size: 1.08rem;
 		letter-spacing: -0.02em;
-		color: rgba(10, 20, 30, 0.84);
+		color: var(--color-heading);
 	}
 
 	p,
 	li {
 		font-size: 0.98rem;
 		line-height: 1.6;
-		color: rgba(10, 20, 30, 0.72);
+		color: var(--color-muted);
 	}
 
 	p {
