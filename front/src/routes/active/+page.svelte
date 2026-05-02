@@ -483,7 +483,7 @@
 			<form class="done-modal" onsubmit={handleDoneConfirm}>
 				<div class="done-modal__header">
 					<div>
-						<p class="done-modal__eyebrow">Confirm Done</p>
+						<p class="done-modal__eyebrow">Done</p>
 						<h2>{selectedDoneTask.name}</h2>
 					</div>
 					<button
@@ -498,35 +498,31 @@
 				</div>
 
 				<label class="done-modal__field">
-					<span>Instance Notepad</span>
+					<span>Note</span>
 					<textarea
 						bind:this={doneModalNoteInput}
 						bind:value={doneModalInstanceNote}
-						rows="5"
-						placeholder="Anything worth capturing before you close this out?"
+						rows="3"
+						placeholder="Optional note"
 					></textarea>
 				</label>
 
 				<div class="done-modal__field">
 					<div class="done-modal__field-header">
-						<span>Tracked time</span>
+						<span>Time</span>
 						<strong
 							>{formatElapsedDuration(getDoneModalTrackedMilliseconds(selectedDoneTask))}</strong
 						>
 					</div>
 
-					<p class="done-modal__adjust-note">
-						Edit the actual local start and finish time for this run.
-					</p>
-
 					<div class="done-modal__panel">
 						<div class="done-modal__time-grid">
 							<label class="done-modal__time-field">
-								<span>Start time</span>
+								<span>Start</span>
 								<input bind:value={doneModalStartedAtValue} type="datetime-local" />
 							</label>
 							<label class="done-modal__time-field">
-								<span>Finish time</span>
+								<span>Finish</span>
 								<input
 									bind:value={doneModalCompletedAtValue}
 									type="datetime-local"
@@ -540,7 +536,7 @@
 						<div class="done-modal__panel done-modal__next-due">
 							<div class="done-modal__time-grid">
 								<label class="done-modal__time-field">
-									<span>Due date</span>
+									<span>Next due</span>
 									<input
 										bind:value={doneModalNextDueAtValue}
 										class="done-modal__next-due-input"
@@ -550,7 +546,7 @@
 									/>
 								</label>
 								<div class="done-modal__time-field done-modal__toggle-field">
-									<span>Due status</span>
+									<span>Status</span>
 									<button
 										class:done-modal__toggle-active={doneModalSetNextDue}
 										class="done-modal__toggle"
@@ -579,7 +575,7 @@
 						type="submit"
 						disabled={getBusyAction(selectedDoneTask.id) === 'done'}
 					>
-						{getBusyAction(selectedDoneTask.id) === 'done' ? 'Closing...' : 'Confirm Done'}
+						{getBusyAction(selectedDoneTask.id) === 'done' ? 'Saving...' : 'Done'}
 					</button>
 				</div>
 			</form>
@@ -677,20 +673,24 @@
 	.done-modal-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 60;
+		z-index: 120;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
+		overflow-y: auto;
 		background: color-mix(in srgb, var(--app-bg-color) 58%, transparent);
 		backdrop-filter: blur(6px);
 	}
 
 	.done-modal {
 		display: grid;
-		gap: 1rem;
+		gap: 0.85rem;
 		width: min(100%, 34rem);
+		max-height: calc(100vh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 		padding: 1.25rem;
+		overflow-y: auto;
+		overscroll-behavior: contain;
 		border-radius: 26px;
 		background:
 			linear-gradient(
@@ -705,6 +705,12 @@
 			);
 		border: 1px solid var(--surface-border);
 		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
+	}
+
+	@supports (height: 100dvh) {
+		.done-modal {
+			max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+		}
 	}
 
 	.done-modal__header,
@@ -750,7 +756,7 @@
 
 	.done-modal__field {
 		display: grid;
-		gap: 0.65rem;
+		gap: 0.55rem;
 	}
 
 	.done-modal__field span {
@@ -761,20 +767,14 @@
 		color: var(--color-soft);
 	}
 
-	.done-modal__adjust-note {
-		margin: -0.1rem 0 0;
-		font-size: 0.86rem;
-		color: var(--color-muted);
-	}
-
 	.done-modal__field strong {
 		font-size: 0.86rem;
 		color: var(--color-muted);
 	}
 
 	.done-modal textarea {
-		min-height: 8rem;
-		padding: 0.9rem 1rem;
+		min-height: 5.75rem;
+		padding: 0.75rem 0.9rem;
 		border: 1px solid var(--field-border);
 		border-radius: 18px;
 		background: var(--field-bg);
@@ -801,7 +801,7 @@
 
 	.done-modal__time-field {
 		display: grid;
-		gap: 0.45rem;
+		gap: 0.35rem;
 	}
 
 	.done-modal__toggle-field {
@@ -810,8 +810,8 @@
 
 	.done-modal__time-field input,
 	.done-modal__next-due-input {
-		min-height: 3rem;
-		padding: 0.8rem 0.95rem;
+		min-height: 2.75rem;
+		padding: 0.68rem 0.85rem;
 		border: 1px solid var(--field-border);
 		border-radius: 16px;
 		background: var(--field-bg);
@@ -831,8 +831,8 @@
 
 	.done-modal__panel {
 		display: grid;
-		gap: 0.7rem;
-		padding: 0.9rem 1rem;
+		gap: 0.6rem;
+		padding: 0.75rem 0.85rem;
 		border-radius: 18px;
 		background: var(--surface-2);
 		border: 1px solid var(--surface-border);
@@ -850,8 +850,8 @@
 
 	.done-modal__toggle {
 		width: 100%;
-		min-height: 3rem;
-		padding: 0.75rem 0.8rem;
+		min-height: 2.75rem;
+		padding: 0.65rem 0.8rem;
 		border: 1px solid var(--surface-border-strong);
 		border-radius: 14px;
 		background: var(--surface-2);
@@ -867,8 +867,8 @@
 	}
 
 	.done-modal__button {
-		min-height: 2.9rem;
-		padding: 0.75rem 1rem;
+		min-height: 2.75rem;
+		padding: 0.68rem 1rem;
 		border: 0;
 		border-radius: 999px;
 		font-weight: 800;
@@ -907,19 +907,114 @@
 	}
 
 	@media (max-width: 640px) {
+		.done-modal-backdrop {
+			align-items: flex-start;
+			padding: calc(0.65rem + env(safe-area-inset-top)) 0.55rem
+				calc(0.65rem + env(safe-area-inset-bottom));
+		}
+
 		.done-modal {
-			padding: 1rem;
-			border-radius: 22px;
+			gap: 0.65rem;
+			width: min(100%, 28rem);
+			max-height: calc(100vh - 1.3rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+			padding: 0.75rem;
+			border-radius: 20px;
+		}
+
+		@supports (height: 100dvh) {
+			.done-modal {
+				max-height: calc(100dvh - 1.3rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+			}
+		}
+
+		.done-modal__header {
+			gap: 0.55rem;
+		}
+
+		.done-modal__eyebrow {
+			margin-bottom: 0.08rem;
+			font-size: 0.64rem;
+			letter-spacing: 0.12em;
+		}
+
+		.done-modal h2 {
+			font-size: 1.22rem;
+			line-height: 1.05;
+		}
+
+		.done-modal__close {
+			width: 2rem;
+			height: 2rem;
+			font-size: 1.1rem;
+		}
+
+		.done-modal__field {
+			gap: 0.42rem;
+		}
+
+		.done-modal__actions {
+			position: sticky;
+			bottom: -0.75rem;
+			z-index: 1;
+			margin: 0 -0.75rem -0.75rem;
+			padding: 0.55rem 0.75rem 0.75rem;
+			background: linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--surface-2) 16%, transparent),
+				color-mix(in srgb, var(--surface-2) 96%, transparent) 28%
+			);
+			border-top: 1px solid var(--surface-border);
+			backdrop-filter: blur(16px);
 		}
 
 		.done-modal__field-header,
 		.done-modal__actions {
-			flex-direction: column;
-			align-items: stretch;
+			flex-direction: row;
+			align-items: center;
+		}
+
+		.done-modal textarea {
+			min-height: 4.4rem;
+			padding: 0.65rem 0.75rem;
+			border-radius: 14px;
+			line-height: 1.35;
 		}
 
 		.done-modal__time-grid {
 			grid-template-columns: 1fr;
+			gap: 0.42rem;
+		}
+
+		.done-modal__panel {
+			padding: 0.58rem 0.65rem;
+			border-radius: 16px;
+		}
+
+		.done-modal__time-field input,
+		.done-modal__next-due-input {
+			min-height: 2.5rem;
+			padding: 0.5rem 0.65rem;
+			border-radius: 13px;
+			font-size: 0.92rem;
+		}
+
+		.done-modal__toggle {
+			min-height: 2.5rem;
+			padding: 0.5rem 0.65rem;
+		}
+
+		.done-modal__button {
+			min-height: 2.5rem;
+			padding: 0.55rem 0.75rem;
+			font-size: 0.95rem;
+		}
+
+		.done-modal__button-secondary {
+			flex: 0 0 auto;
+		}
+
+		.done-modal__button-primary {
+			flex: 1 1 auto;
 		}
 	}
 </style>
