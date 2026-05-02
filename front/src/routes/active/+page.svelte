@@ -10,7 +10,12 @@
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import { formatElapsedDuration } from '$lib/task-format';
-	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
+	import {
+		DEFAULT_TASK_SORT_MODE,
+		loadStoredTaskSort,
+		sortTasks,
+		storeTaskSort
+	} from '$lib/task-sort';
 	import {
 		doneTask,
 		inactivateTask,
@@ -46,16 +51,15 @@
 	}
 
 	function formatDateTimeLocalValue(date) {
-		return [
-			date.getFullYear(),
-			padDateTimePart(date.getMonth() + 1),
-			padDateTimePart(date.getDate())
-		].join('-') +
-			'T' +
+		return (
 			[
-				padDateTimePart(date.getHours()),
-				padDateTimePart(date.getMinutes())
-			].join(':');
+				date.getFullYear(),
+				padDateTimePart(date.getMonth() + 1),
+				padDateTimePart(date.getDate())
+			].join('-') +
+			'T' +
+			[padDateTimePart(date.getHours()), padDateTimePart(date.getMinutes())].join(':')
+		);
 	}
 
 	function parseDateTimeLocalValue(value) {
@@ -107,7 +111,11 @@
 		return tasks.find((task) => task.id === taskId) ?? null;
 	}
 
-	function mergeTaskUpdate(taskId, updatedTask, { preservePanic = false, preserveInstanceNote = false } = {}) {
+	function mergeTaskUpdate(
+		taskId,
+		updatedTask,
+		{ preservePanic = false, preserveInstanceNote = false } = {}
+	) {
 		tasks = tasks.map((task) =>
 			task.id === taskId
 				? {
@@ -262,9 +270,8 @@
 		doneModalCompletedAtValue = formatDateTimeLocalValue(new Date());
 		doneModalInstanceNote = instanceNote ?? task.instanceNote ?? '';
 		doneModalSetNextDue = false;
-		doneModalNextDueAtValue = task.mode === 'repeatable'
-			? getDefaultDoneModalNextDueValue(doneModalCompletedAtValue)
-			: '';
+		doneModalNextDueAtValue =
+			task.mode === 'repeatable' ? getDefaultDoneModalNextDueValue(doneModalCompletedAtValue) : '';
 		doneModalNextDueDirty = false;
 		showDoneModal = true;
 		await tick();
@@ -503,10 +510,14 @@
 				<div class="done-modal__field">
 					<div class="done-modal__field-header">
 						<span>Tracked time</span>
-						<strong>{formatElapsedDuration(getDoneModalTrackedMilliseconds(selectedDoneTask))}</strong>
+						<strong
+							>{formatElapsedDuration(getDoneModalTrackedMilliseconds(selectedDoneTask))}</strong
+						>
 					</div>
 
-					<p class="done-modal__adjust-note">Edit the actual local start and finish time for this run.</p>
+					<p class="done-modal__adjust-note">
+						Edit the actual local start and finish time for this run.
+					</p>
 
 					<div class="done-modal__panel">
 						<div class="done-modal__time-grid">
@@ -596,17 +607,17 @@
 
 		<div class="task-grid">
 			{#each sortedTasks as task}
-					<TaskCard
-						task={task}
-						variant="active"
-						editableTaskId={task.id}
-						activeDurationLabel={getActiveDurationLabel(task)}
-						pomodoroStatusLabel={getPomodoroStatusLabel(task)}
-						pomodoroState={getTaskPomodoroState(task)}
-						panicDurationLabel={getPanicDurationLabel(task)}
-						effectiveDurationLabel={getEffectiveDurationLabel(task)}
-						onSaveInstanceNote={handleSaveInstanceNote}
-						busyAction={getBusyAction(task.id)}
+				<TaskCard
+					{task}
+					variant="active"
+					editableTaskId={task.id}
+					activeDurationLabel={getActiveDurationLabel(task)}
+					pomodoroStatusLabel={getPomodoroStatusLabel(task)}
+					pomodoroState={getTaskPomodoroState(task)}
+					panicDurationLabel={getPanicDurationLabel(task)}
+					effectiveDurationLabel={getEffectiveDurationLabel(task)}
+					onSaveInstanceNote={handleSaveInstanceNote}
+					busyAction={getBusyAction(task.id)}
 					onDone={handleDone}
 					onInactivate={handleInactivate}
 					onSaveNote={handleSaveNote}

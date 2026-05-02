@@ -29,8 +29,8 @@
 		<p class="eyebrow">Public product tour</p>
 		<h1>See the actual surfaces that make the system work.</h1>
 		<p class="lede">
-			This page is a quick visual walkthrough of the core product: daymapping, active runtime,
-			task setup, and note structure. These are real screenshots from the app, not marketing mockups.
+			This page is a quick visual walkthrough of the core product: daymapping, active runtime, task
+			setup, and note structure. These are real screenshots from the app, not marketing mockups.
 		</p>
 
 		<div class="hero-actions">
@@ -53,7 +53,8 @@
 				<h2>Daymap is the staging layer between backlog and action.</h2>
 				<p>
 					Instead of activating directly from an endless list, Task Monster gives today its own
-					surface. That keeps planning visible without pretending every captured task is already live.
+					surface. That keeps planning visible without pretending every captured task is already
+					live.
 				</p>
 			</div>
 		</article>
@@ -70,8 +71,8 @@
 				<p class="card-index">II</p>
 				<h2>Active runtime keeps the session honest.</h2>
 				<p>
-					Pomodoro phase, panic overlap, effective time, and run notes all stay attached to the
-					live task instead of being scattered into separate utilities.
+					Pomodoro phase, panic overlap, effective time, and run notes all stay attached to the live
+					task instead of being scattered into separate utilities.
 				</p>
 			</div>
 		</article>
@@ -88,8 +89,8 @@
 				<p class="card-index">III</p>
 				<h2>Tasks are configured for the workflow they belong to.</h2>
 				<p>
-					You can define type, color, tracking mode, and pomodoro cadence up front so the
-					system behaves differently for different categories of work.
+					You can define type, color, tracking mode, and pomodoro cadence up front so the system
+					behaves differently for different categories of work.
 				</p>
 			</div>
 		</article>

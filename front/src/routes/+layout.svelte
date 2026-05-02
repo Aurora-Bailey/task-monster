@@ -13,29 +13,48 @@
 
 	let { children } = $props();
 	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
+	const DEVELOPMENT_SW_RELOAD_KEY = 'task-monster-dev-sw-reload';
 
 	function clearDevelopmentServiceWorkers() {
 		if (!('serviceWorker' in navigator)) {
 			return;
 		}
 
-		void navigator.serviceWorker.getRegistrations().then((registrations) => {
-			for (const registration of registrations) {
-				if (registration.scope.startsWith(window.location.origin)) {
-					void registration.unregister();
-				}
-			}
-		});
+		const hadController = Boolean(navigator.serviceWorker.controller);
+		const unregisterServiceWorkers = navigator.serviceWorker
+			.getRegistrations()
+			.then((registrations) =>
+				Promise.all(
+					registrations
+						.filter((registration) => registration.scope.startsWith(window.location.origin))
+						.map((registration) => registration.unregister())
+				)
+			);
+		const clearCaches =
+			'caches' in window
+				? caches
+						.keys()
+						.then((cacheNames) =>
+							Promise.all(
+								cacheNames
+									.filter((cacheName) => cacheName.startsWith('task-monster-pwa-'))
+									.map((cacheName) => caches.delete(cacheName))
+							)
+						)
+				: Promise.resolve();
 
-		if ('caches' in window) {
-			void caches.keys().then((cacheNames) => {
-				for (const cacheName of cacheNames) {
-					if (cacheName.startsWith('task-monster-pwa-')) {
-						void caches.delete(cacheName);
-					}
+		void Promise.all([unregisterServiceWorkers, clearCaches]).then(() => {
+			if (hadController) {
+				if (sessionStorage.getItem(DEVELOPMENT_SW_RELOAD_KEY) !== 'true') {
+					sessionStorage.setItem(DEVELOPMENT_SW_RELOAD_KEY, 'true');
+					window.location.reload();
 				}
-			});
-		}
+
+				return;
+			}
+
+			sessionStorage.removeItem(DEVELOPMENT_SW_RELOAD_KEY);
+		});
 	}
 
 	function registerServiceWorker() {
@@ -50,7 +69,7 @@
 
 		const register = () => {
 			navigator.serviceWorker
-				.register(resolve('/sw.js'), { scope: resolve('/') })
+				.register(resolve('/sw.js'), { scope: resolve('/'), updateViaCache: 'none' })
 				.catch((error) => {
 					console.error('Service worker registration failed', error);
 				});

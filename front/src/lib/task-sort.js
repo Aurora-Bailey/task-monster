@@ -49,7 +49,9 @@ function getTaskTime(task, variant) {
 		case 'daymap':
 			return new Date(task.mappedAt || task.updatedAt || task.createdAt).getTime();
 		case 'done':
-			return new Date(task.completedAt || task.endedAt || task.lastCompletedAt || task.updatedAt).getTime();
+			return new Date(
+				task.completedAt || task.endedAt || task.lastCompletedAt || task.updatedAt
+			).getTime();
 		default:
 			return new Date(
 				task.updatedAt || task.lastInactivatedAt || task.lastCompletedAt || task.createdAt

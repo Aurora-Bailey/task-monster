@@ -15,8 +15,8 @@
 		<p class="eyebrow">Task Monster</p>
 		<h1>Terms &amp; Conditions</h1>
 		<p class="lede">
-			These Terms &amp; Conditions govern the use of the Task Monster web app, related services,
-			and the optional Task Monster SMS Assistant program.
+			These Terms &amp; Conditions govern the use of the Task Monster web app, related services, and
+			the optional Task Monster SMS Assistant program.
 		</p>
 		<p class="meta">Last updated: April 24, 2026</p>
 	</div>
@@ -25,8 +25,8 @@
 		<section id="acceptance">
 			<h2>I. Acceptance of Terms</h2>
 			<p>
-				By accessing or using Task Monster, you agree to these Terms &amp; Conditions. If you do
-				not agree, do not use the service.
+				By accessing or using Task Monster, you agree to these Terms &amp; Conditions. If you do not
+				agree, do not use the service.
 			</p>
 			<p>
 				These terms apply to the Task Monster website, web app, related APIs, optional prerelease
@@ -93,7 +93,9 @@
 				<li>use bots, scripts, or traffic patterns to abuse the service</li>
 				<li>use Task Monster to harass, deceive, spam, or impersonate others</li>
 				<li>send unlawful, harmful, or infringing content through the app or SMS program</li>
-				<li>attempt to reverse engineer or circumvent service restrictions except where law permits</li>
+				<li>
+					attempt to reverse engineer or circumvent service restrictions except where law permits
+				</li>
 			</ul>
 		</section>
 
@@ -183,8 +185,9 @@
 		<section id="privacy">
 			<h2>XI. Privacy</h2>
 			<p>
-				Your use of Task Monster is also governed by the <a href={resolve('/privacy')}>Privacy Policy</a>,
-				which describes how information is collected, used, and handled, including information
+				Your use of Task Monster is also governed by the <a href={resolve('/privacy')}
+					>Privacy Policy</a
+				>, which describes how information is collected, used, and handled, including information
 				related to the SMS Assistant.
 			</p>
 		</section>
@@ -192,9 +195,9 @@
 		<section id="termination">
 			<h2>XII. Suspension and Termination</h2>
 			<p>
-				Task Monster may suspend, restrict, or terminate access to the service at any time if
-				needed to protect the service, enforce these terms, respond to abuse, or comply with legal
-				or operational requirements.
+				Task Monster may suspend, restrict, or terminate access to the service at any time if needed
+				to protect the service, enforce these terms, respond to abuse, or comply with legal or
+				operational requirements.
 			</p>
 			<p>
 				You may stop using the service at any time. Opting out of SMS does not automatically delete

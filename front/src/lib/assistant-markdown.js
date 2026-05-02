@@ -84,7 +84,9 @@ function isBlockStart(line) {
 }
 
 export function renderAssistantMarkdown(markdown) {
-	const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+	const lines = String(markdown || '')
+		.replace(/\r\n?/g, '\n')
+		.split('\n');
 	const blocks = [];
 
 	for (let index = 0; index < lines.length; ) {

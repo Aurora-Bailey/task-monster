@@ -1,4 +1,5 @@
 const CACHE_NAME = 'task-monster-pwa-v1';
+const DEVELOPMENT_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1']);
 const SHELL_ASSETS = [
 	'./',
 	'./manifest.webmanifest',
@@ -9,53 +10,95 @@ const SHELL_ASSETS = [
 	'./icons/apple-touch-icon.png'
 ];
 const CACHEABLE_DESTINATIONS = new Set(['font', 'image', 'manifest', 'script', 'style', 'worker']);
+const isDevelopmentHost = isDevelopmentHostname(self.location.hostname);
 
-self.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches
-			.open(CACHE_NAME)
-			.then((cache) => cache.addAll(SHELL_ASSETS))
-			.then(() => self.skipWaiting())
+function isDevelopmentHostname(hostname) {
+	return (
+		DEVELOPMENT_HOSTNAMES.has(hostname) ||
+		hostname.endsWith('.local') ||
+		/^10\./.test(hostname) ||
+		/^192\.168\./.test(hostname) ||
+		/^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
 	);
-});
+}
 
-self.addEventListener('activate', (event) => {
-	event.waitUntil(
-		caches
-			.keys()
-			.then((cacheNames) =>
-				Promise.all(
-					cacheNames
-						.filter((cacheName) => cacheName !== CACHE_NAME)
-						.map((cacheName) => caches.delete(cacheName))
+async function clearTaskMonsterCaches() {
+	const cacheNames = await caches.keys();
+
+	await Promise.all(
+		cacheNames
+			.filter((cacheName) => cacheName.startsWith('task-monster-pwa-'))
+			.map((cacheName) => caches.delete(cacheName))
+	);
+}
+
+if (isDevelopmentHost) {
+	self.addEventListener('install', (event) => {
+		event.waitUntil(clearTaskMonsterCaches().then(() => self.skipWaiting()));
+	});
+
+	self.addEventListener('activate', (event) => {
+		event.waitUntil(
+			clearTaskMonsterCaches()
+				.then(() => self.registration.unregister())
+				.then(() => self.clients.claim())
+		);
+	});
+
+	self.addEventListener('fetch', () => {
+		// Dev must never be served from the PWA cache.
+	});
+} else {
+	self.addEventListener('install', (event) => {
+		event.waitUntil(
+			caches
+				.open(CACHE_NAME)
+				.then((cache) => cache.addAll(SHELL_ASSETS))
+				.then(() => self.skipWaiting())
+		);
+	});
+
+	self.addEventListener('activate', (event) => {
+		event.waitUntil(
+			caches
+				.keys()
+				.then((cacheNames) =>
+					Promise.all(
+						cacheNames
+							.filter((cacheName) => cacheName !== CACHE_NAME)
+							.map((cacheName) => caches.delete(cacheName))
+					)
 				)
-			)
-			.then(() => self.clients.claim())
-	);
-});
+				.then(() => self.clients.claim())
+		);
+	});
 
-self.addEventListener('fetch', (event) => {
-	const { request } = event;
+	self.addEventListener('fetch', (event) => {
+		const { request } = event;
 
-	if (request.method !== 'GET') {
-		return;
-	}
+		if (request.method !== 'GET') {
+			return;
+		}
 
-	const url = new URL(request.url);
+		const url = new URL(request.url);
 
-	if (url.origin !== self.location.origin) {
-		return;
-	}
+		if (url.origin !== self.location.origin) {
+			return;
+		}
 
-	if (request.mode === 'navigate') {
-		event.respondWith(networkFirstNavigation(request));
-		return;
-	}
+		if (request.mode === 'navigate') {
+			event.respondWith(networkFirstNavigation(request));
+			return;
+		}
 
-	if (CACHEABLE_DESTINATIONS.has(request.destination) || url.pathname.includes('/_app/immutable/')) {
-		event.respondWith(cacheFirst(request));
-	}
-});
+		if (
+			CACHEABLE_DESTINATIONS.has(request.destination) ||
+			url.pathname.includes('/_app/immutable/')
+		) {
+			event.respondWith(cacheFirst(request));
+		}
+	});
+}
 
 async function networkFirstNavigation(request) {
 	const cache = await caches.open(CACHE_NAME);

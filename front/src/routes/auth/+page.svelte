@@ -155,8 +155,8 @@
 					/>
 					<label class="consent-copy" for="auth-legal-acceptance">
 						I agree to the <a href={resolve('/privacy')}>Privacy Policy</a> and
-						<a href={resolve('/terms')}>Terms &amp; Conditions</a>, including the rules that
-						govern the full app and the optional SMS Assistant.
+						<a href={resolve('/terms')}>Terms &amp; Conditions</a>, including the rules that govern
+						the full app and the optional SMS Assistant.
 					</label>
 				</div>
 				<p class="field-note">

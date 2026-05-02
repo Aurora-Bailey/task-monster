@@ -195,7 +195,7 @@
 		<div class="task-grid">
 			{#each sortedTasks as task}
 				<TaskCard
-					task={task}
+					{task}
 					variant="daymap"
 					editableTaskId={task.id}
 					busyAction={busyTasks[task.id] || null}

@@ -47,9 +47,9 @@
 					<p class="section-kicker">Focused operating surface</p>
 					<h1>Compress the daily table.</h1>
 					<p class="hero-lede">
-						Task Monster is built around a tighter operating model: choose what belongs today,
-						run what is actually live, record real sessions, and review what happened instead of
-						what you hoped would happen.
+						Task Monster is built around a tighter operating model: choose what belongs today, run
+						what is actually live, record real sessions, and review what happened instead of what
+						you hoped would happen.
 					</p>
 
 					<div class="hero-actions">
@@ -105,9 +105,7 @@
 				<article class="signal-card">
 					<p class="card-index">01</p>
 					<h3>Backlog is not today</h3>
-					<p>
-						Inactive tasks stay off the table until you deliberately map them into the day.
-					</p>
+					<p>Inactive tasks stay off the table until you deliberately map them into the day.</p>
 				</article>
 
 				<article class="signal-card">
@@ -135,8 +133,8 @@
 				<p class="section-kicker">Daymap</p>
 				<h2>Shape the day before the timer starts.</h2>
 				<p>
-					Tasks move from inactive into the daymap first, which gives you a staging layer instead
-					of forcing planning and execution into the same pile.
+					Tasks move from inactive into the daymap first, which gives you a staging layer instead of
+					forcing planning and execution into the same pile.
 				</p>
 				<ul class="surface-points">
 					<li>Only today&apos;s work gets mapped in.</li>
@@ -196,12 +194,12 @@
 				<p class="section-kicker">Task builder</p>
 				<h2>Tasks carry structure, not just names.</h2>
 				<p>
-					You can define color, type, tracking mode, and pomodoro cadence at creation time so
-					the system knows how that task should behave later.
+					You can define color, type, tracking mode, and pomodoro cadence at creation time so the
+					system knows how that task should behave later.
 				</p>
 				<p>
-					Persistent task context stays separate from run-specific notes, which makes review
-					cleaner once the day is over.
+					Persistent task context stays separate from run-specific notes, which makes review cleaner
+					once the day is over.
 				</p>
 			</div>
 
@@ -231,9 +229,9 @@
 				<p class="section-kicker">Last layer</p>
 				<h2>SMS and AI sit on top of the workflow, not in place of it.</h2>
 				<p>
-					The assistant story matters, but only after the underlying system is solid. The plan is
-					to let verified users text the system, have an AI layer resolve intent safely, and then
-					call the existing backend actions with clarification when a request is ambiguous.
+					The assistant story matters, but only after the underlying system is solid. The plan is to
+					let verified users text the system, have an AI layer resolve intent safely, and then call
+					the existing backend actions with clarification when a request is ambiguous.
 				</p>
 			</div>
 

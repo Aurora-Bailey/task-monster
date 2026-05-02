@@ -22,10 +22,7 @@ export const BELL_SOUND_OPTIONS = Object.freeze([
 ]);
 
 export function getBellSoundOption(key = DEFAULT_BELL_SOUND_KEY) {
-	return (
-		BELL_SOUND_OPTIONS.find((option) => option.key === key) ??
-		BELL_SOUND_OPTIONS[0]
-	);
+	return BELL_SOUND_OPTIONS.find((option) => option.key === key) ?? BELL_SOUND_OPTIONS[0];
 }
 
 export async function unlockBellAudio(currentAudioContext) {

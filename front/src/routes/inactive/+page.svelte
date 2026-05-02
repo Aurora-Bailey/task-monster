@@ -6,8 +6,18 @@
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
-	import { DEFAULT_TASK_SORT_MODE, loadStoredTaskSort, sortTasks, storeTaskSort } from '$lib/task-sort';
-	import { archiveTask, loadInactiveTasks, moveTaskToDaymap, updateTaskNote } from '$lib/tasks-client';
+	import {
+		DEFAULT_TASK_SORT_MODE,
+		loadStoredTaskSort,
+		sortTasks,
+		storeTaskSort
+	} from '$lib/task-sort';
+	import {
+		archiveTask,
+		loadInactiveTasks,
+		moveTaskToDaymap,
+		updateTaskNote
+	} from '$lib/tasks-client';
 
 	let tasks = $state([]);
 	let isLoading = $state(true);
@@ -110,7 +120,10 @@
 
 <svelte:head>
 	<title>Inactive Tasks</title>
-	<meta name="description" content="Your full backlog of possible tasks that are not on today's map yet." />
+	<meta
+		name="description"
+		content="Your full backlog of possible tasks that are not on today's map yet."
+	/>
 </svelte:head>
 
 <section class="board">
@@ -153,7 +166,7 @@
 		<div class="task-grid">
 			{#each sortedTasks as task}
 				<TaskCard
-					task={task}
+					{task}
 					editableTaskId={task.id}
 					clickActionLabel="Move to daymap"
 					busyAction={busyTasks[task.id] || null}

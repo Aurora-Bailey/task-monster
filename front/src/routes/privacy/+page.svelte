@@ -34,13 +34,33 @@
 			<h2>II. Information We Collect</h2>
 			<p>Depending on how you use Task Monster, the service may collect:</p>
 			<ul>
-				<li>account information such as username, password-derived hash data, and account timestamps</li>
-				<li>session and security information such as login attempts, token metadata, IP addresses, and related diagnostics</li>
-				<li>task records such as titles, notes, colors, task types, status changes, archive state, and run settings</li>
-				<li>activity records such as task runs, done events, panic sessions, stats inputs, and other history needed to render logs and summaries</li>
-				<li>phone-link information such as submitted phone numbers, verification state, consent records, and linked-account metadata</li>
-				<li>SMS information such as message content, timestamps, delivery events, opt-in records, and opt-out records</li>
-				<li>operational and troubleshooting data needed to monitor reliability, investigate abuse, and improve service performance</li>
+				<li>
+					account information such as username, password-derived hash data, and account timestamps
+				</li>
+				<li>
+					session and security information such as login attempts, token metadata, IP addresses, and
+					related diagnostics
+				</li>
+				<li>
+					task records such as titles, notes, colors, task types, status changes, archive state, and
+					run settings
+				</li>
+				<li>
+					activity records such as task runs, done events, panic sessions, stats inputs, and other
+					history needed to render logs and summaries
+				</li>
+				<li>
+					phone-link information such as submitted phone numbers, verification state, consent
+					records, and linked-account metadata
+				</li>
+				<li>
+					SMS information such as message content, timestamps, delivery events, opt-in records, and
+					opt-out records
+				</li>
+				<li>
+					operational and troubleshooting data needed to monitor reliability, investigate abuse, and
+					improve service performance
+				</li>
 			</ul>
 		</section>
 
@@ -74,7 +94,8 @@
 			<p>
 				If you link a phone number or use the Task Monster SMS Assistant, Task Monster may collect
 				and process your phone number, verification codes, verification attempts, linked-number
-				status, inbound SMS content, outbound SMS content, message timestamps, and delivery metadata.
+				status, inbound SMS content, outbound SMS content, message timestamps, and delivery
+				metadata.
 			</p>
 			<p>
 				SMS information is used only for service operations such as phone verification, account
@@ -92,7 +113,9 @@
 				<li>store, retrieve, and organize tasks, notes, run history, and stats</li>
 				<li>send verification codes, operational notices, and service-related responses</li>
 				<li>interpret SMS requests and map them to the correct account and task action</li>
-				<li>maintain logs, diagnose problems, detect abuse, and improve reliability and performance</li>
+				<li>
+					maintain logs, diagnose problems, detect abuse, and improve reliability and performance
+				</li>
 				<li>comply with legal obligations and enforce Task Monster policies and terms</li>
 			</ul>
 		</section>

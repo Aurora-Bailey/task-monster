@@ -9,12 +9,7 @@
 		sendAssistantChat
 	} from '$lib/assistant-client';
 
-	let {
-		open = false,
-		username = '',
-		currentPath = '',
-		onClose = () => {}
-	} = $props();
+	let { open = false, username = '', currentPath = '', onClose = () => {} } = $props();
 
 	let messages = $state([]);
 	let draft = $state('');
@@ -41,12 +36,10 @@
 	}
 
 	function buildConversationPayload(nextMessages) {
-		return nextMessages
-			.slice(-MAX_CONVERSATION_MESSAGES)
-			.map((message) => ({
-				role: message.role,
-				content: String(message.content || '').slice(0, MAX_MESSAGE_CONTENT_LENGTH)
-			}));
+		return nextMessages.slice(-MAX_CONVERSATION_MESSAGES).map((message) => ({
+			role: message.role,
+			content: String(message.content || '').slice(0, MAX_MESSAGE_CONTENT_LENGTH)
+		}));
 	}
 
 	async function focusInput() {
@@ -220,7 +213,9 @@
 						>
 							<div class="message-bubble">
 								{#if message.role === 'assistant'}
-									<div class="assistant-markdown">{@html renderAssistantMarkdown(message.content)}</div>
+									<div class="assistant-markdown">
+										{@html renderAssistantMarkdown(message.content)}
+									</div>
 								{:else}
 									<p>{message.content}</p>
 								{/if}
@@ -308,7 +303,12 @@
 		border-radius: 999px;
 		background:
 			radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), transparent 42%),
-			linear-gradient(135deg, rgba(255, 84, 190, 0.82), rgba(115, 236, 255, 0.72) 62%, rgba(116, 88, 255, 0.8));
+			linear-gradient(
+				135deg,
+				rgba(255, 84, 190, 0.82),
+				rgba(115, 236, 255, 0.72) 62%,
+				rgba(116, 88, 255, 0.8)
+			);
 		box-shadow:
 			0 0 0 1px rgba(111, 225, 255, 0.08),
 			0 16px 32px rgba(10, 8, 28, 0.34),
@@ -375,7 +375,12 @@
 	.assistant-message .message-bubble {
 		background:
 			linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-			linear-gradient(135deg, rgba(255, 74, 190, 0.16), rgba(83, 242, 255, 0.12) 52%, rgba(157, 110, 255, 0.16));
+			linear-gradient(
+				135deg,
+				rgba(255, 74, 190, 0.16),
+				rgba(83, 242, 255, 0.12) 52%,
+				rgba(157, 110, 255, 0.16)
+			);
 		border-color: rgba(255, 133, 217, 0.18);
 		box-shadow:
 			0 18px 34px rgba(5, 8, 18, 0.28),
@@ -545,7 +550,13 @@
 	.assistant-markdown :global(hr) {
 		border: 0;
 		height: 1px;
-		background: linear-gradient(90deg, rgba(255, 122, 217, 0), rgba(255, 122, 217, 0.8), rgba(105, 239, 255, 0.85), rgba(255, 122, 217, 0));
+		background: linear-gradient(
+			90deg,
+			rgba(255, 122, 217, 0),
+			rgba(255, 122, 217, 0.8),
+			rgba(105, 239, 255, 0.85),
+			rgba(255, 122, 217, 0)
+		);
 	}
 
 	.message-bubble-pending {

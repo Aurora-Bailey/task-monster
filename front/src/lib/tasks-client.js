@@ -186,10 +186,12 @@ export async function updateTask(taskId, changes) {
 		type: 'update',
 		taskId
 	});
-	return body ?? {
-		task: null,
-		changes: []
-	};
+	return (
+		body ?? {
+			task: null,
+			changes: []
+		}
+	);
 }
 
 export function archiveTask(taskId) {

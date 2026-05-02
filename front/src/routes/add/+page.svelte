@@ -121,8 +121,7 @@
 							: null,
 					bellSound: trackingType === 'time' ? selectedBellSound : null,
 					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
-					tallyTarget:
-						trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
+					tallyTarget: trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
 					note: note.trim() ? note : null
 				}
 			});
@@ -162,28 +161,28 @@
 				required
 			/>
 
-				<fieldset class="color-picker">
-					<legend class="field-label">Task color</legend>
-					<div class="color-options">
-						{#each taskColors as color}
-							<label class="color-option" style={`--swatch-color: ${color.hex};`}>
-								<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
-								<span class="color-choice">
-									<span class="swatch" aria-hidden="true"></span>
-									<span class="color-caption">{color.category}</span>
-								</span>
-								<span class="visually-hidden">{color.label} for {color.category} tasks</span>
-							</label>
-						{/each}
-					</div>
-					<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
-						<p class="color-helper__title">
-							<span class="color-helper__dot" aria-hidden="true"></span>
-							<strong>{selectedColorMeta.category}</strong>
-						</p>
-						<p class="color-helper__description">{selectedColorMeta.description}</p>
-					</div>
-				</fieldset>
+			<fieldset class="color-picker">
+				<legend class="field-label">Task color</legend>
+				<div class="color-options">
+					{#each taskColors as color}
+						<label class="color-option" style={`--swatch-color: ${color.hex};`}>
+							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
+							<span class="color-choice">
+								<span class="swatch" aria-hidden="true"></span>
+								<span class="color-caption">{color.category}</span>
+							</span>
+							<span class="visually-hidden">{color.label} for {color.category} tasks</span>
+						</label>
+					{/each}
+				</div>
+				<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
+					<p class="color-helper__title">
+						<span class="color-helper__dot" aria-hidden="true"></span>
+						<strong>{selectedColorMeta.category}</strong>
+					</p>
+					<p class="color-helper__description">{selectedColorMeta.description}</p>
+				</div>
+			</fieldset>
 
 			<fieldset class="task-mode">
 				<legend class="field-label">Task type</legend>
@@ -255,8 +254,20 @@
 									<span class="pomodoro-card__icon" aria-hidden="true">
 										{#if option.presetKey === NO_POMODORO_PRESET_KEY}
 											<svg viewBox="0 0 48 48" fill="none" role="presentation">
-												<circle cx="24" cy="24" r="17" fill="#e8edf5" stroke="#8ba0b9" stroke-width="2" />
-												<path d="M16 32 32 16" stroke="#8ba0b9" stroke-width="2.5" stroke-linecap="round" />
+												<circle
+													cx="24"
+													cy="24"
+													r="17"
+													fill="#e8edf5"
+													stroke="#8ba0b9"
+													stroke-width="2"
+												/>
+												<path
+													d="M16 32 32 16"
+													stroke="#8ba0b9"
+													stroke-width="2.5"
+													stroke-linecap="round"
+												/>
 											</svg>
 										{:else}
 											<svg viewBox="0 0 48 48" fill="none" role="presentation">
@@ -512,7 +523,9 @@
 		height: 0.8rem;
 		border-radius: 999px;
 		background: var(--selected-color);
-		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 3px rgba(0, 0, 0, 0.08);
+		box-shadow:
+			0 0 0 2px rgba(255, 255, 255, 0.92),
+			0 0 0 3px rgba(0, 0, 0, 0.08);
 	}
 
 	.color-helper__description {
@@ -577,7 +590,9 @@
 		text-transform: uppercase;
 		line-height: 1.2;
 		color: rgba(0, 0, 0, 0.52);
-		transition: color 0.16s ease, transform 0.16s ease;
+		transition:
+			color 0.16s ease,
+			transform 0.16s ease;
 	}
 
 	.color-option input:checked + .color-choice .color-caption {
