@@ -17,6 +17,7 @@
 		archiveTask,
 		loadInactiveTasks,
 		moveTaskToDaymap,
+		updateTaskNextDue,
 		updateTaskNote
 	} from '$lib/tasks-client';
 
@@ -62,6 +63,12 @@
 
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
+		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+		return updatedTask;
+	}
+
+	async function handleSaveNextDue(taskId, nextDueAt) {
+		const updatedTask = await updateTaskNextDue(taskId, nextDueAt);
 		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
 		return updatedTask;
 	}
@@ -188,6 +195,7 @@
 						onActivate={handleDaymap}
 						onArchive={handleArchive}
 						onSaveNote={handleSaveNote}
+						onSaveNextDue={handleSaveNextDue}
 					/>
 				{/each}
 			</div>

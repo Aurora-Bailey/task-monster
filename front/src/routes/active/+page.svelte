@@ -22,6 +22,7 @@
 		inactivateTask,
 		loadActiveTasks,
 		updateTaskInstanceNote,
+		updateTaskNextDue,
 		updateTaskTally,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -407,6 +408,15 @@
 		return updatedTask;
 	}
 
+	async function handleSaveNextDue(taskId, nextDueAt) {
+		const updatedTask = await updateTaskNextDue(taskId, nextDueAt);
+		mergeTaskUpdate(taskId, updatedTask, {
+			preservePanic: true,
+			preserveInstanceNote: true
+		});
+		return updatedTask;
+	}
+
 	async function handleSaveInstanceNote(taskId, instanceNote) {
 		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
 		mergeTaskUpdate(taskId, updatedTask, {
@@ -631,6 +641,7 @@
 						onDone={handleDone}
 						onInactivate={handleInactivate}
 						onSaveNote={handleSaveNote}
+						onSaveNextDue={handleSaveNextDue}
 						onTally={handleTally}
 					/>
 				{/each}

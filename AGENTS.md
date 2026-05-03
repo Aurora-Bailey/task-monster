@@ -359,6 +359,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Task cards can now show:
   - `Next due`
   - `Last done`
+  - both timing pills are always visible side by side, using compact `Unset` and `Never` placeholders when dates are missing
+  - clicking a visible `Next due` pill opens an inline local datetime editor on inactive, daymap, active, and done pages
 - Active page includes:
   - browser audio break-bell behavior
   - tally increment and decrement controls

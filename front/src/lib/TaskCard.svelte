@@ -1,5 +1,5 @@
 <script>
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 
 	import {
 		formatElapsedDuration,
@@ -16,12 +16,11 @@
 		minute: '2-digit'
 	});
 	const timingWeekdayFormatter = new Intl.DateTimeFormat(undefined, {
-		weekday: 'long'
+		weekday: 'short'
 	});
 	const lastDoneDateFormatter = new Intl.DateTimeFormat(undefined, {
-		month: 'long',
-		day: 'numeric',
-		year: '2-digit'
+		month: 'short',
+		day: 'numeric'
 	});
 	const lastDoneTimeFormatter = new Intl.DateTimeFormat(undefined, {
 		hour: 'numeric',
@@ -44,6 +43,7 @@
 		busyAction = null,
 		onSaveNote = null,
 		onSaveInstanceNote = null,
+		onSaveNextDue = null,
 		showArchiveButton = false,
 		onActivate = () => {},
 		onArchive = () => {},
@@ -69,8 +69,7 @@
 	const canEditInstanceNote = $derived(
 		variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote)
 	);
-	const showsNextDue = $derived(Boolean(task.nextDueAt));
-	const showsLastDone = $derived(Boolean(task.lastCompletedAt));
+	const canEditNextDue = $derived(Boolean(editableTaskId && onSaveNextDue));
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
 	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
@@ -119,6 +118,11 @@
 	let lastCommittedInstanceNote = $state('');
 	let instanceNoteSaveStatus = $state('idle');
 	let instanceNoteSaveError = $state('');
+	let nextDueEditorOpen = $state(false);
+	let draftNextDueAt = $state('');
+	let nextDueSaveStatus = $state('idle');
+	let nextDueSaveError = $state('');
+	let nextDueInput = $state(null);
 
 	let pendingSaveTimer = null;
 	let noteRevision = 0;
@@ -139,8 +143,18 @@
 		}
 	}
 
-	function handleInactiveActivate() {
+	function isInteractiveCardTarget(event) {
+		return Boolean(
+			event?.target?.closest?.('button, input, textarea, select, a, label, .task-card__interactive')
+		);
+	}
+
+	function handleInactiveActivate(event) {
 		if (!isInactiveCard || busyAction !== null) {
+			return;
+		}
+
+		if (isInteractiveCardTarget(event)) {
 			return;
 		}
 
@@ -152,6 +166,10 @@
 			return;
 		}
 
+		if (isInteractiveCardTarget(event)) {
+			return;
+		}
+
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
 			onActivate(task.id);
@@ -160,6 +178,42 @@
 
 	function stopEventPropagation(event) {
 		event.stopPropagation();
+	}
+
+	function padDateTimePart(value) {
+		return String(value).padStart(2, '0');
+	}
+
+	function formatDateTimeLocalValue(value) {
+		if (!value) {
+			return '';
+		}
+
+		const date = new Date(value);
+
+		if (Number.isNaN(date.getTime())) {
+			return '';
+		}
+
+		return (
+			[
+				date.getFullYear(),
+				padDateTimePart(date.getMonth() + 1),
+				padDateTimePart(date.getDate())
+			].join('-') +
+			'T' +
+			[padDateTimePart(date.getHours()), padDateTimePart(date.getMinutes())].join(':')
+		);
+	}
+
+	function parseDateTimeLocalValue(value) {
+		if (typeof value !== 'string' || !value.trim()) {
+			return null;
+		}
+
+		const parsed = new Date(value);
+
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
 	}
 
 	function handleArchiveClick(event) {
@@ -270,7 +324,22 @@
 	}
 
 	function formatLastDone(value) {
+		if (!value) {
+			return {
+				weekdayLabel: 'Never',
+				dateTimeLabel: 'No runs'
+			};
+		}
+
 		const date = new Date(value);
+
+		if (Number.isNaN(date.getTime())) {
+			return {
+				weekdayLabel: 'Never',
+				dateTimeLabel: 'No runs'
+			};
+		}
+
 		const weekdayLabel = timingWeekdayFormatter.format(date);
 		const dateLabel = lastDoneDateFormatter.format(date);
 		const timeLabel = lastDoneTimeFormatter.format(date).replace(' AM', 'am').replace(' PM', 'pm');
@@ -282,7 +351,86 @@
 	}
 
 	function formatNextDue(value) {
+		if (!value) {
+			return {
+				weekdayLabel: 'Unset',
+				dateTimeLabel: canEditNextDue ? 'Schedule' : 'No date'
+			};
+		}
+
+		const date = new Date(value);
+
+		if (Number.isNaN(date.getTime())) {
+			return {
+				weekdayLabel: 'Unset',
+				dateTimeLabel: canEditNextDue ? 'Schedule' : 'No date'
+			};
+		}
+
 		return formatLastDone(value);
+	}
+
+	function formatTimingTitle(label, meta) {
+		return `${label}: ${meta.weekdayLabel} ${meta.dateTimeLabel}`;
+	}
+
+	async function openNextDueEditor(event) {
+		event.stopPropagation();
+
+		if (!canEditNextDue || nextDueSaveStatus === 'saving') {
+			return;
+		}
+
+		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
+		nextDueSaveStatus = 'idle';
+		nextDueSaveError = '';
+		nextDueEditorOpen = true;
+		await tick();
+		nextDueInput?.focus();
+	}
+
+	function closeNextDueEditor(event) {
+		event?.stopPropagation();
+
+		if (nextDueSaveStatus === 'saving') {
+			return;
+		}
+
+		nextDueEditorOpen = false;
+		nextDueSaveStatus = 'idle';
+		nextDueSaveError = '';
+		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
+	}
+
+	async function handleNextDueSubmit(event) {
+		event.preventDefault();
+		event.stopPropagation();
+
+		if (!canEditNextDue || nextDueSaveStatus === 'saving') {
+			return;
+		}
+
+		const nextDueDate = parseDateTimeLocalValue(draftNextDueAt);
+
+		if (!nextDueDate) {
+			nextDueSaveStatus = 'error';
+			nextDueSaveError = 'Enter a valid next due time.';
+			return;
+		}
+
+		nextDueSaveStatus = 'saving';
+		nextDueSaveError = '';
+
+		try {
+			const updatedTask = await onSaveNextDue(editableTaskId, nextDueDate.toISOString());
+
+			draftNextDueAt = formatDateTimeLocalValue(updatedTask?.nextDueAt ?? nextDueDate);
+			nextDueSaveStatus = 'saved';
+			nextDueEditorOpen = false;
+		} catch (error) {
+			nextDueSaveStatus = 'error';
+			nextDueSaveError = error.message;
+		}
 	}
 
 	function formatPanicCharge(value) {
@@ -378,6 +526,14 @@
 		if (instanceNoteSaveStatus !== 'pending' && instanceNoteSaveStatus !== 'saving') {
 			draftInstanceNote = incomingInstanceNote;
 		}
+	});
+
+	$effect(() => {
+		if (nextDueSaveStatus === 'saving') {
+			return;
+		}
+
+		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
 	});
 
 	onDestroy(() => {
@@ -499,21 +655,89 @@
 		</div>
 	</div>
 
-	{#if showsNextDue}
-		{@const nextDueMeta = formatNextDue(task.nextDueAt)}
-		<p class="task-card__timing-meta task-card__next-due">
-			Next due:
-			<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>, {nextDueMeta.dateTimeLabel}
-		</p>
-	{/if}
+	<div class="task-card__timing-row" class:is-editing-next-due={nextDueEditorOpen}>
+		{#if true}
+			{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
+			<p
+				class="task-card__timing-meta task-card__last-done"
+				title={formatTimingTitle('Last done', lastDoneMeta)}
+				aria-label={formatTimingTitle('Last done', lastDoneMeta)}
+			>
+				<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>
+				<span class="task-card__timing-date">{lastDoneMeta.dateTimeLabel}</span>
+			</p>
+		{/if}
 
-	{#if showsLastDone}
-		{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
-		<p class="task-card__timing-meta task-card__last-done">
-			Last done:
-			<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>, {lastDoneMeta.dateTimeLabel}
-		</p>
-	{/if}
+		<svg class="task-card__timing-arrow" viewBox="0 0 18 10" aria-hidden="true">
+			<path
+				d="M1 5h14m-4-4 4 4-4 4"
+				fill="none"
+				stroke="currentColor"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="1.4"
+			/>
+		</svg>
+
+		{#if true}
+			{@const nextDueMeta = formatNextDue(task.nextDueAt)}
+			{#if nextDueEditorOpen}
+				<form
+					class="task-card__next-due-editor task-card__interactive"
+					onsubmit={handleNextDueSubmit}
+				>
+					<label>
+						<span>Next due</span>
+						<input
+							bind:this={nextDueInput}
+							bind:value={draftNextDueAt}
+							type="datetime-local"
+							disabled={nextDueSaveStatus === 'saving'}
+						/>
+					</label>
+
+					<div class="task-card__next-due-actions">
+						<button type="submit" disabled={nextDueSaveStatus === 'saving'}>
+							{nextDueSaveStatus === 'saving' ? 'Saving...' : 'Save'}
+						</button>
+						<button
+							type="button"
+							disabled={nextDueSaveStatus === 'saving'}
+							onclick={closeNextDueEditor}
+						>
+							Cancel
+						</button>
+					</div>
+
+					{#if nextDueSaveStatus === 'error' && nextDueSaveError}
+						<p class="task-card__next-due-error">{nextDueSaveError}</p>
+					{/if}
+				</form>
+			{:else if canEditNextDue}
+				<button
+					class="task-card__timing-meta task-card__next-due task-card__timing-button"
+					type="button"
+					aria-label={`Edit next due time for ${task.name}. ${formatTimingTitle('Next due', nextDueMeta)}`}
+					title={formatTimingTitle('Next due', nextDueMeta)}
+					onpointerdown={stopEventPropagation}
+					onclick={openNextDueEditor}
+					onkeydown={stopEventPropagation}
+				>
+					<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
+					<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
+				</button>
+			{:else}
+				<p
+					class="task-card__timing-meta task-card__next-due"
+					title={formatTimingTitle('Next due', nextDueMeta)}
+					aria-label={formatTimingTitle('Next due', nextDueMeta)}
+				>
+					<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
+					<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
+				</p>
+			{/if}
+		{/if}
+	</div>
 
 	{#if task.note || canEditNote}
 		<div class="task-card__note-block">
@@ -1038,22 +1262,174 @@
 		color: color-mix(in srgb, var(--task-accent) 68%, var(--color-heading));
 	}
 
-	.task-card__timing-meta {
-		margin: -0.2rem 0 0;
-		padding-left: 0.55rem;
-		font-size: 0.78rem;
-		font-weight: 500;
-		letter-spacing: 0.01em;
-		color: var(--color-soft);
-	}
-
-	.task-card__timing-day {
-		font-weight: 800;
+	.task-card__timing-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		align-items: center;
+		gap: 0.24rem;
+		margin-top: -0.25rem;
 		color: var(--color-muted);
 	}
 
+	.task-card__timing-row.is-editing-next-due {
+		align-items: start;
+	}
+
+	.task-card__timing-meta {
+		margin: 0;
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: nowrap;
+		gap: 0.18rem;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		font-size: clamp(0.6rem, 1.5vw, 0.7rem);
+		font-weight: 700;
+		letter-spacing: 0.01em;
+		color: color-mix(in srgb, var(--timing-accent) 62%, var(--color-muted));
+		white-space: nowrap;
+	}
+
+	.task-card__timing-arrow {
+		width: 0.9rem;
+		height: 0.5rem;
+		color: color-mix(in srgb, var(--surface-border-strong) 42%, transparent);
+		opacity: 0.48;
+	}
+
+	.task-card__timing-day {
+		flex: 0 0 auto;
+		font-weight: 800;
+		color: color-mix(in srgb, var(--timing-accent) 86%, var(--color-heading));
+	}
+
+	.task-card__timing-date {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.task-card__timing-button {
+		appearance: none;
+		font-family: inherit;
+		text-align: left;
+		cursor: pointer;
+		border: 0;
+		background: transparent;
+		transition:
+			transform 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.task-card__timing-button:hover {
+		transform: translateY(-1px);
+		color: color-mix(in srgb, var(--timing-accent) 82%, var(--color-heading));
+	}
+
+	.task-card__timing-button:focus-visible {
+		outline: none;
+		border-radius: 0.35rem;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--timing-accent) 18%, transparent);
+	}
+
 	.task-card__next-due {
-		color: color-mix(in srgb, var(--task-accent) 60%, var(--color-muted));
+		--timing-accent: var(--color-theme-1);
+		justify-content: flex-start;
+	}
+
+	.task-card__last-done {
+		--timing-accent: var(--color-theme-2);
+		justify-content: flex-end;
+		text-align: right;
+	}
+
+	.task-card__next-due-editor {
+		display: grid;
+		gap: 0.55rem;
+		width: 100%;
+		min-width: 0;
+		margin: 0;
+		padding: 0.72rem;
+		border: 1px solid color-mix(in srgb, var(--color-theme-1) 30%, var(--surface-border));
+		border-left: 3px solid var(--color-theme-1);
+		border-radius: 16px;
+		background:
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--color-theme-1) 12%, transparent),
+				transparent 64%
+			),
+			var(--surface-2);
+		box-shadow: var(--surface-inset);
+	}
+
+	.task-card__next-due-editor label {
+		display: grid;
+		gap: 0.35rem;
+		color: color-mix(in srgb, var(--color-theme-1) 72%, var(--color-heading));
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.task-card__next-due-editor input {
+		width: 100%;
+		min-height: 2.45rem;
+		padding: 0.62rem 0.72rem;
+		border: 1px solid color-mix(in srgb, var(--color-theme-1) 24%, var(--field-border));
+		border-radius: 12px;
+		background: var(--field-bg);
+		color: var(--color-heading);
+		font: inherit;
+		font-size: 0.9rem;
+		color-scheme: inherit;
+	}
+
+	.task-card__next-due-editor input:focus {
+		outline: none;
+		border-color: color-mix(in srgb, var(--color-theme-1) 58%, var(--field-border));
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-theme-1) 18%, transparent);
+	}
+
+	.task-card__next-due-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.task-card__next-due-actions button {
+		min-height: 2.2rem;
+		padding: 0.48rem 0.75rem;
+		border: 1px solid color-mix(in srgb, var(--color-theme-1) 24%, var(--surface-border));
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--color-theme-1) 12%, var(--surface-2));
+		color: color-mix(in srgb, var(--color-theme-1) 78%, var(--color-heading));
+		font-size: 0.74rem;
+		font-weight: 800;
+		cursor: pointer;
+	}
+
+	.task-card__next-due-actions button[type='submit'] {
+		background: var(--accent-gradient);
+		border-color: color-mix(in srgb, var(--color-theme-1) 48%, var(--surface-border));
+		color: var(--color-accent-contrast);
+	}
+
+	.task-card__next-due-actions button:disabled {
+		cursor: wait;
+		opacity: 0.7;
+	}
+
+	.task-card__next-due-error {
+		color: var(--color-danger);
+		font-size: 0.78rem;
+		font-weight: 700;
 	}
 
 	.task-card__note-block {

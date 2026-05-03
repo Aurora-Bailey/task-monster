@@ -19,6 +19,7 @@
 		loadDaymapTasks,
 		queueTask,
 		updateTaskDaymapLock,
+		updateTaskNextDue,
 		unqueueTask,
 		unmapTask,
 		updateTaskNote
@@ -88,6 +89,12 @@
 
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
+		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
+		return updatedTask;
+	}
+
+	async function handleSaveNextDue(taskId, nextDueAt) {
+		const updatedTask = await updateTaskNextDue(taskId, nextDueAt);
 		tasks = tasks.map((task) => (task.id === taskId ? updatedTask : task));
 		return updatedTask;
 	}
@@ -217,6 +224,7 @@
 						onToggleDaymapLock={handleDaymapLockToggle}
 						onQueueToggle={handleQueueToggle}
 						onSaveNote={handleSaveNote}
+						onSaveNextDue={handleSaveNextDue}
 						onUnmap={handleUnmap}
 					/>
 				{/each}

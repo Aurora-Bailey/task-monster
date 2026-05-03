@@ -12,7 +12,7 @@
 		sortTasks,
 		storeTaskSort
 	} from '$lib/task-sort';
-	import { loadDoneFeed, updateTaskNote } from '$lib/tasks-client';
+	import { loadDoneFeed, updateTaskNextDue, updateTaskNote } from '$lib/tasks-client';
 
 	const DONE_BATCH_SIZE = 10;
 	const DONE_DEFAULT_SORT_MODE = 'date';
@@ -103,6 +103,19 @@
 				? {
 						...task,
 						note: updatedTask.note
+					}
+				: task
+		);
+		return updatedTask;
+	}
+
+	async function handleSaveNextDue(taskId, nextDueAt) {
+		const updatedTask = await updateTaskNextDue(taskId, nextDueAt);
+		tasks = tasks.map((task) =>
+			task.taskId === taskId
+				? {
+						...task,
+						nextDueAt: updatedTask.nextDueAt
 					}
 				: task
 		);
@@ -220,6 +233,7 @@
 						effectiveDurationLabel={formatEffectiveDuration(task)}
 						completedAtLabel={formatCompletedAt(task.completedAt)}
 						onSaveNote={handleSaveNote}
+						onSaveNextDue={handleSaveNextDue}
 					/>
 				{/each}
 			</div>

@@ -222,6 +222,14 @@ export async function updateTask(taskId, changes) {
 	);
 }
 
+export async function updateTaskNextDue(taskId, nextDueAt) {
+	const body = await updateTask(taskId, {
+		nextDueAt
+	});
+
+	return body?.task ?? null;
+}
+
 export function archiveTask(taskId) {
 	return runTaskAction(taskId, 'archive');
 }
