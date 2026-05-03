@@ -11,6 +11,18 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
+	const themeGroups = [
+		{
+			id: 'light',
+			label: 'Light',
+			themes: THEMES.filter((themeOption) => themeOption.colorScheme === 'light')
+		},
+		{
+			id: 'dark',
+			label: 'Dark',
+			themes: THEMES.filter((themeOption) => themeOption.colorScheme === 'dark')
+		}
+	];
 
 	let isLoading = true;
 	let loadError = '';
@@ -140,26 +152,37 @@
 			not your account.
 		</p>
 
-		<div class="theme-grid" aria-label="Theme choices">
-			{#each THEMES as themeOption}
-				<button
-					class="theme-option"
-					class:is-selected={$theme === themeOption.id}
-					type="button"
-					aria-pressed={$theme === themeOption.id}
-					style={`--swatch-0: ${themeOption.swatch[0]}; --swatch-1: ${themeOption.swatch[1]}; --swatch-2: ${themeOption.swatch[2]};`}
-					onclick={() => handleThemeSelect(themeOption.id)}
-				>
-					<span class="theme-swatch" aria-hidden="true">
-						<span></span>
-						<span></span>
-						<span></span>
-					</span>
-					<span class="theme-option__text">
-						<strong>{themeOption.label}</strong>
-						<span>{themeOption.description}</span>
-					</span>
-				</button>
+		<div class="theme-sections" aria-label="Theme choices">
+			{#each themeGroups as themeGroup}
+				<section class="theme-group" aria-labelledby={`theme-group-${themeGroup.id}`}>
+					<div class="theme-group__header">
+						<h3 id={`theme-group-${themeGroup.id}`}>{themeGroup.label}</h3>
+						<span>{themeGroup.themes.length} skins</span>
+					</div>
+
+					<div class="theme-grid">
+						{#each themeGroup.themes as themeOption}
+							<button
+								class="theme-option"
+								class:is-selected={$theme === themeOption.id}
+								type="button"
+								aria-pressed={$theme === themeOption.id}
+								style={`--swatch-0: ${themeOption.swatch[0]}; --swatch-1: ${themeOption.swatch[1]}; --swatch-2: ${themeOption.swatch[2]};`}
+								onclick={() => handleThemeSelect(themeOption.id)}
+							>
+								<span class="theme-swatch" aria-hidden="true">
+									<span></span>
+									<span></span>
+									<span></span>
+								</span>
+								<span class="theme-option__text">
+									<strong>{themeOption.label}</strong>
+									<span>{themeOption.description}</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				</section>
 			{/each}
 		</div>
 	</section>
@@ -379,6 +402,39 @@
 
 	.theme-panel {
 		gap: 1.1rem;
+	}
+
+	.theme-sections {
+		display: grid;
+		gap: 1.15rem;
+	}
+
+	.theme-group {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.theme-group__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0 0.1rem;
+	}
+
+	.theme-group__header h3 {
+		color: var(--color-heading);
+		font-size: 0.88rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.theme-group__header span {
+		color: var(--color-soft);
+		font-size: 0.74rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.theme-grid {

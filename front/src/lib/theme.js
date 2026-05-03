@@ -61,6 +61,14 @@ export const THEMES = [
 		colorScheme: 'dark'
 	},
 	{
+		id: 'cherry-sprout-in-earth',
+		label: 'Cherry Sprout in Earth',
+		description: 'Black soil, cherry skin, and tiny spring-green signals.',
+		swatch: ['#0b0706', '#8f1d2c', '#8fd36b'],
+		themeColor: '#0b0706',
+		colorScheme: 'dark'
+	},
+	{
 		id: 'candy-cloud',
 		label: 'Candy Cloud',
 		description: 'Cotton-candy sky, peach glow, and blue-sugar glass.',
@@ -74,6 +82,14 @@ export const THEMES = [
 		description: 'Velvet purple halls with molten gold command lights.',
 		swatch: ['#14051f', '#5b2a86', '#f2c14e'],
 		themeColor: '#14051f',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'forbidden-apple',
+		label: 'Forbidden Apple',
+		description: 'Poisoned orchard shadows, enamel red, and serpent green.',
+		swatch: ['#090506', '#d71935', '#7adf5a'],
+		themeColor: '#090506',
 		colorScheme: 'dark'
 	},
 	{
@@ -130,6 +146,38 @@ export const THEMES = [
 		description: 'Stage black, amplifier red, amber bulbs, and worn leather.',
 		swatch: ['#090706', '#d72638', '#f7b538'],
 		themeColor: '#090706',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'ancient-cavern-torch',
+		label: 'Ancient Cavern Torch',
+		description: 'Basalt cave walls, torchlit amber, and mineral teal.',
+		swatch: ['#06080a', '#d9822b', '#4fb7a5'],
+		themeColor: '#06080a',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'dark-lain',
+		label: 'Dark Lain',
+		description: 'Black CRT glass, signal green, and cold terminal static.',
+		swatch: ['#050805', '#00d889', '#dce8df'],
+		themeColor: '#050805',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'ultraglow',
+		label: 'Ultraglow',
+		description: 'Overcharged violet darkness with cyan and acid-pink bloom.',
+		swatch: ['#070416', '#20f6ff', '#ff2efb'],
+		themeColor: '#070416',
+		colorScheme: 'dark'
+	},
+	{
+		id: 'matrix-neo',
+		label: 'Matrix Neo',
+		description: 'Digital black, code rain green, and pale machine light.',
+		swatch: ['#020703', '#00ff77', '#9de8b4'],
+		themeColor: '#020703',
 		colorScheme: 'dark'
 	},
 	{

@@ -38,7 +38,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - theme definitions and persistence live in `front/src/lib/theme.js`
   - the selected theme key is stored in `localStorage` under `task_monster_theme`
   - `front/src/app.html` applies the saved theme before Svelte boots to avoid a light-theme flash
-  - `front/src/routes/profile/+page.svelte` exposes the theme picker
+  - `front/src/routes/profile/+page.svelte` exposes the theme picker grouped by light and dark themes
   - root theme tokens live in `front/src/routes/layout.css`
 - Root `.env` is the env source of truth for the current frontend and backend runtime
   - tracked template: `.env.example`
