@@ -240,14 +240,21 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `GET /tasks/done`
 - Daily stats route:
   - `GET /stats/daily`
+- Stats heatmap route:
+  - `GET /stats/heatmap`
+  - returns clipped task-run sessions for 10-day minute-map batches by default
 - Both are real backend-derived features now
-- Both accept local-day context via:
+- Daily stats accepts local-day context via:
   - `day`
+  - `tzOffsetMinutes`
+- Heatmap stats accepts local-day batch context via:
+  - `startDay`
+  - `count`
   - `tzOffsetMinutes`
 - Stats are derived from:
   - `task_runs`
   - `panic_runs`
-- Current stats response includes:
+- Current daily stats response includes:
   - summary cards
   - overlap bands
   - top task breakdown
@@ -255,6 +262,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - panic log
   - done log
   - full session log
+- Current `/stats` page uses `GET /stats/heatmap`, not the old daily report UI.
+  - renders one 60-by-24 minute grid per local day
+  - each cell is one minute; active task spans color cells with the task color
+  - midnight starts on the bottom row and the day moves upward
+  - overlapping task colors are shown as two- or three-way horizontal split cells
+  - loads 10 days at a time and infinite-scrolls older days
 
 ## Frontend architecture
 
@@ -310,7 +323,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/done`
   - completed-task history by local day
 - `/stats`
-  - real daily stats from backend
+  - real minute-map stats from backend heatmap batches
 - `/add`
   - task creation form
   - time tasks now choose a visible pomodoro preset (`none`, `short`, `medium`, `long`)

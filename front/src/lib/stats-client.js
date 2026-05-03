@@ -33,3 +33,35 @@ export async function loadDailyStats({ day, tzOffsetMinutes } = {}) {
 		sessionLog: body?.sessionLog ?? []
 	};
 }
+
+export async function loadStatsHeatmap({ startDay, count = 10, tzOffsetMinutes } = {}) {
+	const params = new URLSearchParams();
+
+	if (startDay) {
+		params.set('startDay', startDay);
+	}
+
+	if (count !== undefined && count !== null) {
+		params.set('count', String(count));
+	}
+
+	if (tzOffsetMinutes !== undefined && tzOffsetMinutes !== null) {
+		params.set('tzOffsetMinutes', String(tzOffsetMinutes));
+	}
+
+	const queryString = params.toString();
+	const query = queryString ? `?${queryString}` : '';
+	const response = await authorizedRequest(`/stats/heatmap${query}`);
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to load heatmap.'));
+	}
+
+	const body = await readApiBody(response);
+
+	return {
+		startDay: body?.startDay ?? null,
+		count: body?.count ?? count,
+		days: body?.days ?? []
+	};
+}

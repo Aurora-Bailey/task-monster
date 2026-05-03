@@ -3,102 +3,45 @@
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
-	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
-	import { loadDailyStats } from '$lib/stats-client';
+	import { formatElapsedDuration } from '$lib/task-format';
+	import { loadStatsHeatmap } from '$lib/stats-client';
 
-	const overlapColors = {
-		solo: '#6f7d8b',
-		double: '#3d9790',
-		triple: '#d7b23d',
-		quadPlus: '#c74a4a'
-	};
-	const HOUR_TIER_MS = 60 * 60 * 1000;
+	const DAYS_PER_BATCH = 10;
+	const MINUTES_PER_DAY = 24 * 60;
+	const MINUTES_PER_HOUR = 60;
+	const MINUTE_MS = 60 * 1000;
+	const EMPTY_MINUTE = Object.freeze({
+		active: false,
+		fill: '',
+		glow: '',
+		label: ''
+	});
+	const taskColorLegend = [
+		{ key: 'red', label: 'System', color: '#c74a4a' },
+		{ key: 'orange', label: 'World', color: '#de7d37' },
+		{ key: 'gold', label: 'Home', color: '#d7b23d' },
+		{ key: 'green', label: 'Body', color: '#5f9b55' },
+		{ key: 'teal', label: 'Reset', color: '#3d9790' },
+		{ key: 'blue', label: 'Craft', color: '#4f6ed6' },
+		{ key: 'violet', label: 'Becoming', color: '#8a5bd1' }
+	];
 	const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
-		month: 'long',
+		weekday: 'short',
+		month: 'short',
 		day: 'numeric'
 	});
-	const timeLabelFormatter = new Intl.DateTimeFormat(undefined, {
+	const clockFormatter = new Intl.DateTimeFormat(undefined, {
 		hour: 'numeric',
 		minute: '2-digit'
 	});
 
-	let selectedDay = $state(null);
-	let summary = $state(null);
-	let overlapBands = $state([]);
-	let breakdown = $state([]);
-	let cadence = $state([]);
-	let panicLog = $state([]);
-	let doneLog = $state([]);
-	let sessionLog = $state([]);
-	let isLoading = $state(true);
+	let days = $state([]);
+	let nextStartDay = $state(null);
+	let isLoadingInitial = $state(true);
+	let isLoadingMore = $state(false);
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
-
-	function formatDayLabel(day) {
-		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
-		return dayLabelFormatter.format(new Date(year, month - 1, date));
-	}
-
-	function formatClock(value) {
-		return timeLabelFormatter.format(new Date(value));
-	}
-
-	function formatWindow(startedAt, endedAt) {
-		return `${formatClock(startedAt)} - ${formatClock(endedAt)}`;
-	}
-
-	function formatPanicCharge(value) {
-		return `${value}/10 pull`;
-	}
-
-	function formatBreakdownMeta(item) {
-		const parts = [`${item.runCount} runs`];
-
-		if (item.completedCount) {
-			parts.push(`${item.completedCount} done`);
-		}
-
-		if (item.totalTallyCount > 0) {
-			parts.push(`${formatTallyCount(item.totalTallyCount, item.tallyUnit || 'units')} total`);
-		}
-
-		return parts.join(', ');
-	}
-
-	function formatDoneValue(item) {
-		if (item.trackingType === 'tally') {
-			return formatTallyCount(item.tallyCount ?? 0, item.tallyUnit || 'units');
-		}
-
-		return formatElapsedDuration(item.spentMilliseconds);
-	}
-
-	function formatLedgerValue(row) {
-		if (row.trackingType === 'tally') {
-			return formatTallyCount(row.tallyCount ?? 0, row.tallyUnit || 'units');
-		}
-
-		return formatElapsedDuration(row.spentMilliseconds);
-	}
-
-	function getCadenceTierPercent(milliseconds, tierIndex) {
-		const tierStart = tierIndex * HOUR_TIER_MS;
-		const tierMilliseconds = Math.min(Math.max(milliseconds - tierStart, 0), HOUR_TIER_MS);
-
-		return (tierMilliseconds / HOUR_TIER_MS) * 100;
-	}
-
-	function formatOutcome(outcome) {
-		if (outcome === 'done') {
-			return 'Done';
-		}
-
-		if (outcome === 'inactive') {
-			return 'Paused';
-		}
-
-		return 'Active';
-	}
+	let sentinel = $state(null);
 
 	function getTodayDay() {
 		const now = new Date();
@@ -116,159 +59,227 @@
 		return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-${String(shifted.getDate()).padStart(2, '0')}`;
 	}
 
-	async function loadStats(day = selectedDay) {
-		isLoading = true;
-		loadError = '';
+	function getLocalDayStartMs(day) {
+		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+		return new Date(year, month - 1, date, 0, 0, 0, 0).getTime();
+	}
+
+	function formatDayLabel(day) {
+		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+		return dayLabelFormatter.format(new Date(year, month - 1, date));
+	}
+
+	function formatMinuteLabel(day, minuteIndex) {
+		return clockFormatter.format(new Date(getLocalDayStartMs(day) + minuteIndex * MINUTE_MS));
+	}
+
+	function buildSplitFill(colors) {
+		const visibleColors = colors.filter(Boolean).slice(0, 3);
+
+		if (visibleColors.length === 0) {
+			return '';
+		}
+
+		if (visibleColors.length === 1) {
+			return visibleColors[0];
+		}
+
+		const segmentSize = 100 / visibleColors.length;
+		const segments = visibleColors.map(
+			(color, index) => `${color} ${index * segmentSize}% ${(index + 1) * segmentSize}%`
+		);
+
+		return `linear-gradient(180deg, ${segments.join(', ')})`;
+	}
+
+	function getUniqueTaskSessions(sessions) {
+		const seenTaskIds = new Set();
+
+		return sessions.filter((session) => {
+			const key = session.taskId || session.id;
+
+			if (seenTaskIds.has(key)) {
+				return false;
+			}
+
+			seenTaskIds.add(key);
+			return true;
+		});
+	}
+
+	function buildMinuteCells(day) {
+		const dayStartMs = getLocalDayStartMs(day.day);
+		const minuteBuckets = Array.from({ length: MINUTES_PER_DAY }, () => []);
+
+		for (const session of day.sessions ?? []) {
+			const startedAtMs = new Date(session.startedAt).getTime();
+			const endedAtMs = new Date(session.endedAt).getTime();
+
+			if (
+				!Number.isFinite(startedAtMs) ||
+				!Number.isFinite(endedAtMs) ||
+				endedAtMs <= startedAtMs
+			) {
+				continue;
+			}
+
+			const startMinute = Math.max(0, Math.floor((startedAtMs - dayStartMs) / MINUTE_MS));
+			const endMinute = Math.min(MINUTES_PER_DAY, Math.ceil((endedAtMs - dayStartMs) / MINUTE_MS));
+
+			for (let minute = startMinute; minute < endMinute; minute += 1) {
+				minuteBuckets[minute].push(session);
+			}
+		}
+
+		return minuteBuckets.map((sessions, minuteIndex) => {
+			if (sessions.length === 0) {
+				return EMPTY_MINUTE;
+			}
+
+			const uniqueTaskSessions = getUniqueTaskSessions(sessions);
+			const uniqueTaskNames = uniqueTaskSessions.map((session) => session.name);
+			const uniqueColors = uniqueTaskSessions.map((session) => session.color).filter(Boolean);
+
+			return {
+				active: true,
+				fill: buildSplitFill(uniqueColors),
+				glow: uniqueColors[0] ?? '',
+				label: `${formatMinuteLabel(day.day, minuteIndex)}: ${uniqueTaskNames.join(' + ')}`
+			};
+		});
+	}
+
+	function reverseHourRows(minutes) {
+		const reversedMinutes = [];
+
+		for (let hour = 23; hour >= 0; hour -= 1) {
+			const hourStart = hour * MINUTES_PER_HOUR;
+			reversedMinutes.push(...minutes.slice(hourStart, hourStart + MINUTES_PER_HOUR));
+		}
+
+		return reversedMinutes;
+	}
+
+	function getDayActiveMilliseconds(day) {
+		return (day.sessions ?? []).reduce((total, session) => {
+			const startedAtMs = new Date(session.startedAt).getTime();
+			const endedAtMs = new Date(session.endedAt).getTime();
+
+			if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
+				return total;
+			}
+
+			return total + Math.max(0, endedAtMs - startedAtMs);
+		}, 0);
+	}
+
+	function getDayTaskCount(day) {
+		return new Set((day.sessions ?? []).map((session) => session.taskId)).size;
+	}
+
+	function getDaySummary(day) {
+		const activeMilliseconds = getDayActiveMilliseconds(day);
+		const taskCount = getDayTaskCount(day);
+
+		if (activeMilliseconds === 0) {
+			return 'No active task minutes';
+		}
+
+		return `${formatElapsedDuration(activeMilliseconds)} across ${taskCount} task${taskCount === 1 ? '' : 's'}`;
+	}
+
+	function normalizeDay(day) {
+		return {
+			...day,
+			minutes: reverseHourRows(buildMinuteCells(day))
+		};
+	}
+
+	async function loadNextBatch({ reset = false } = {}) {
+		if (isLoadingMore || (isLoadingInitial && !reset)) {
+			return;
+		}
+
+		const batchStartDay = reset ? getTodayDay() : nextStartDay;
+
+		if (!batchStartDay) {
+			return;
+		}
+
+		if (reset) {
+			isLoadingInitial = true;
+			loadError = '';
+		} else {
+			isLoadingMore = true;
+		}
 
 		try {
-			const stats = await loadDailyStats({
-				day,
+			const heatmap = await loadStatsHeatmap({
+				startDay: batchStartDay,
+				count: DAYS_PER_BATCH,
 				tzOffsetMinutes: timezoneOffsetMinutes
 			});
+			const nextDays = (heatmap.days ?? []).map(normalizeDay);
+			const oldestLoadedDay = nextDays[nextDays.length - 1]?.day ?? batchStartDay;
 
-			selectedDay = stats.selectedDay || getTodayDay();
-			summary = stats.summary;
-			overlapBands = stats.overlapBands ?? [];
-			breakdown = stats.breakdown ?? [];
-			cadence = stats.cadence ?? [];
-			panicLog = stats.panicLog ?? [];
-			doneLog = stats.doneLog ?? [];
-			sessionLog = stats.sessionLog ?? [];
+			days = reset ? nextDays : [...days, ...nextDays];
+			nextStartDay = shiftDay(oldestLoadedDay, -1);
 		} catch (error) {
 			loadError = error.message;
 		} finally {
-			isLoading = false;
+			isLoadingInitial = false;
+			isLoadingMore = false;
 		}
 	}
 
-	async function selectDay(day) {
-		if (!day || day === selectedDay || isLoading) {
+	async function reloadHeatmap() {
+		days = [];
+		nextStartDay = getTodayDay();
+		await loadNextBatch({ reset: true });
+	}
+
+	const hasDays = $derived(days.length > 0);
+
+	$effect(() => {
+		if (!sentinel || typeof IntersectionObserver === 'undefined') {
 			return;
 		}
 
-		await loadStats(day);
-	}
+		const sentinelObserver = new IntersectionObserver(
+			(entries) => {
+				const [entry] = entries;
 
-	async function showNewerDay() {
-		if (!canGoNewer) {
-			return;
-		}
+				if (entry?.isIntersecting) {
+					void loadNextBatch();
+				}
+			},
+			{
+				rootMargin: '900px 0px'
+			}
+		);
 
-		await loadStats(shiftDay(selectedDay, 1));
-	}
+		sentinelObserver.observe(sentinel);
 
-	async function showOlderDay() {
-		if (!selectedDay) {
-			return;
-		}
-
-		await loadStats(shiftDay(selectedDay, -1));
-	}
-
-	const todayDay = $derived(getTodayDay());
-	const visibleDays = $derived(
-		selectedDay ? [selectedDay, shiftDay(selectedDay, -1), shiftDay(selectedDay, -2)] : []
-	);
-	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
-	const canGoOlder = $derived(selectedDay !== null);
-	const hasStats = $derived(Boolean(summary) && (summary.runCount > 0 || summary.panicCount > 0));
-	const maxOverlapMilliseconds = $derived(
-		Math.max(...overlapBands.map((band) => band.milliseconds), 1)
-	);
-	const maxBreakdownMilliseconds = $derived(
-		Math.max(...breakdown.map((item) => item.totalMilliseconds), 1)
-	);
-	const summaryCards = $derived(
-		summary
-			? [
-					{
-						label: 'Focused time',
-						value: formatElapsedDuration(summary.effectiveTrackedMilliseconds),
-						note: 'Tracked task time after subtracting panic overlap across active runs.'
-					},
-					{
-						label: 'Tracked time',
-						value: formatElapsedDuration(summary.trackedMilliseconds),
-						note: 'Summed run time for the day. Overlap counts fully.'
-					},
-					{
-						label: 'On-table time',
-						value: formatElapsedDuration(summary.wallClockMilliseconds),
-						note: 'Unique clock time with at least one active task.'
-					},
-					{
-						label: 'Overlap bonus',
-						value: formatElapsedDuration(summary.overlapMilliseconds),
-						note: 'Additional tracked time created by concurrent runs.'
-					},
-					{
-						label: 'Done',
-						value: `${summary.completedCount}`,
-						note: 'Runs that closed with a done outcome on this day.'
-					},
-					{
-						label: 'Paused',
-						value: `${summary.pausedCount}`,
-						note: 'Runs moved back off the table without being finished.'
-					},
-					...(summary.panicCount > 0
-						? [
-								{
-									label: 'On-task panic',
-									value: formatElapsedDuration(summary.taskPanicMilliseconds),
-									note: 'Tracked task time that overlapped with panic mode.'
-								},
-								{
-									label: 'Off rails',
-									value: formatElapsedDuration(summary.panicMilliseconds),
-									note: 'Time logged in panic mode on the selected day.'
-								},
-								{
-									label: 'Panic hits',
-									value: `${summary.panicCount}`,
-									note: 'Separate panic sessions started on this day.'
-								},
-								{
-									label: 'Longest panic',
-									value: formatElapsedDuration(summary.longestPanicMilliseconds),
-									note: 'Longest single off-the-rails stretch.'
-								}
-							]
-						: []),
-					...(summary.tallyUnits > 0
-						? [
-								{
-									label: 'Tallied',
-									value: formatTallyCount(summary.tallyUnits),
-									note: 'Units captured by tally sessions that closed on this day.'
-								}
-							]
-						: []),
-					{
-						label: 'Longest run',
-						value: formatElapsedDuration(summary.longestRunMilliseconds),
-						note: 'Longest single clipped run inside the selected day.'
-					}
-				]
-			: []
-	);
+		return () => {
+			sentinelObserver.disconnect();
+		};
+	});
 
 	onMount(() => {
 		timezoneOffsetMinutes = new Date().getTimezoneOffset();
-		void loadStats();
+		nextStartDay = getTodayDay();
+		void loadNextBatch({ reset: true });
 
 		if (typeof window === 'undefined') {
 			return;
 		}
 
-		const handlePanicUpdated = async () => {
-			try {
-				await loadStats(selectedDay);
-			} catch (error) {
-				loadError = error.message;
-			}
+		const handlePanicUpdated = () => {
+			void reloadHeatmap();
 		};
-		const handleAssistantRefresh = async (event) => {
+		const handleAssistantRefresh = (event) => {
 			if (
 				event.detail?.refresh?.tasks !== true &&
 				event.detail?.refresh?.stats !== true &&
@@ -277,11 +288,7 @@
 				return;
 			}
 
-			try {
-				await loadStats(selectedDay);
-			} catch (error) {
-				loadError = error.message;
-			}
+			void reloadHeatmap();
 		};
 
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
@@ -298,326 +305,78 @@
 	<title>Stats</title>
 	<meta
 		name="description"
-		content="Real daily stats built from completed, paused, and currently active task runs."
+		content="Minute-by-minute task heatmap built from real task run history."
 	/>
 </svelte:head>
 
 <section class="stats-page">
-	{#if selectedDay}
-		<nav class="day-pager" aria-label="Stats days">
-			<button
-				class="pager-arrow"
-				type="button"
-				disabled={!canGoNewer || isLoading}
-				onclick={showNewerDay}
-			>
-				&lt;&lt;
-			</button>
-
-			<div class="day-pill-row">
-				{#each visibleDays as day}
-					<button
-						class:selected-day={day === selectedDay}
-						class="day-pill"
-						type="button"
-						disabled={isLoading && day !== selectedDay}
-						aria-pressed={day === selectedDay}
-						onclick={() => selectDay(day)}
-					>
-						{formatDayLabel(day)}
-					</button>
-				{/each}
-			</div>
-
-			<button
-				class="pager-arrow"
-				type="button"
-				disabled={!canGoOlder || isLoading}
-				onclick={showOlderDay}
-			>
-				&gt;&gt;
-			</button>
-		</nav>
-	{/if}
-
 	<header class="stats-header">
-		<div>
-			<p class="eyebrow">Stats</p>
-			<h1>{selectedDay ? formatDayLabel(selectedDay) : 'Daily stats'}</h1>
-			<p class="lede">
-				Everything on this page is computed from real task-run data in the database.
-			</p>
+		<div class="legend" aria-label="Task color legend">
+			{#each taskColorLegend as item}
+				<span class="legend-chip" style={`--legend-color: ${item.color};`}>
+					<i aria-hidden="true"></i>
+					{item.label}
+				</span>
+			{/each}
 		</div>
 	</header>
 
 	{#if loadError}
 		<div class="message-card error-card">
-			<strong>Could not load stats</strong>
+			<strong>Could not load minute map</strong>
 			<p>{loadError}</p>
 		</div>
 	{/if}
 
-	{#if isLoading}
+	{#if isLoadingInitial}
 		<div class="message-card">
-			<strong>Loading stats</strong>
-			<p>Pulling task runs, clipping them to the selected day, and computing the report.</p>
+			<strong>Loading minute maps</strong>
+			<p>Pulling 10 local days and painting each active minute.</p>
 		</div>
-	{:else if !hasStats}
+	{:else if !hasDays}
 		<div class="message-card">
-			<strong
-				>{selectedDay
-					? `No tracked activity on ${formatDayLabel(selectedDay)}`
-					: 'No tracked activity yet'}</strong
-			>
-			<p>Stats appear after a task creates a real run or panic mode logs time for that day.</p>
+			<strong>No day data</strong>
+			<p>No heatmap days came back from the server.</p>
 		</div>
 	{:else}
-		<div class="summary-grid">
-			{#each summaryCards as card}
-				<article class="summary-card">
-					<span>{card.label}</span>
-					<strong>{card.value}</strong>
-					<p>{card.note}</p>
+		<div class="heatmap-stack">
+			{#each days as day}
+				<article class="day-card">
+					<header class="day-card__header">
+						<div>
+							<h2>{formatDayLabel(day.day)}</h2>
+							<p>{day.day}</p>
+						</div>
+						<strong>{getDaySummary(day)}</strong>
+					</header>
+
+					<div
+						class="minute-grid"
+						role="img"
+						aria-label={`${formatDayLabel(day.day)} minute activity map. ${getDaySummary(day)}.`}
+					>
+						{#each day.minutes as minute}
+							<span
+								class:minute-active={minute.active}
+								class="minute-cell"
+								style={minute.fill
+									? `--minute-fill: ${minute.fill}; --minute-glow: ${minute.glow};`
+									: ''}
+								title={minute.label}
+								aria-hidden="true"
+							></span>
+						{/each}
+					</div>
 				</article>
 			{/each}
 		</div>
 
-		<div class="report-grid">
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Overlap</p>
-						<h2>Concurrent time</h2>
-					</div>
-					<p>Wall-clock time split by how many tasks were active at once.</p>
-				</div>
-
-				<div class="metric-list">
-					{#each overlapBands as band}
-						<article class="metric-row">
-							<div class="metric-row__meta">
-								<strong>{band.label}</strong>
-								<span>{formatElapsedDuration(band.milliseconds)}</span>
-							</div>
-							<div class="metric-track">
-								<div
-									class="metric-fill"
-									style={`--fill-color: ${overlapColors[band.key]}; width: ${(band.milliseconds / maxOverlapMilliseconds) * 100}%;`}
-								></div>
-							</div>
-						</article>
-					{/each}
-				</div>
-			</section>
-
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Breakdown</p>
-						<h2>Time by task</h2>
-					</div>
-					<p>The heaviest tasks for the selected day, using tracked task time.</p>
-				</div>
-
-				<div class="metric-list">
-					{#each breakdown as item}
-						<article class="metric-row">
-							<div class="metric-row__meta">
-								<div>
-									<strong>{item.name}</strong>
-									<p>{formatBreakdownMeta(item)}</p>
-								</div>
-								<span>{formatElapsedDuration(item.totalMilliseconds)}</span>
-							</div>
-							<div class="metric-track">
-								<div
-									class="metric-fill"
-									style={`--fill-color: ${item.color}; width: ${(item.totalMilliseconds / maxBreakdownMilliseconds) * 100}%;`}
-								></div>
-							</div>
-						</article>
-					{/each}
-				</div>
-			</section>
-
-			<section class="panel panel-wide">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Cadence</p>
-						<h2>Hour by hour</h2>
-					</div>
-					<p>
-						Each stacked tier represents another 60 minutes of tracked time inside the same hour.
-					</p>
-				</div>
-
-				<div class="cadence-legend" aria-hidden="true">
-					<span class="legend-pill legend-pill-blue">0-60m</span>
-					<span class="legend-pill legend-pill-orange">60-120m</span>
-					<span class="legend-pill legend-pill-purple">120m+</span>
-				</div>
-
-				<div class="cadence-chart">
-					{#each cadence as item}
-						<div class="cadence-column">
-							<div class="cadence-shell">
-								<div class="cadence-tier">
-									<div
-										class="cadence-fill cadence-fill-purple"
-										style={`height: ${getCadenceTierPercent(item.milliseconds, 2)}%;`}
-									></div>
-								</div>
-								<div class="cadence-tier">
-									<div
-										class="cadence-fill cadence-fill-orange"
-										style={`height: ${getCadenceTierPercent(item.milliseconds, 1)}%;`}
-									></div>
-								</div>
-								<div class="cadence-tier">
-									<div
-										class="cadence-fill cadence-fill-blue"
-										style={`height: ${getCadenceTierPercent(item.milliseconds, 0)}%;`}
-									></div>
-								</div>
-							</div>
-							<strong>{item.label}</strong>
-							<span>{item.milliseconds ? formatElapsedDuration(item.milliseconds) : '0s'}</span>
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Off Rails</p>
-						<h2>Panic log</h2>
-					</div>
-					<p>Every panic window recorded for the selected local day.</p>
-				</div>
-
-				<div class="done-log">
-					{#if panicLog.length === 0}
-						<p class="empty-note">No panic recorded on this day.</p>
-					{:else}
-						{#each panicLog as item}
-							<article class="panic-item">
-								<div class="done-item__top">
-									<strong>{formatWindow(item.startedAt, item.endedAt)}</strong>
-									<span>{formatElapsedDuration(item.milliseconds)}</span>
-								</div>
-								{#if item.emotionalCharge !== null}
-									<p class="panic-item__charge">{formatPanicCharge(item.emotionalCharge)}</p>
-								{/if}
-								{#if item.note}
-									<p class="panic-item__note">{item.note}</p>
-								{/if}
-							</article>
-						{/each}
-					{/if}
-				</div>
-			</section>
-
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Done</p>
-						<h2>Completion log</h2>
-					</div>
-					<p>Runs that actually closed with a done result on this day.</p>
-				</div>
-
-				<div class="done-log">
-					{#if doneLog.length === 0}
-						<p class="empty-note">Nothing finished on this day.</p>
-					{:else}
-						{#each doneLog as item}
-							<article class="done-item" style={`--task-accent: ${item.color};`}>
-								<div class="done-item__top">
-									<strong>{item.name}</strong>
-									<span>{formatClock(item.completedAt)}</span>
-								</div>
-								<p>{formatDoneValue(item)}</p>
-								{#if item.instanceNote}
-									<p class="done-item__instance-note">{item.instanceNote}</p>
-								{/if}
-								{#if item.taskPanicLog?.length}
-									<div class="task-panic-log">
-										{#each item.taskPanicLog as panicItem}
-											<article class="task-panic-entry">
-												<div class="task-panic-entry__top">
-													<strong>{formatWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
-													<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
-												</div>
-												{#if panicItem.emotionalCharge !== null}
-													<p class="panic-item__charge">
-														{formatPanicCharge(panicItem.emotionalCharge)}
-													</p>
-												{/if}
-												{#if panicItem.note}
-													<p class="task-panic-entry__note">{panicItem.note}</p>
-												{/if}
-											</article>
-										{/each}
-									</div>
-								{/if}
-							</article>
-						{/each}
-					{/if}
-				</div>
-			</section>
-
-			<section class="panel panel-wide">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Ledger</p>
-						<h2>Session log</h2>
-					</div>
-					<p>Every run that touched the selected day, clipped to the local day window.</p>
-				</div>
-
-				<div class="ledger">
-					<div class="ledger-head">
-						<span>Window</span>
-						<span>Task</span>
-						<span>Tracked / tally</span>
-						<span>Outcome</span>
-					</div>
-
-					{#each sessionLog as row}
-						<article class="ledger-row">
-							<span>{formatWindow(row.startedAt, row.endedAt)}</span>
-							<strong>{row.name}</strong>
-							<span>{formatLedgerValue(row)}</span>
-							<span class={`outcome-pill outcome-${row.outcome}`}>{formatOutcome(row.outcome)}</span
-							>
-							{#if row.instanceNote}
-								<p class="ledger-note">{row.instanceNote}</p>
-							{/if}
-							{#if row.taskPanicLog?.length}
-								<div class="task-panic-log ledger-panic-log">
-									{#each row.taskPanicLog as panicItem}
-										<article class="task-panic-entry">
-											<div class="task-panic-entry__top">
-												<strong>{formatWindow(panicItem.startedAt, panicItem.endedAt)}</strong>
-												<span>{formatElapsedDuration(panicItem.milliseconds)}</span>
-											</div>
-											{#if panicItem.emotionalCharge !== null}
-												<p class="panic-item__charge">
-													{formatPanicCharge(panicItem.emotionalCharge)}
-												</p>
-											{/if}
-											{#if panicItem.note}
-												<p class="task-panic-entry__note">{panicItem.note}</p>
-											{/if}
-										</article>
-									{/each}
-								</div>
-							{/if}
-						</article>
-					{/each}
-				</div>
-			</section>
+		<div class="load-sentinel" bind:this={sentinel}>
+			{#if isLoadingMore}
+				<span>Loading older days...</span>
+			{:else}
+				<span>Scroll for older days</span>
+			{/if}
 		</div>
 	{/if}
 </section>
@@ -629,54 +388,24 @@
 		padding: 1.4rem 0 2.4rem;
 	}
 
-	.day-pager {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.day-pill-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.55rem;
-	}
-
-	.day-pill,
-	.pager-arrow {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.9rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--surface-border);
-		border-radius: 999px;
+	.stats-header,
+	.message-card,
+	.day-card {
 		background: var(--surface-1);
+		border: 1px solid var(--surface-border);
 		box-shadow: var(--surface-shadow);
-		font-size: 0.8rem;
-		font-weight: 800;
-		letter-spacing: 0.04em;
-		color: var(--color-muted);
-		cursor: pointer;
-	}
-
-	.day-pill.selected-day {
-		background: var(--accent-gradient);
-		color: var(--color-accent-contrast);
-		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
-	}
-
-	.day-pill:disabled,
-	.pager-arrow:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
 	}
 
 	.stats-header {
-		display: grid;
-		gap: 0.4rem;
-		padding: 1.4rem 1.5rem;
-		border-radius: 24px;
+		height: 30px;
+		max-height: 30px;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0 0.55rem;
+		overflow-x: auto;
+		overflow-y: hidden;
+		border-radius: 999px;
 		background:
 			linear-gradient(
 				180deg,
@@ -684,60 +413,67 @@
 				color-mix(in srgb, var(--surface-2) 88%, transparent)
 			),
 			radial-gradient(
-				circle at top,
-				color-mix(in srgb, var(--color-accent) 12%, transparent),
-				transparent 62%
+				circle at top right,
+				color-mix(in srgb, var(--color-accent) 14%, transparent),
+				transparent 56%
 			);
-		border: 1px solid var(--surface-border);
 		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
+		scrollbar-width: none;
 	}
 
-	.eyebrow {
-		margin: 0;
-		font-size: 0.8rem;
-		font-weight: 800;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--color-theme-2);
+	.stats-header::-webkit-scrollbar {
+		display: none;
 	}
 
-	h1,
 	h2,
-	strong,
 	p,
-	span {
+	strong {
 		margin: 0;
-	}
-
-	h1 {
-		font-size: clamp(2.3rem, 5vw, 3.8rem);
-		line-height: 0.95;
-		letter-spacing: -0.05em;
-		color: var(--color-heading);
 	}
 
 	h2 {
-		font-size: 1.35rem;
+		font-size: clamp(1rem, 2vw, 1.28rem);
 		letter-spacing: -0.03em;
 		color: var(--color-heading);
 	}
 
-	.lede,
 	.message-card p,
-	.panel-header p,
-	.metric-row__meta p,
-	.summary-card p,
-	.done-item p,
-	.empty-note {
+	.day-card__header p,
+	.load-sentinel {
 		color: var(--color-muted);
 	}
 
-	.message-card,
-	.panel,
-	.summary-card {
-		background: var(--surface-1);
+	.legend {
+		flex: 0 0 auto;
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 0.28rem;
+		min-width: max-content;
+	}
+
+	.legend-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		height: 20px;
+		min-height: 20px;
+		padding: 0 0.4rem;
 		border: 1px solid var(--surface-border);
-		box-shadow: var(--surface-shadow);
+		border-radius: 999px;
+		background: var(--surface-2);
+		box-shadow: var(--surface-inset);
+		font-size: 0.6rem;
+		font-weight: 800;
+		line-height: 1;
+		color: var(--color-muted);
+	}
+
+	.legend-chip i {
+		width: 0.45rem;
+		height: 0.45rem;
+		border-radius: 999px;
+		background: var(--legend-color);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--legend-color) 16%, transparent);
 	}
 
 	.message-card {
@@ -747,391 +483,120 @@
 		border-radius: 18px;
 	}
 
+	.message-card strong {
+		color: var(--color-heading);
+	}
+
 	.error-card {
 		border-color: color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
 		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
-	.summary-grid {
+	.heatmap-stack {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 1rem;
+		gap: 5px;
 	}
 
-	.summary-card {
+	.day-card {
 		display: grid;
-		gap: 0.45rem;
-		padding: 1.1rem 1.15rem;
-		border-radius: 20px;
+		gap: 0.65rem;
+		padding: 0.75rem;
+		border-radius: 16px;
 	}
 
-	.summary-card span,
-	.section-label {
-		font-size: 0.74rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--color-soft);
-	}
-
-	.summary-card strong {
-		font-size: 1.3rem;
-		letter-spacing: -0.03em;
-		color: var(--color-heading);
-	}
-
-	.report-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 1rem;
-	}
-
-	.panel {
-		display: grid;
-		gap: 1rem;
-		padding: 1.2rem;
-		border-radius: 22px;
-	}
-
-	.panel-wide {
-		grid-column: 1 / -1;
-	}
-
-	.panel-header {
-		display: grid;
-		gap: 0.3rem;
-	}
-
-	.metric-list,
-	.done-log {
-		display: grid;
-		gap: 0.85rem;
-	}
-
-	.metric-row {
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.metric-row__meta {
+	.day-card__header {
 		display: flex;
-		align-items: flex-start;
+		align-items: end;
 		justify-content: space-between;
 		gap: 0.8rem;
 	}
 
-	.metric-track {
-		height: 0.7rem;
-		border-radius: 999px;
-		background: var(--surface-muted);
-		overflow: hidden;
+	.day-card__header strong {
+		text-align: right;
+		font-size: 0.82rem;
+		color: var(--color-muted);
 	}
 
-	.metric-fill {
-		height: 100%;
-		min-width: 0.35rem;
-		border-radius: 999px;
-		background: linear-gradient(
-			135deg,
-			var(--fill-color),
-			color-mix(in srgb, var(--fill-color) 62%, var(--surface-3))
-		);
-	}
-
-	.cadence-chart {
+	.minute-grid {
 		display: grid;
-		grid-template-columns: repeat(24, minmax(2.6rem, 1fr));
-		gap: 0.6rem;
-		overflow-x: auto;
-		overflow-y: hidden;
-		padding-bottom: 0.2rem;
-	}
-
-	.cadence-legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.55rem;
-	}
-
-	.legend-pill {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.5rem 0.75rem;
-		border-radius: 999px;
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.legend-pill-blue {
-		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-		color: var(--color-accent);
-	}
-
-	.legend-pill-orange {
-		background: color-mix(in srgb, var(--color-warning) 14%, transparent);
-		color: var(--color-warning);
-	}
-
-	.legend-pill-purple {
-		background: color-mix(in srgb, var(--color-theme-1) 14%, transparent);
-		color: var(--color-theme-1);
-	}
-
-	.cadence-column {
-		display: grid;
-		gap: 0.4rem;
-		min-width: 2.6rem;
-	}
-
-	.cadence-column strong,
-	.cadence-column span {
-		font-size: 0.72rem;
-		text-align: center;
-	}
-
-	.cadence-shell {
-		height: 10rem;
-		display: grid;
-		grid-template-rows: repeat(3, minmax(0, 1fr));
-		gap: 0.35rem;
-		border-radius: 18px;
-		padding: 0.45rem;
-		background: linear-gradient(
-			180deg,
-			color-mix(in srgb, var(--surface-muted) 62%, var(--surface-2)),
-			var(--surface-2)
-		);
+		grid-template-columns: repeat(60, minmax(0, 1fr));
+		gap: 1px;
+		padding: 0.35rem;
 		border: 1px solid var(--surface-border);
-	}
-
-	.cadence-tier {
-		display: flex;
-		align-items: flex-end;
-		border-radius: 12px;
-		background: var(--surface-1);
-		overflow: hidden;
-	}
-
-	.cadence-fill {
-		width: 100%;
 		border-radius: 10px;
+		background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+		box-shadow: var(--surface-inset);
 	}
 
-	.cadence-fill-blue {
-		background: linear-gradient(
-			180deg,
-			var(--color-accent),
-			color-mix(in srgb, var(--color-accent) 62%, var(--surface-3))
-		);
+	.minute-cell {
+		aspect-ratio: 1;
+		min-width: 0;
+		border-radius: 1.5px;
+		background: color-mix(in srgb, var(--color-muted) 14%, transparent);
 	}
 
-	.cadence-fill-orange {
-		background: linear-gradient(
-			180deg,
-			var(--color-warning),
-			color-mix(in srgb, var(--color-warning) 62%, var(--surface-3))
-		);
+	.minute-cell:nth-child(60n + 1) {
+		box-shadow: inset 1px 0 0 color-mix(in srgb, var(--color-muted) 16%, transparent);
 	}
 
-	.cadence-fill-purple {
-		background: linear-gradient(
-			180deg,
-			var(--color-theme-1),
-			color-mix(in srgb, var(--color-theme-1) 62%, var(--surface-3))
-		);
+	.minute-active {
+		background: var(--minute-fill);
+		box-shadow: 0 0 5px color-mix(in srgb, var(--minute-glow) 42%, transparent);
 	}
 
-	.done-item {
+	.load-sentinel {
+		min-height: 4rem;
 		display: grid;
-		gap: 0.35rem;
-		padding: 0.95rem 1rem;
-		border-radius: 16px;
-		background:
-			linear-gradient(
-				180deg,
-				color-mix(in srgb, var(--surface-3) 94%, transparent),
-				color-mix(in srgb, var(--surface-2) 92%, transparent)
-			),
-			linear-gradient(
-				135deg,
-				color-mix(in srgb, var(--task-accent) 14%, var(--surface-3)),
-				var(--surface-2) 65%
-			);
-		border: 1px solid color-mix(in srgb, var(--task-accent) 22%, var(--surface-border));
-	}
-
-	.panic-item {
-		display: grid;
-		gap: 0.35rem;
-		padding: 0.95rem 1rem;
-		border-radius: 16px;
-		background:
-			linear-gradient(
-				180deg,
-				color-mix(in srgb, var(--surface-2) 94%, transparent),
-				color-mix(in srgb, var(--surface-1) 94%, transparent)
-			),
-			linear-gradient(
-				135deg,
-				color-mix(in srgb, var(--color-warning) 16%, transparent),
-				color-mix(in srgb, var(--color-danger) 14%, transparent)
-			);
-		border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--surface-border));
-	}
-
-	.panic-item__charge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: fit-content;
-		padding: 0.38rem 0.62rem;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-		color: var(--color-warning);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.panic-item__note {
-		margin: 0;
-		color: var(--color-muted);
-		white-space: pre-wrap;
-	}
-
-	.done-item__instance-note {
-		margin: 0;
-		color: var(--color-muted);
-		white-space: pre-wrap;
-	}
-
-	.task-panic-log {
-		display: grid;
-		gap: 0.55rem;
-	}
-
-	.task-panic-entry {
-		display: grid;
-		gap: 0.35rem;
-		padding: 0.8rem 0.9rem;
-		border-radius: 14px;
-		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-2));
-		border: 1px solid color-mix(in srgb, var(--color-danger) 16%, var(--surface-border));
-	}
-
-	.task-panic-entry__top {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-	}
-
-	.task-panic-entry__top strong {
-		font-size: 0.84rem;
-		color: var(--color-heading);
-	}
-
-	.task-panic-entry__top span {
+		place-items: center;
 		font-size: 0.8rem;
-		font-weight: 700;
-		color: var(--color-warning);
-	}
-
-	.task-panic-entry__note {
-		margin: 0;
-		color: var(--color-muted);
-		white-space: pre-wrap;
-	}
-
-	.done-item__top {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-	}
-
-	.ledger {
-		display: grid;
-		gap: 0.55rem;
-	}
-
-	.ledger-head,
-	.ledger-row {
-		display: grid;
-		grid-template-columns: 1.1fr 1.2fr 0.8fr 0.7fr;
-		gap: 0.8rem;
-		align-items: center;
-	}
-
-	.ledger-head {
-		padding: 0 0.2rem;
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-soft);
-	}
-
-	.ledger-row {
-		padding: 0.95rem 1rem;
-		border-radius: 16px;
-		background: var(--surface-2);
-		border: 1px solid var(--surface-border);
-	}
-
-	.ledger-note {
-		grid-column: 1 / -1;
-		margin-top: -0.1rem;
-		color: var(--color-muted);
-		white-space: pre-wrap;
-	}
-
-	.ledger-panic-log {
-		grid-column: 1 / -1;
-	}
-
-	.outcome-pill {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.45rem 0.7rem;
-		border-radius: 999px;
-		font-size: 0.72rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 
-	.outcome-done {
-		background: color-mix(in srgb, var(--color-success) 14%, transparent);
-		color: var(--color-success);
-	}
-
-	.outcome-inactive {
-		background: color-mix(in srgb, var(--color-warning) 14%, transparent);
-		color: var(--color-warning);
-	}
-
-	.outcome-active {
-		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-		color: var(--color-accent);
-	}
-
-	@media (max-width: 980px) {
-		.summary-grid,
-		.report-grid {
-			grid-template-columns: 1fr;
+	@media (max-width: 640px) {
+		.stats-page {
+			gap: 0.75rem;
+			padding-top: 0.9rem;
 		}
-	}
 
-	@media (max-width: 760px) {
-		.ledger-head,
-		.ledger-row {
-			grid-template-columns: 1fr;
+		.stats-header {
+			padding: 0 0.45rem;
+		}
+
+		.legend {
+			gap: 0.24rem;
+		}
+
+		.legend-chip {
+			height: 19px;
+			min-height: 19px;
+			padding: 0 0.35rem;
+			font-size: 0.58rem;
+		}
+
+		.day-card {
+			gap: 0.45rem;
+			padding: 0.48rem;
+			border-radius: 12px;
+		}
+
+		.day-card__header {
+			align-items: start;
+		}
+
+		.day-card__header strong {
+			font-size: 0.72rem;
+		}
+
+		.minute-grid {
+			gap: 1px;
+			padding: 0.22rem;
+			border-radius: 8px;
+		}
+
+		.minute-cell {
+			border-radius: 1px;
 		}
 	}
 </style>
