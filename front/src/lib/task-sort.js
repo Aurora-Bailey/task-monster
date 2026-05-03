@@ -24,14 +24,18 @@ function isValidTaskSortMode(mode, options = TASK_SORT_OPTIONS) {
 	return getTaskSortModes(options).has(mode);
 }
 
-export function loadStoredTaskSort(pageKey, options = TASK_SORT_OPTIONS) {
+export function loadStoredTaskSort(
+	pageKey,
+	options = TASK_SORT_OPTIONS,
+	defaultMode = DEFAULT_TASK_SORT_MODE
+) {
 	if (typeof localStorage === 'undefined') {
-		return DEFAULT_TASK_SORT_MODE;
+		return defaultMode;
 	}
 
 	const storedMode = localStorage.getItem(`${TASK_SORT_STORAGE_PREFIX}${pageKey}`);
 
-	return isValidTaskSortMode(storedMode, options) ? storedMode : DEFAULT_TASK_SORT_MODE;
+	return isValidTaskSortMode(storedMode, options) ? storedMode : defaultMode;
 }
 
 export function storeTaskSort(pageKey, mode, options = TASK_SORT_OPTIONS) {

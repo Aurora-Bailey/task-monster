@@ -6,13 +6,16 @@
 	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import {
-		DEFAULT_TASK_SORT_MODE,
+		TASK_SORT_OPTIONS,
 		filterTasks,
 		loadStoredTaskSort,
 		sortTasks,
 		storeTaskSort
 	} from '$lib/task-sort';
-	import { loadDoneHistory, updateTaskNote } from '$lib/tasks-client';
+	import { loadDoneFeed, updateTaskNote } from '$lib/tasks-client';
+
+	const DONE_BATCH_SIZE = 10;
+	const DONE_DEFAULT_SORT_MODE = 'date';
 
 	const completedAtFormatter = new Intl.DateTimeFormat(undefined, {
 		month: 'short',
@@ -20,19 +23,17 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
-	const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
-		month: 'long',
-		day: 'numeric'
-	});
 
 	let tasks = $state([]);
-	let availableDays = $state([]);
-	let selectedDay = $state(null);
-	let isLoading = $state(true);
+	let nextCursor = $state(null);
+	let hasMore = $state(true);
+	let isLoadingInitial = $state(true);
+	let isLoadingMore = $state(false);
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
-	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
+	let sortMode = $state(DONE_DEFAULT_SORT_MODE);
 	let searchQuery = $state('');
+	let sentinel = $state(null);
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -58,69 +59,41 @@
 		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
 	}
 
-	function formatDayLabel(day) {
-		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
-		return dayLabelFormatter.format(new Date(year, month - 1, date));
-	}
+	async function loadNextBatch({ reset = false } = {}) {
+		if (isLoadingMore || (isLoadingInitial && !reset) || (!reset && !hasMore)) {
+			return;
+		}
 
-	function getTodayDay() {
-		const now = new Date();
-		const year = now.getFullYear();
-		const month = String(now.getMonth() + 1).padStart(2, '0');
-		const date = String(now.getDate()).padStart(2, '0');
-
-		return `${year}-${month}-${date}`;
-	}
-
-	function shiftDay(day, deltaDays) {
-		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
-		const shifted = new Date(year, month - 1, date + deltaDays);
-
-		return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-${String(shifted.getDate()).padStart(2, '0')}`;
-	}
-
-	async function loadTasks(day = selectedDay) {
-		isLoading = true;
-		loadError = '';
+		if (reset) {
+			isLoadingInitial = true;
+			loadError = '';
+		} else {
+			isLoadingMore = true;
+		}
 
 		try {
-			const history = await loadDoneHistory({
-				day,
+			const history = await loadDoneFeed({
+				limit: DONE_BATCH_SIZE,
+				cursor: reset ? null : nextCursor,
 				tzOffsetMinutes: timezoneOffsetMinutes
 			});
 
-			tasks = history.tasks;
-			availableDays = history.days;
-			selectedDay = history.selectedDay || getTodayDay();
+			tasks = reset ? history.tasks : [...tasks, ...history.tasks];
+			nextCursor = history.nextCursor;
+			hasMore = history.hasMore;
 		} catch (error) {
 			loadError = error.message;
 		} finally {
-			isLoading = false;
+			isLoadingInitial = false;
+			isLoadingMore = false;
 		}
 	}
 
-	async function selectDay(day) {
-		if (!day || day === selectedDay || isLoading) {
-			return;
-		}
-
-		await loadTasks(day);
-	}
-
-	async function showNewerDay() {
-		if (!canGoNewer) {
-			return;
-		}
-
-		await loadTasks(shiftDay(selectedDay, 1));
-	}
-
-	async function showOlderDay() {
-		if (!selectedDay) {
-			return;
-		}
-
-		await loadTasks(shiftDay(selectedDay, -1));
+	async function reloadTasks() {
+		tasks = [];
+		nextCursor = null;
+		hasMore = true;
+		await loadNextBatch({ reset: true });
 	}
 
 	async function handleSaveNote(taskId, note) {
@@ -136,20 +109,39 @@
 		return updatedTask;
 	}
 
-	const todayDay = $derived(getTodayDay());
-	const visibleDays = $derived(
-		selectedDay ? [selectedDay, shiftDay(selectedDay, -1), shiftDay(selectedDay, -2)] : []
-	);
-	const canGoNewer = $derived(selectedDay !== null && selectedDay < todayDay);
-	const canGoOlder = $derived(selectedDay !== null);
 	const sortedTasks = $derived(
 		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'done' })
 	);
 
+	$effect(() => {
+		if (!sentinel || typeof IntersectionObserver === 'undefined') {
+			return;
+		}
+
+		const sentinelObserver = new IntersectionObserver(
+			(entries) => {
+				const [entry] = entries;
+
+				if (entry?.isIntersecting) {
+					void loadNextBatch();
+				}
+			},
+			{
+				rootMargin: '700px 0px'
+			}
+		);
+
+		sentinelObserver.observe(sentinel);
+
+		return () => {
+			sentinelObserver.disconnect();
+		};
+	});
+
 	onMount(() => {
-		sortMode = loadStoredTaskSort('done');
+		sortMode = loadStoredTaskSort('done-feed', TASK_SORT_OPTIONS, DONE_DEFAULT_SORT_MODE);
 		timezoneOffsetMinutes = new Date().getTimezoneOffset();
-		void loadTasks();
+		void loadNextBatch({ reset: true });
 
 		if (typeof window === 'undefined') {
 			return;
@@ -160,7 +152,7 @@
 				return;
 			}
 
-			await loadTasks(selectedDay);
+			await reloadTasks();
 		};
 
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
@@ -187,72 +179,22 @@
 		</div>
 	{/if}
 
-	{#if selectedDay}
-		<nav class="day-pager" aria-label="Completed task days">
-			<button
-				class="pager-arrow"
-				type="button"
-				disabled={!canGoNewer || isLoading}
-				onclick={showNewerDay}
-			>
-				&lt;&lt;
-			</button>
-
-			<div class="day-pill-row">
-				{#each visibleDays as day}
-					<button
-						class:selected-day={day === selectedDay}
-						class="day-pill"
-						type="button"
-						disabled={isLoading && day !== selectedDay}
-						aria-pressed={day === selectedDay}
-						onclick={() => selectDay(day)}
-					>
-						{formatDayLabel(day)}
-					</button>
-				{/each}
-			</div>
-
-			<button
-				class="pager-arrow"
-				type="button"
-				disabled={!canGoOlder || isLoading}
-				onclick={showOlderDay}
-			>
-				&gt;&gt;
-			</button>
-		</nav>
-	{/if}
-
-	{#if isLoading}
+	{#if isLoadingInitial}
 		<div class="message-card">
 			<strong>Loading completed tasks</strong>
-			<p>Pulling your recent done history from the database.</p>
+			<p>Pulling the 10 freshest done tasks from the database.</p>
 		</div>
 	{:else if tasks.length === 0}
 		<div class="message-card">
-			<strong
-				>{selectedDay
-					? `Nothing finished on ${formatDayLabel(selectedDay)}`
-					: 'No completed tasks yet'}</strong
-			>
-			<p>
-				{selectedDay
-					? 'Pick another day in the pager or close a few tasks to start building out the log.'
-					: 'Finished task runs will land here once you start closing things out.'}
-			</p>
-			{#if availableDays.length > 0}
-				<p class="history-hint">
-					Most recent day with completions: {formatDayLabel(availableDays[0])}
-				</p>
-			{/if}
+			<strong>No completed tasks yet</strong>
+			<p>Finished task runs will land here once you start closing things out.</p>
 		</div>
 	{:else}
 		<TaskSortBar
 			value={sortMode}
 			onChange={(nextSortMode) => {
 				sortMode = nextSortMode;
-				storeTaskSort('done', nextSortMode);
+				storeTaskSort('done-feed', nextSortMode);
 			}}
 			searchValue={searchQuery}
 			onSearchChange={(nextSearchQuery) => {
@@ -263,11 +205,11 @@
 		{#if sortedTasks.length === 0}
 			<div class="message-card">
 				<strong>No matching tasks</strong>
-				<p>Clear search to show this day&apos;s done list.</p>
+				<p>Clear search to show the loaded done history.</p>
 			</div>
 		{:else}
 			<div class="task-grid">
-				{#each sortedTasks as task}
+				{#each sortedTasks as task (task.id)}
 					<TaskCard
 						{task}
 						variant="done"
@@ -282,6 +224,16 @@
 				{/each}
 			</div>
 		{/if}
+
+		<div class="load-sentinel" bind:this={sentinel}>
+			{#if isLoadingMore}
+				<span>Loading older done tasks...</span>
+			{:else if hasMore}
+				<span>Scroll for older done tasks</span>
+			{:else}
+				<span>End of done history</span>
+			{/if}
+		</div>
 	{/if}
 </section>
 
@@ -292,59 +244,10 @@
 		padding: 1.4rem 0 2.4rem;
 	}
 
-	.day-pager {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.day-pill-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.55rem;
-	}
-
-	.day-pill,
-	.pager-arrow {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.9rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--surface-border);
-		border-radius: 999px;
-		background: var(--surface-1);
-		box-shadow: var(--surface-shadow);
-		font-size: 0.8rem;
-		font-weight: 800;
-		letter-spacing: 0.04em;
-		color: var(--color-muted);
-		cursor: pointer;
-	}
-
-	.day-pill.selected-day {
-		background: var(--accent-gradient);
-		color: var(--color-accent-contrast);
-		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
-	}
-
-	.day-pill:disabled,
-	.pager-arrow:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-
 	.message-card p {
 		margin: 0;
 		font-size: 1.05rem;
 		color: var(--color-muted);
-	}
-
-	.history-hint {
-		margin-top: 0.35rem;
-		font-size: 0.88rem;
-		color: var(--color-soft);
 	}
 
 	.message-card {
@@ -374,15 +277,18 @@
 		gap: 1rem;
 	}
 
+	.load-sentinel {
+		min-height: 4rem;
+		display: grid;
+		place-items: center;
+		font-size: 0.8rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+
 	@media (max-width: 840px) {
-		.day-pager {
-			grid-template-columns: 1fr;
-		}
-
-		.day-pill-row {
-			order: 1;
-		}
-
 		.task-grid {
 			grid-template-columns: 1fr;
 		}

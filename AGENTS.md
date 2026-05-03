@@ -238,12 +238,14 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Done-history route:
   - `GET /tasks/done`
+  - without a `day`, the `/done` page uses `limit` and `cursor` to infinite-scroll completed runs newest-to-oldest, 10 at a time
+  - with a `day`, the route still returns that local day's completion history for compatibility
 - Daily stats route:
   - `GET /stats/daily`
 - Stats heatmap route:
   - `GET /stats/heatmap`
   - returns clipped task-run sessions for 10-day minute-map batches by default
-- Both are real backend-derived features now
+- Done history and stats are real backend-derived features now
 - Daily stats accepts local-day context via:
   - `day`
   - `tzOffsetMinutes`
@@ -321,7 +323,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/active`
   - current active tasks
 - `/done`
-  - completed-task history by local day
+  - completed-task history as a newest-to-oldest infinite feed
 - `/stats`
   - real minute-map stats from backend heatmap batches
 - `/add`

@@ -9,6 +9,8 @@ const { serializedCompletedTaskJsonSchema, serializeTask } = require('../../lib/
 
 const COMPLETED_TASK_LIMIT = 100;
 const COMPLETED_DAY_LIMIT = 120;
+const DEFAULT_RECENT_DONE_LIMIT = 10;
+const MAX_RECENT_DONE_LIMIT = 50;
 
 function parseTimezoneOffsetMinutes(value) {
 	if (value === undefined) {
@@ -49,6 +51,140 @@ function getUtcRangeForLocalDay(day, timezoneOffsetMinutes) {
 	};
 }
 
+function parseRecentDoneLimit(value) {
+	if (value === undefined) {
+		return DEFAULT_RECENT_DONE_LIMIT;
+	}
+
+	const parsed = Number.parseInt(value, 10);
+
+	if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_RECENT_DONE_LIMIT) {
+		throw new Error(`Limit must be between 1 and ${MAX_RECENT_DONE_LIMIT}.`);
+	}
+
+	return parsed;
+}
+
+function parseDoneCursor(value) {
+	if (value === undefined) {
+		return null;
+	}
+
+	const [endedAtValue, runIdValue, ...extraParts] = String(value).split('|');
+	const endedAt = new Date(endedAtValue);
+
+	if (
+		extraParts.length > 0 ||
+		!endedAtValue ||
+		!runIdValue ||
+		Number.isNaN(endedAt.getTime()) ||
+		!ObjectId.isValid(runIdValue)
+	) {
+		throw new Error('Invalid done cursor.');
+	}
+
+	return {
+		endedAt,
+		runId: new ObjectId(runIdValue)
+	};
+}
+
+function buildDoneCursor(taskRun) {
+	return `${taskRun.endedAt.toISOString()}|${taskRun._id.toString()}`;
+}
+
+function buildCursorMatch(cursor) {
+	if (!cursor) {
+		return {};
+	}
+
+	return {
+		$or: [
+			{
+				endedAt: {
+					$lt: cursor.endedAt
+				}
+			},
+			{
+				endedAt: cursor.endedAt,
+				_id: {
+					$lt: cursor.runId
+				}
+			}
+		]
+	};
+}
+
+async function loadPanicRunsForTaskRuns(app, { userId, taskRuns }) {
+	const earliestStartedAt = taskRuns.reduce(
+		(earliest, taskRun) =>
+			earliest === null || taskRun.startedAt.getTime() < earliest.getTime()
+				? taskRun.startedAt
+				: earliest,
+		null
+	);
+	const latestEndedAt = taskRuns.reduce(
+		(latest, taskRun) =>
+			latest === null || taskRun.endedAt.getTime() > latest.getTime() ? taskRun.endedAt : latest,
+		null
+	);
+
+	if (!earliestStartedAt || !latestEndedAt) {
+		return [];
+	}
+
+	return loadPanicRunsOverlappingWindow(app.mongo.db, {
+		userId,
+		startedAt: earliestStartedAt,
+		endedAt: latestEndedAt
+	});
+}
+
+function serializeCompletedTaskRun(taskRun, { measuredAt, panicRuns }) {
+	const serializedTask = serializeTask({
+		...taskRun.task,
+		trackingType: taskRun.trackingType ?? taskRun.task.trackingType,
+		tallyUnit: taskRun.tallyUnit ?? taskRun.task.tallyUnit,
+		tallyTarget: Number.isInteger(taskRun.tallyTarget)
+			? taskRun.tallyTarget
+			: taskRun.task.tallyTarget
+	});
+	const tallyCount = Number.isInteger(taskRun.tallyCount)
+		? taskRun.tallyCount
+		: Number.isInteger(taskRun.startTallyCount)
+			? taskRun.startTallyCount
+			: null;
+	const spentMilliseconds = Math.max(0, taskRun.endedAt.getTime() - taskRun.startedAt.getTime());
+	const panicMilliseconds = getPanicMillisecondsForWindow({
+		panicRuns,
+		startedAt: taskRun.startedAt,
+		endedAt: taskRun.endedAt,
+		now: measuredAt
+	});
+	const taskPanicLog = buildPanicLogItemsForWindow({
+		panicRuns,
+		startedAt: taskRun.startedAt,
+		endedAt: taskRun.endedAt,
+		now: measuredAt,
+		includeOpenRuns: false
+	});
+
+	return {
+		...serializedTask,
+		id: taskRun._id.toString(),
+		taskId: serializedTask.id,
+		instanceNote: taskRun.instanceNote ?? null,
+		completedAt: taskRun.endedAt.toISOString(),
+		startedAt: taskRun.startedAt.toISOString(),
+		endedAt: taskRun.endedAt.toISOString(),
+		spentMilliseconds,
+		panicMilliseconds,
+		effectiveMilliseconds: Math.max(0, spentMilliseconds - panicMilliseconds),
+		taskPanicLog,
+		tallyCount
+	};
+}
+
 async function listDoneTasksRoute(app) {
 	app.get(
 		'/tasks/done',
@@ -62,14 +198,20 @@ async function listDoneTasksRoute(app) {
 							type: 'string'
 						},
 						tzOffsetMinutes: {
-							type: ['integer', 'string']
+							type: 'string'
+						},
+						limit: {
+							type: 'string'
+						},
+						cursor: {
+							type: 'string'
 						}
 					}
 				},
 				response: {
 					200: {
 						type: 'object',
-						required: ['tasks', 'days', 'selectedDay'],
+						required: ['tasks', 'days', 'selectedDay', 'nextCursor', 'hasMore'],
 						properties: {
 							tasks: {
 								type: 'array',
@@ -83,6 +225,12 @@ async function listDoneTasksRoute(app) {
 							},
 							selectedDay: {
 								type: ['string', 'null']
+							},
+							nextCursor: {
+								type: ['string', 'null']
+							},
+							hasMore: {
+								type: 'boolean'
 							}
 						}
 					}
@@ -91,9 +239,13 @@ async function listDoneTasksRoute(app) {
 		},
 		async (request, reply) => {
 			let timezoneOffsetMinutes;
+			let recentDoneLimit;
+			let doneCursor;
 
 			try {
 				timezoneOffsetMinutes = parseTimezoneOffsetMinutes(request.query.tzOffsetMinutes);
+				recentDoneLimit = parseRecentDoneLimit(request.query.limit);
+				doneCursor = parseDoneCursor(request.query.cursor);
 			} catch (error) {
 				return reply.code(400).send({
 					message: error.message
@@ -107,6 +259,8 @@ async function listDoneTasksRoute(app) {
 			}
 
 			const userId = new ObjectId(request.auth.userId);
+			const measuredAt = new Date();
+			const isRecentFeed = request.query.limit !== undefined || request.query.cursor !== undefined;
 			const timezone = toTimezoneOffsetString(timezoneOffsetMinutes);
 			const doneMatch = {
 				userId,
@@ -115,6 +269,60 @@ async function listDoneTasksRoute(app) {
 					$ne: null
 				}
 			};
+
+			if (isRecentFeed) {
+				const taskRuns = await app.mongo.db
+					.collection('task_runs')
+					.aggregate([
+						{
+							$match: {
+								...doneMatch,
+								...buildCursorMatch(doneCursor)
+							}
+						},
+						{
+							$sort: {
+								endedAt: -1,
+								_id: -1
+							}
+						},
+						{
+							$limit: recentDoneLimit + 1
+						},
+						{
+							$lookup: {
+								from: 'tasks',
+								localField: 'taskId',
+								foreignField: '_id',
+								as: 'task'
+							}
+						},
+						{
+							$unwind: '$task'
+						}
+					])
+					.toArray();
+				const pageTaskRuns = taskRuns.slice(0, recentDoneLimit);
+				const hasMore = taskRuns.length > recentDoneLimit;
+				const panicRuns = await loadPanicRunsForTaskRuns(app, {
+					userId: request.auth.userId,
+					taskRuns: pageTaskRuns
+				});
+
+				return {
+					tasks: pageTaskRuns.map((taskRun) =>
+						serializeCompletedTaskRun(taskRun, {
+							measuredAt,
+							panicRuns
+						})
+					),
+					days: [],
+					selectedDay: null,
+					nextCursor: hasMore && pageTaskRuns.length > 0 ? buildDoneCursor(pageTaskRuns.at(-1)) : null,
+					hasMore
+				};
+			}
+
 			const dayRows = await app.mongo.db
 				.collection('task_runs')
 				.aggregate([
@@ -149,13 +357,17 @@ async function listDoneTasksRoute(app) {
 				return {
 					tasks: [],
 					days,
-					selectedDay: null
+					selectedDay: null,
+					nextCursor: null,
+					hasMore: false
 				};
 			}
 
-				const { startedAt, endedBefore } = getUtcRangeForLocalDay(selectedDay, timezoneOffsetMinutes);
-				const measuredAt = new Date();
-				const taskRuns = await app.mongo.db
+			const { startedAt, endedBefore } = getUtcRangeForLocalDay(
+				selectedDay,
+				timezoneOffsetMinutes
+			);
+			const taskRuns = await app.mongo.db
 				.collection('task_runs')
 				.aggregate([
 					{
@@ -169,7 +381,8 @@ async function listDoneTasksRoute(app) {
 					},
 					{
 						$sort: {
-							endedAt: -1
+							endedAt: -1,
+							_id: -1
 						}
 					},
 					{
@@ -187,77 +400,23 @@ async function listDoneTasksRoute(app) {
 						$unwind: '$task'
 					}
 				])
-					.toArray();
-				const earliestStartedAt = taskRuns.reduce(
-					(earliest, taskRun) =>
-						earliest === null || taskRun.startedAt.getTime() < earliest.getTime()
-							? taskRun.startedAt
-							: earliest,
-					null
-				);
-				const latestEndedAt = taskRuns.reduce(
-					(latest, taskRun) =>
-						latest === null || taskRun.endedAt.getTime() > latest.getTime() ? taskRun.endedAt : latest,
-					null
-				);
-				const panicRuns =
-					earliestStartedAt && latestEndedAt
-						? await loadPanicRunsOverlappingWindow(app.mongo.db, {
-								userId: request.auth.userId,
-								startedAt: earliestStartedAt,
-								endedAt: latestEndedAt
-							})
-						: [];
+				.toArray();
+			const panicRuns = await loadPanicRunsForTaskRuns(app, {
+				userId: request.auth.userId,
+				taskRuns
+			});
 
 			return {
 				days,
 				selectedDay,
-				tasks: taskRuns.map((taskRun) => {
-					const serializedTask = serializeTask({
-						...taskRun.task,
-						trackingType: taskRun.trackingType ?? taskRun.task.trackingType,
-						tallyUnit: taskRun.tallyUnit ?? taskRun.task.tallyUnit,
-						tallyTarget:
-							Number.isInteger(taskRun.tallyTarget) ? taskRun.tallyTarget : taskRun.task.tallyTarget
-					});
-					const tallyCount = Number.isInteger(taskRun.tallyCount)
-						? taskRun.tallyCount
-						: Number.isInteger(taskRun.startTallyCount)
-							? taskRun.startTallyCount
-							: null;
-					const spentMilliseconds = Math.max(
-						0,
-						taskRun.endedAt.getTime() - taskRun.startedAt.getTime()
-					);
-					const panicMilliseconds = getPanicMillisecondsForWindow({
-						panicRuns,
-						startedAt: taskRun.startedAt,
-						endedAt: taskRun.endedAt,
-						now: measuredAt
-					});
-					const taskPanicLog = buildPanicLogItemsForWindow({
-						panicRuns,
-						startedAt: taskRun.startedAt,
-						endedAt: taskRun.endedAt,
-						now: measuredAt,
-						includeOpenRuns: false
-					});
-
-					return {
-						...serializedTask,
-						id: taskRun._id.toString(),
-						taskId: serializedTask.id,
-						instanceNote: taskRun.instanceNote ?? null,
-						completedAt: taskRun.endedAt.toISOString(),
-						startedAt: taskRun.startedAt.toISOString(),
-						endedAt: taskRun.endedAt.toISOString(),
-						spentMilliseconds,
-						panicMilliseconds,
-						effectiveMilliseconds: Math.max(0, spentMilliseconds - panicMilliseconds),
-						taskPanicLog,
-						tallyCount
-					};
-				})
+				tasks: taskRuns.map((taskRun) =>
+					serializeCompletedTaskRun(taskRun, {
+						measuredAt,
+						panicRuns
+					})
+				),
+				nextCursor: null,
+				hasMore: false
 			};
 		}
 	);

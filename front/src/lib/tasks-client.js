@@ -154,6 +154,34 @@ export async function loadDoneHistory({ day, tzOffsetMinutes } = {}) {
 	};
 }
 
+export async function loadDoneFeed({ limit = 10, cursor, tzOffsetMinutes } = {}) {
+	const params = new URLSearchParams();
+
+	params.set('limit', String(limit));
+
+	if (cursor) {
+		params.set('cursor', cursor);
+	}
+
+	if (tzOffsetMinutes !== undefined && tzOffsetMinutes !== null) {
+		params.set('tzOffsetMinutes', String(tzOffsetMinutes));
+	}
+
+	const response = await authorizedRequest(`/tasks/done?${params.toString()}`);
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to load completed tasks.'));
+	}
+
+	const body = await readApiBody(response);
+
+	return {
+		tasks: body?.tasks ?? [],
+		nextCursor: body?.nextCursor ?? null,
+		hasMore: body?.hasMore === true
+	};
+}
+
 export async function activateTask(taskId) {
 	const response = await authorizedRequest(`/tasks/${taskId}/activate`, {
 		method: 'POST'
