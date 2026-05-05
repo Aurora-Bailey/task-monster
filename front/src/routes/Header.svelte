@@ -20,13 +20,27 @@
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
+		getCurrentTimezoneOffsetMinutes,
 		loadPanicStatus,
+		PANIC_UPDATED_EVENT,
 		startPanic,
 		stopPanic
 	} from '$lib/panic-client';
 	import { normalizeAppPathname } from '$lib/routing';
+	import { loadStatsHeatmap } from '$lib/stats-client';
 	import { formatElapsedDuration } from '$lib/task-format';
+	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 	import logo from '$lib/images/tm-logo-crop.png';
+
+	const MINUTES_PER_HOUR = 60;
+	const MINUTE_MS = 60 * 1000;
+	const EMPTY_TRACE_MINUTE = Object.freeze({
+		active: false,
+		fill: '',
+		glow: '',
+		label: '',
+		panicking: false
+	});
 
 	let { user = null } = $props();
 	let panic = $state(null);
@@ -35,6 +49,7 @@
 	let isPanicBusy = $state(false);
 	let nowMs = $state(Date.now());
 	let currentLocalDay = $state(getCurrentLocalDay());
+	let currentHourTrace = $state(Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE));
 	let showPanicReturnModal = $state(false);
 	let panicReturnNote = $state('');
 	let panicReturnCharge = $state(5);
@@ -87,6 +102,172 @@
 	const assistantButtonTitle = $derived(
 		showAssistantDrawer ? 'Close the AI assistant' : 'Open the AI assistant'
 	);
+
+	function padDateTimePart(value) {
+		return String(value).padStart(2, '0');
+	}
+
+	function getCurrentMinuteKey() {
+		const date = new Date();
+
+		return [
+			date.getFullYear(),
+			padDateTimePart(date.getMonth() + 1),
+			padDateTimePart(date.getDate()),
+			padDateTimePart(date.getHours()),
+			padDateTimePart(date.getMinutes())
+		].join('-');
+	}
+
+	function getLocalDayStartMs(day) {
+		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+		return new Date(year, month - 1, date, 0, 0, 0, 0).getTime();
+	}
+
+	function buildSplitFill(colors) {
+		const visibleColors = colors.filter(Boolean).slice(0, 3);
+
+		if (visibleColors.length === 0) {
+			return '';
+		}
+
+		if (visibleColors.length === 1) {
+			return visibleColors[0];
+		}
+
+		const segmentSize = 100 / visibleColors.length;
+		const segments = visibleColors.map(
+			(color, index) => `${color} ${index * segmentSize}% ${(index + 1) * segmentSize}%`
+		);
+
+		return `linear-gradient(180deg, ${segments.join(', ')})`;
+	}
+
+	function getUniqueTaskSessions(sessions) {
+		const seenTaskIds = new Set();
+
+		return sessions.filter((session) => {
+			const key = session.taskId || session.id;
+
+			if (seenTaskIds.has(key)) {
+				return false;
+			}
+
+			seenTaskIds.add(key);
+			return true;
+		});
+	}
+
+	function buildCurrentHourTrace(day) {
+		const now = new Date();
+		const hourStartMinute = now.getHours() * MINUTES_PER_HOUR;
+		const dayStartMs = getLocalDayStartMs(day.day);
+		const minuteBuckets = Array.from({ length: MINUTES_PER_HOUR }, () => []);
+		const panicMinuteBuckets = Array.from({ length: MINUTES_PER_HOUR }, () => false);
+
+		for (const session of day.sessions ?? []) {
+			const startedAtMs = new Date(session.startedAt).getTime();
+			const endedAtMs = new Date(session.endedAt).getTime();
+
+			if (
+				!Number.isFinite(startedAtMs) ||
+				!Number.isFinite(endedAtMs) ||
+				endedAtMs <= startedAtMs
+			) {
+				continue;
+			}
+
+			const startMinute = Math.max(0, Math.floor((startedAtMs - dayStartMs) / MINUTE_MS));
+			const endMinute = Math.min(
+				24 * MINUTES_PER_HOUR,
+				Math.ceil((endedAtMs - dayStartMs) / MINUTE_MS)
+			);
+			const traceStart = Math.max(hourStartMinute, startMinute);
+			const traceEnd = Math.min(hourStartMinute + MINUTES_PER_HOUR, endMinute);
+
+			for (let minute = traceStart; minute < traceEnd; minute += 1) {
+				minuteBuckets[minute - hourStartMinute].push(session);
+			}
+		}
+
+		for (const panicSession of day.panicSessions ?? []) {
+			const startedAtMs = new Date(panicSession.startedAt).getTime();
+			const endedAtMs = new Date(panicSession.endedAt).getTime();
+
+			if (
+				!Number.isFinite(startedAtMs) ||
+				!Number.isFinite(endedAtMs) ||
+				endedAtMs <= startedAtMs
+			) {
+				continue;
+			}
+
+			const startMinute = Math.max(0, Math.floor((startedAtMs - dayStartMs) / MINUTE_MS));
+			const endMinute = Math.min(
+				24 * MINUTES_PER_HOUR,
+				Math.ceil((endedAtMs - dayStartMs) / MINUTE_MS)
+			);
+			const traceStart = Math.max(hourStartMinute, startMinute);
+			const traceEnd = Math.min(hourStartMinute + MINUTES_PER_HOUR, endMinute);
+
+			for (let minute = traceStart; minute < traceEnd; minute += 1) {
+				panicMinuteBuckets[minute - hourStartMinute] = true;
+			}
+		}
+
+		return minuteBuckets.map((sessions, minuteIndex) => {
+			const minuteLabel = `${now.getHours()}:${padDateTimePart(minuteIndex)}`;
+			const panicking = panicMinuteBuckets[minuteIndex];
+
+			if (sessions.length === 0) {
+				return panicking
+					? {
+							active: false,
+							fill: '',
+							glow: '',
+							label: `${minuteLabel}: Panic`,
+							panicking
+						}
+					: EMPTY_TRACE_MINUTE;
+			}
+
+			const uniqueTaskSessions = getUniqueTaskSessions(sessions);
+			const uniqueTaskNames = uniqueTaskSessions.map((session) => session.name);
+			const uniqueColors = uniqueTaskSessions.map((session) => session.color).filter(Boolean);
+
+			return {
+				active: true,
+				fill: buildSplitFill(uniqueColors),
+				glow: uniqueColors[0] ?? '',
+				label: `${minuteLabel}: ${uniqueTaskNames.join(' + ')}${panicking ? ' + Panic' : ''}`,
+				panicking
+			};
+		});
+	}
+
+	async function loadCurrentHourTrace() {
+		if (!user) {
+			currentHourTrace = Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
+			return;
+		}
+
+		try {
+			const heatmap = await loadStatsHeatmap({
+				startDay: getCurrentLocalDay(),
+				count: 1,
+				tzOffsetMinutes: getCurrentTimezoneOffsetMinutes()
+			});
+			const today = heatmap.days?.[0];
+
+			currentHourTrace = today
+				? buildCurrentHourTrace(today)
+				: Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
+		} catch (error) {
+			console.error(error);
+			currentHourTrace = Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
+		}
+	}
 
 	async function loadPanic() {
 		isPanicLoading = true;
@@ -171,11 +352,13 @@
 
 	onMount(() => {
 		void loadPanic();
+		void loadCurrentHourTrace();
 
 		if (!browser) {
 			return;
 		}
 
+		let currentMinuteKey = getCurrentMinuteKey();
 		const handleGlobalKeydown = async (event) => {
 			if (
 				event.defaultPrevented ||
@@ -232,24 +415,45 @@
 			const nextNowMs = Date.now();
 			nowMs = nextNowMs;
 			const nextLocalDay = getCurrentLocalDay();
+			const nextMinuteKey = getCurrentMinuteKey();
 
 			if (nextLocalDay !== currentLocalDay) {
 				currentLocalDay = nextLocalDay;
 				void loadPanic();
+			}
+
+			if (nextMinuteKey !== currentMinuteKey) {
+				currentMinuteKey = nextMinuteKey;
+				void loadCurrentHourTrace();
 			}
 		}, 1000);
 		const handleAssistantRefresh = async (event) => {
 			if (event.detail?.refresh?.panic === true) {
 				await loadPanic();
 			}
+
+			if (event.detail?.refresh?.tasks === true || event.detail?.refresh?.stats === true) {
+				await loadCurrentHourTrace();
+			}
+		};
+		const handleTaskUpdated = () => {
+			void loadCurrentHourTrace();
+		};
+		const handlePanicUpdated = () => {
+			void loadPanic();
+			void loadCurrentHourTrace();
 		};
 
 		window.addEventListener('keydown', handleGlobalKeydown);
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
+		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
+			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			window.clearInterval(intervalId);
 		};
 	});
@@ -316,6 +520,19 @@
 			</a>
 		{/if}
 	</nav>
+
+	<div class="current-hour-trace" aria-label="Current hour activity trace">
+		{#each currentHourTrace as minute}
+			<span
+				class:current-hour-trace__minute-active={minute.active}
+				class:current-hour-trace__minute-panic={minute.panicking}
+				class="current-hour-trace__minute"
+				style={minute.fill ? `--trace-fill: ${minute.fill}; --trace-glow: ${minute.glow};` : ''}
+				title={minute.label}
+				aria-hidden="true"
+			></span>
+		{/each}
+	</div>
 </header>
 
 <nav class="mobile-bottom-nav" aria-label="Primary">
@@ -413,11 +630,12 @@
 
 <style>
 	header {
+		position: relative;
 		display: grid;
 		grid-template-columns: auto 1fr auto;
 		align-items: center;
 		gap: 1rem;
-		padding: 0.9rem 1rem;
+		padding: 0.9rem 1rem 1rem;
 		background: linear-gradient(
 			180deg,
 			var(--surface-1),
@@ -426,6 +644,51 @@
 		backdrop-filter: blur(16px);
 		border-bottom: 1px solid var(--surface-border);
 		box-shadow: var(--surface-shadow);
+	}
+
+	.current-hour-trace {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		display: grid;
+		grid-template-columns: repeat(60, minmax(0, 1fr));
+		gap: 1px;
+		height: 6px;
+		padding: 0 1px;
+		overflow: visible;
+		background: color-mix(in srgb, var(--color-muted) 10%, transparent);
+		pointer-events: none;
+	}
+
+	.current-hour-trace__minute {
+		position: relative;
+		min-width: 0;
+		border-radius: 1.5px 1.5px 0 0;
+		background: color-mix(in srgb, var(--color-muted) 18%, transparent);
+	}
+
+	.current-hour-trace__minute::after {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+		content: '';
+		opacity: 0;
+	}
+
+	.current-hour-trace__minute-active {
+		background: var(--trace-fill);
+		box-shadow:
+			0 4px 10px color-mix(in srgb, var(--trace-glow) 62%, transparent),
+			0 9px 20px color-mix(in srgb, var(--trace-glow) 34%, transparent);
+	}
+
+	.current-hour-trace__minute-panic {
+		&::after {
+			background: #ff3b30;
+			opacity: 0.3;
+		}
 	}
 
 	.corner {
