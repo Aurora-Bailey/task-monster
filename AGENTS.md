@@ -22,7 +22,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Frontend is client-rendered only.
   - `front/src/routes/+layout.js` sets `ssr = false`
-  - every current page route sets `csr = true`
+  - most route-level `+page.js` files explicitly set `csr = true`; the global layout keeps the app client-rendered even where a page has no route-level module
 - Frontend production hosting is GitHub Pages.
   - `.github/workflows/deploy-frontend.yml` builds and deploys `front/` from the `production` branch
   - GitHub Pages serves the frontend under the repo base path, so production builds set `BASE_PATH=/${{ github.event.repository.name }}`
@@ -33,6 +33,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - service worker lives in `front/static/sw.js`
   - install icons live in `front/static/icons/`
   - service worker registration happens from `front/src/routes/+layout.svelte` in production builds only
+  - dev builds actively unregister Task Monster service workers and clear `task-monster-pwa-*` caches so local work is never served from the PWA cache
   - manifest URLs intentionally stay relative so the app works at both `/` and the GitHub Pages `/task-monster` base path
 - Frontend theme support is browser-local only.
   - theme definitions and persistence live in `front/src/lib/theme.js`
@@ -74,6 +75,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `tasks`
   - `task_runs`
   - `panic_runs`
+  - `assistant_messages`
 - Current startup quirk:
   - Fastify/Ajv emits strict-mode warnings for `type: ['integer', 'string']` query/body schemas around `tzOffsetMinutes`, but the server still boots
 
@@ -101,6 +103,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `GET /sessions`
   - `DELETE /sessions/:sessionId`
   - `POST /sessions/logout`
+  - `GET /login-attempts`
 - Security details:
   - passwords use salted `scrypt` in `back/lib/passwords.js`
   - auth tokens are generated raw once, but only SHA-256 token hashes are stored in Mongo
@@ -163,7 +166,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Done:
   - `POST /tasks/:taskId/done`
   - closes the open run with `endingReason: 'done'`
-  - accepts optional `startedAt`, `completedAt`, and `instanceNote`
+  - accepts optional `startedAt`, `completedAt`, `instanceNote`, and `nextDueAt`
+  - inactive or daymap tasks can be historically completed only when both `startedAt` and `completedAt` are supplied
 - Archive:
   - `POST /tasks/:taskId/archive`
   - only allowed for inactive tasks
@@ -353,14 +357,18 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - daymap lock toggle
   - unmap back to inactive
   - a daymap-only `Queue` sort mode that floats queued tasks to the top in queue-number order
-- All board pages now expose shared `Date`, `Color`, `A-Z`, `Next`, and `Last` sort buttons
+- All board pages now expose a shared right-side board control strip
+  - search opens from a search icon, filters the loaded task list, and can be cleared with the inline `x`
+  - sort opens from a sort icon into a dropdown menu with `Date`, `Color`, `A-Z`, `Next`, and `Last`
+  - daymap also exposes the daymap-only `Queue` sort mode
   - `Next` sorts tasks with a `nextDueAt` first by soonest due time
   - `Last` sorts by the most recent completed time
 - Task cards can now show:
   - `Next due`
   - `Last done`
-  - both timing pills are always visible side by side, using compact `Unset` and `Never` placeholders when dates are missing
-  - clicking a visible `Next due` pill opens an inline local datetime editor on inactive, daymap, active, and done pages
+  - both timing values are always visible as a compact one-line strip: last done on the left, a subtle arrow, next due on the right
+  - visible labels stay out of the strip; hover/title and aria text carry the `Last done` and `Next due` context
+  - clicking the visible `Next due` value opens an inline local datetime editor on inactive, daymap, active, and done pages
 - Active page includes:
   - browser audio break-bell behavior
   - tally increment and decrement controls
@@ -430,7 +438,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - board snapshot task arrays are previews only and must not be treated as exhaustive sections
   - for full-set checks like “all inactive tasks with pomodoro” it should call `filter_tasks`
   - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
-  - `nextDueAt` is an optional task field and is still mostly assistant-managed, but the active done modal can now set it for repeatable tasks
+  - `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
   - time-correction requests should be passed as actual tool arguments, not approximated with notes
@@ -502,7 +510,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - There is no automated test suite yet
 - Cheap smoke checks that match current workflow:
+  - `cd front && npm run lint`
   - `cd front && npm run build`
+  - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
   - boot the backend against a reachable Mongo instance
 - `db/` should not be treated as the source of truth for runtime behavior
 - If docs and code disagree, prefer the code and then update this file

@@ -6,11 +6,11 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 - `daymap`: tasks chosen for today but not active yet
 - `active`: tasks currently on the table
 - `done`: completed run history
-- `stats`: daily stats derived from task runs and panic runs
+- `stats`: minute-map heatmaps and daily summaries derived from task/run history
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks now also support an optional `nextDueAt` field that is still broadly assistant-managed, but the active done-confirmation modal can also set it for repeatable tasks. The board sort bars expose `Next` and `Last` buttons across the app.
+Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
 
 ## Current app status
 
@@ -32,6 +32,8 @@ Authenticated app pages now also expose an AI assistant drawer in the header. It
 - MongoDB is required for the backend runtime
 - There is no automated test suite yet
 - Account creation is gated by the prerelease alpha code and a required legal-acceptance checkbox
+- Production PWA caching is handled by `front/static/sw.js`; dev builds unregister Task Monster service workers and clear local PWA caches
+- Theme selection is browser-local through `front/src/lib/theme.js` and the profile page picker, grouped by light and dark themes
 - `sms-bridge/` is still planning-only, not an implemented runtime service
 
 ## Repo layout
@@ -100,6 +102,7 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
+- Tasks carry nullable timing fields for `nextDueAt`, `lastCompletedAt`, and `lastInactivatedAt`
 - Queueing is only for daymap tasks
 - When the last active task leaves the table, the backend auto-activates the next queued daymap task if one exists
 - Panic does not currently pause tasks automatically; it affects derived effective-time calculations instead
@@ -177,6 +180,8 @@ Task routes:
 - `GET /tasks/daymap`
 - `GET /tasks/active`
 - `GET /tasks/done`
+  - without `day`, supports newest-to-oldest cursor pagination through `limit` and `cursor`
+  - with `day`, still returns one local day's done history for compatibility
 - `POST /tasks/:taskId/daymap`
 - `POST /tasks/:taskId/unmap`
 - `POST /tasks/:taskId/queue`
@@ -190,7 +195,7 @@ Task routes:
 - `PATCH /tasks/:taskId/instance-note`
 - `PATCH /tasks/:taskId/daymap-lock`
 - `PATCH /tasks/:taskId`
-  - broad task edit route for metadata, bell sound, pomodoro, tracking type, tally fields, and active started time
+  - broad task edit route for metadata, notes, next due, bell sound, pomodoro, tracking type, tally fields, daymap lock, and active started time
 
 Panic and stats routes:
 
@@ -198,6 +203,9 @@ Panic and stats routes:
 - `POST /panic/start`
 - `POST /panic/stop`
 - `GET /stats/daily`
+  - assistant/day-summary endpoint with summary, overlap, cadence, panic, done, and session details
+- `GET /stats/heatmap`
+  - current `/stats` page endpoint; returns clipped task-run sessions for 10-day minute-map batches by default
 
 ## Useful docs
 
@@ -211,5 +219,7 @@ Panic and stats routes:
 
 Current cheap smoke checks:
 
+- `cd front && npm run lint`
 - `cd front && npm run build`
+- `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
 - boot the backend against a reachable Mongo instance

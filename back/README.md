@@ -8,7 +8,7 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 - task creation and task-state transitions
 - active run tracking in `task_runs`
 - panic logging in `panic_runs`
-- done history and daily stats
+- newest-to-oldest done feeds, daily stats summaries, and heatmap batches
 - authenticated assistant actions through `POST /assistant/chat`
 
 ## Commands
@@ -61,6 +61,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
 - `tasks`
 - `task_runs`
 - `panic_runs`
+- `assistant_messages`
 
 Indexes are created on startup in `lib/mongo.js`.
 
@@ -75,6 +76,9 @@ Indexes are created on startup in `lib/mongo.js`.
   - `POST /assistant/chat`
   - requires a normal bearer token
   - executes tool actions under the authenticated user
+- Session/profile route:
+  - `GET /login-attempts`
+  - returns recent login-event history for the profile page
 - Passwords are hashed with salted `scrypt`
 - Session tokens are not stored raw
   - only SHA-256 token hashes are stored
@@ -108,6 +112,10 @@ Important task-state fields:
 - `pomodoro`
 - `bellSound`
 - `activeTallyCount`
+- `lastCompletedTallyCount`
+- `nextDueAt`
+- `lastCompletedAt`
+- `lastInactivatedAt`
 
 Notes:
 
@@ -135,6 +143,8 @@ Notes:
 - Done:
   - `POST /tasks/:taskId/done`
   - closes the open run as `done`
+  - accepts optional `startedAt`, `completedAt`, `instanceNote`, and `nextDueAt`
+  - inactive or daymap tasks can be historically completed only when both `startedAt` and `completedAt` are supplied
 - Archive:
   - `POST /tasks/:taskId/archive`
   - only valid for inactive tasks
@@ -177,7 +187,7 @@ Queue semantics:
   - `PATCH /tasks/:taskId/instance-note`
 - Broad task edits:
   - `PATCH /tasks/:taskId`
-  - supports metadata edits, bell sound, pomodoro, tracking type, tally fields, and active started-time changes
+  - supports metadata edits, note, next due, daymap lock, bell sound, pomodoro, tracking type, tally fields, and active started-time changes
 
 The active list derives and returns:
 
@@ -199,17 +209,23 @@ The active list derives and returns:
 
 - Done history:
   - `GET /tasks/done`
+  - without `day`, returns newest-to-oldest completed runs with `limit`, `cursor`, `nextCursor`, and `hasMore`
+  - with `day`, returns a local day's completed runs for compatibility
 - Daily stats:
   - `GET /stats/daily`
+- Heatmap stats:
+  - `GET /stats/heatmap`
+  - returns clipped task-run sessions for local day batches; default count is 10 days, max is 31
 
-Both are local-day aware through `day` and `tzOffsetMinutes`.
+Daily stats are local-day aware through `day` and `tzOffsetMinutes`.
+Done history and heatmap requests use `tzOffsetMinutes`; heatmap batches use `startDay` and `count`.
 
 Daily stats are derived from:
 
 - `task_runs`
 - `panic_runs`
 
-Current stats output includes:
+Current daily stats output includes:
 
 - summary
 - overlap bands
@@ -218,6 +234,8 @@ Current stats output includes:
 - panic log
 - done log
 - session log
+
+The current `/stats` frontend page uses `GET /stats/heatmap`, not the daily report UI. The daily endpoint remains used by assistant day-summary behavior and available for future UI.
 
 ## Assistant scope
 
@@ -261,7 +279,7 @@ Assistant prompt policy:
 - full-set checks should use `filter_tasks`
 - `filter_tasks` can now narrow by whether a next due exists and by due-before / due-after timestamps
 - status-wide cleanup should use `bulk_edit_tasks` instead of manual pagination or long single-task edit loops
-- `nextDueAt` is an optional task field; it is still broadly assistant-managed, but the active done modal can now set it for repeatable tasks during confirmation
+- `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
 - broad task lookup should use `search_tasks` instead of pagination loops
 - timing corrections should be passed as tool arguments, not approximated with notes
 - if a non-active task is being completed historically, both `startedAt` and `completedAt` should be supplied

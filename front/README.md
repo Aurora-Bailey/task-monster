@@ -44,9 +44,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/active`
   - current active tasks
 - `/done`
-  - real completion history by local day
+  - newest-to-oldest completed-task feed with infinite scroll
 - `/stats`
-  - real daily stats derived from backend data
+  - real minute-map heatmap derived from backend task-run data
 - `/add`
   - task creation form
 - `/profile`
@@ -65,7 +65,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `src/lib/tasks-client.js`
   - task API wrapper
 - `src/lib/stats-client.js`
-  - stats API wrapper
+  - daily stats and heatmap API wrapper
 - `src/lib/panic-client.js`
   - panic API wrapper and event dispatch
 - `src/lib/assistant-client.js`
@@ -74,11 +74,21 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - local safe markdown renderer used by assistant replies
 - `src/lib/AssistantDrawer.svelte`
   - right-side authenticated chat drawer with themed markdown response rendering
-  - local in-memory conversation state only; page reload clears the thread
+  - hydrates the latest persisted backend history slice when first opened after reload
 - `src/lib/TaskCard.svelte`
   - shared card UI for inactive, daymap, active, and done variants
+- `src/lib/theme.js`
+  - browser-local theme definitions, theme grouping metadata, and localStorage persistence
+- `src/app.html`
+  - applies the saved theme before Svelte boots to avoid a flash of the default skin
+- `src/routes/layout.css`
+  - root theme tokens and shared themed surfaces
 - `src/routes/Header.svelte`
   - top nav, panic control, AI drawer trigger, logout, and arrow-key page navigation
+- `static/sw.js`
+  - production PWA service worker; dev hosts clear Task Monster caches and unregister instead of serving cached app files
+- `static/manifest.webmanifest`
+  - install metadata with relative URLs so Pages base paths continue to work
 
 ## Current UI behavior
 
@@ -88,15 +98,25 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - prerelease alpha code
   - password confirmation
   - checking agreement to the Privacy Policy and Terms & Conditions
+- The profile page exposes the theme engine grouped into Light and Dark sections
+  - the selected theme is stored only in this browser under `task_monster_theme`
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
 - Daymap cards support queueing and daymap locking
 - The daymap sort bar has a daymap-only `Queue` mode
   - queued tasks rise to the top in queue-number order
   - unqueued tasks stay below them
-- All board pages share `Date`, `Color`, `A-Z`, `Next`, and `Last` sort buttons
+- All board pages share a right-side board control strip
+  - search opens from a search icon, filters the loaded tasks, and clears/closes from the inline `x`
+  - sort opens from a sort icon into a dropdown with `Date`, `Color`, `A-Z`, `Next`, and `Last`
   - `Next` sorts by the optional `nextDueAt` timestamp, with undated tasks below dated ones
   - `Last` sorts by the most recent completed time
+- Task cards always show a compact timing strip
+  - left side: last done, themed from the secondary color
+  - center: a tiny low-contrast arrow
+  - right side: next due, themed from the primary color
+  - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
+  - next due opens an inline local datetime editor on inactive, daymap, active, and done cards
 - The add page exposes pomodoro presets directly for time tasks
   - `none`: manual run with no focus/break bell
   - `short`: 15/5
@@ -117,12 +137,23 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - edit the completion time directly with a local datetime input
   - attach an instance note
   - for repeatable tasks, optionally set `nextDueAt` with its own local datetime input
+- The done page loads the 10 freshest completed runs first and uses an intersection observer to request older runs
+- The stats page loads 10 local days at a time from `GET /stats/heatmap`
+  - each day renders a 60 x 24 minute grid
+  - midnight starts at the bottom and the day moves upward
+  - overlapping tasks render as two- or three-way horizontal split cells
+  - scrolling near the bottom requests older day batches
 - Active pomodoro breaks use browser audio bells
   - focus is silent
   - breaks ring once per minute
   - the bell engine is mounted in the shared header, so it continues across authenticated routes
   - some browsers require user interaction before audio can play
 - Panic mode is controlled from the header, not from the active page itself
+- PWA behavior:
+  - service worker registration is production-only
+  - production navigation uses network-first fallback behavior
+  - immutable app assets and static shell assets are cached
+  - dev mode unregisters existing Task Monster service workers and clears `task-monster-pwa-*` caches to avoid stale local files
 - The header AI drawer talks to `POST /assistant/chat`
   - the key stays on the backend
   - the drawer also hydrates from `GET /assistant/history`
