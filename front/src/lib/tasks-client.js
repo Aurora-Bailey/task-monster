@@ -273,18 +273,23 @@ export function unqueueTask(taskId) {
 }
 
 export function doneTask(taskId, { instanceNote, startedAt, completedAt, nextDueAt } = {}) {
-	const body =
-		instanceNote !== undefined ||
-		startedAt !== undefined ||
-		completedAt !== undefined ||
-		nextDueAt !== undefined
-			? {
-					instanceNote,
-					startedAt,
-					completedAt,
-					nextDueAt
-				}
-			: undefined;
+	const body = {};
+
+	if (instanceNote !== undefined) {
+		body.instanceNote = instanceNote;
+	}
+
+	if (startedAt !== undefined) {
+		body.startedAt = startedAt;
+	}
+
+	if (completedAt !== undefined) {
+		body.completedAt = completedAt;
+	}
+
+	if (nextDueAt !== undefined) {
+		body.nextDueAt = nextDueAt;
+	}
 
 	return runTaskAction(taskId, 'done', body);
 }

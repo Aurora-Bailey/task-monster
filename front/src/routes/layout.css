@@ -36,6 +36,10 @@
 	--surface-shadow-strong: 0 24px 52px rgba(25, 36, 48, 0.18);
 	--surface-inset: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 	--accent-gradient: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+	--active-card-bg: color-mix(in srgb, var(--color-accent) 84%, var(--surface-2));
+	--active-card-bg-2: color-mix(in srgb, var(--color-accent-2) 72%, var(--surface-1));
+	--active-card-text: var(--color-accent-contrast);
+	--active-card-glow: color-mix(in srgb, var(--color-accent) 58%, transparent);
 	--control-gradient: linear-gradient(135deg, rgba(13, 24, 36, 0.9), rgba(44, 62, 80, 0.82));
 	--field-bg: rgba(255, 255, 255, 0.82);
 	--field-border: rgba(18, 26, 36, 0.12);

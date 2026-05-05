@@ -1,6 +1,4 @@
 <script>
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -17,6 +15,8 @@
 	import {
 		activateTask,
 		archiveTask,
+		doneTask,
+		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
 		moveTaskToDaymap,
@@ -25,10 +25,10 @@
 		unmapTask,
 		updateTaskDaymapLock,
 		updateTaskDaymapWeekdays,
-		updateTaskNextDue,
 		updateTaskNote
 	} from '$lib/tasks-client';
 
+	let activeTasks = $state([]);
 	let daymapTasks = $state([]);
 	let inactiveTasks = $state([]);
 	let isLoading = $state(true);
@@ -56,11 +56,13 @@
 		loadError = '';
 
 		try {
-			const [nextDaymapTasks, nextInactiveTasks] = await Promise.all([
+			const [nextActiveTasks, nextDaymapTasks, nextInactiveTasks] = await Promise.all([
+				loadActiveTasks(),
 				loadDaymapTasks(),
 				loadInactiveTasks()
 			]);
 
+			activeTasks = nextActiveTasks;
 			daymapTasks = nextDaymapTasks;
 			inactiveTasks = nextInactiveTasks;
 		} catch (error) {
@@ -88,6 +90,7 @@
 
 		daymapTasks = daymapTasks.map(mergeTask);
 		inactiveTasks = inactiveTasks.map(mergeTask);
+		activeTasks = activeTasks.map(mergeTask);
 	}
 
 	function isScheduledForToday(daymapWeekdays) {
@@ -102,7 +105,102 @@
 			: [...tasks, nextTask];
 	}
 
+	function getQueuePosition(task) {
+		return Number.isInteger(task?.queuePosition) && task.queuePosition > 0
+			? task.queuePosition
+			: null;
+	}
+
+	function getNextQueuedDaymapTask() {
+		return (
+			daymapTasks
+				.filter((task) => getQueuePosition(task) !== null)
+				.sort((left, right) => {
+					const leftQueuePosition = getQueuePosition(left);
+					const rightQueuePosition = getQueuePosition(right);
+
+					if (leftQueuePosition !== rightQueuePosition) {
+						return leftQueuePosition - rightQueuePosition;
+					}
+
+					return (
+						new Date(left.mappedAt || left.createdAt).getTime() -
+						new Date(right.mappedAt || right.createdAt).getTime()
+					);
+				})[0] ?? null
+		);
+	}
+
+	function buildLocalTaskUpdate(currentTask, updatedTask) {
+		const daymapWeekdays = updatedTask?.daymapWeekdays ?? currentTask?.daymapWeekdays ?? [];
+		const lastStartedAt = updatedTask?.lastStartedAt ?? currentTask?.lastStartedAt ?? null;
+
+		return {
+			...currentTask,
+			...updatedTask,
+			daymapWeekdays,
+			scheduledToday: updatedTask?.scheduledToday === true || isScheduledForToday(daymapWeekdays),
+			startedToday:
+				updatedTask?.startedToday === true ||
+				currentTask?.startedToday === true ||
+				Boolean(lastStartedAt),
+			lastStartedAt
+		};
+	}
+
+	function activateQueuedTaskLocally(queuedTask, activatedAt) {
+		const previousQueuePosition = getQueuePosition(queuedTask);
+		const activeTallyCount =
+			queuedTask.trackingType === 'tally' && Number.isInteger(queuedTask.activeTallyCount)
+				? queuedTask.activeTallyCount
+				: 0;
+		const activatedTask = {
+			...queuedTask,
+			activeToday: true,
+			activatedAt,
+			activeTallyCount,
+			queuePosition: null,
+			updatedAt: activatedAt
+		};
+
+		activeTasks = upsertTask(
+			activeTasks.filter((task) => task.id !== queuedTask.id),
+			activatedTask
+		);
+		daymapTasks = daymapTasks
+			.filter((task) => task.id !== queuedTask.id)
+			.map((task) =>
+				previousQueuePosition !== null &&
+				getQueuePosition(task) !== null &&
+				getQueuePosition(task) > previousQueuePosition
+					? {
+							...task,
+							queuePosition: task.queuePosition - 1
+						}
+					: task
+			);
+	}
+
 	function applyTaskBoardMembership(nextTask) {
+		if (!nextTask || nextTask.archived === true) {
+			activeTasks = activeTasks.filter((task) => task.id !== nextTask?.id);
+			daymapTasks = daymapTasks.filter((task) => task.id !== nextTask?.id);
+			inactiveTasks = inactiveTasks.filter((task) => task.id !== nextTask?.id);
+			return;
+		}
+
+		if (nextTask.activeToday === true) {
+			activeTasks = upsertTask(
+				activeTasks.filter((task) => task.id !== nextTask.id),
+				nextTask
+			);
+			daymapTasks = daymapTasks.filter((task) => task.id !== nextTask.id);
+			inactiveTasks = inactiveTasks.filter((task) => task.id !== nextTask.id);
+			return;
+		}
+
+		activeTasks = activeTasks.filter((task) => task.id !== nextTask.id);
+
 		const shouldShowInDaymap = nextTask.mappedToday === true || nextTask.scheduledToday === true;
 
 		if (shouldShowInDaymap) {
@@ -151,20 +249,47 @@
 		}
 	}
 
-	async function handleActivate(taskId, source) {
+	async function handleActivate(taskId) {
 		actionError = '';
 		setBusy(taskId, 'activate');
 
 		try {
-			await activateTask(taskId);
+			const updatedTask = await activateTask(taskId);
 
-			if (source === 'inactive') {
-				inactiveTasks = inactiveTasks.filter((task) => task.id !== taskId);
-			} else {
-				daymapTasks = daymapTasks.filter((task) => task.id !== taskId);
+			daymapTasks = daymapTasks.filter((task) => task.id !== taskId);
+			inactiveTasks = inactiveTasks.filter((task) => task.id !== taskId);
+			activeTasks = updatedTask
+				? upsertTask(
+						activeTasks.filter((task) => task.id !== taskId),
+						updatedTask
+					)
+				: await loadActiveTasks();
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
+	}
+
+	async function handleDone(taskId) {
+		actionError = '';
+		setBusy(taskId, 'done');
+
+		try {
+			const currentTask = activeTasks.find((task) => task.id === taskId) ?? null;
+			const shouldAutoActivateQueuedTask = activeTasks.length < 2;
+			const nextQueuedTask = shouldAutoActivateQueuedTask ? getNextQueuedDaymapTask() : null;
+			const updatedTask = await doneTask(taskId);
+			const nextTask = buildLocalTaskUpdate(currentTask, updatedTask);
+
+			applyTaskBoardMembership(nextTask);
+
+			if (nextQueuedTask) {
+				activateQueuedTaskLocally(
+					nextQueuedTask,
+					updatedTask?.updatedAt ?? updatedTask?.lastCompletedAt ?? new Date().toISOString()
+				);
 			}
-
-			await goto(resolve('/active'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -258,12 +383,6 @@
 		return updatedTask;
 	}
 
-	async function handleSaveNextDue(taskId, nextDueAt) {
-		const updatedTask = await updateTaskNextDue(taskId, nextDueAt);
-		replaceTask(taskId, updatedTask);
-		return updatedTask;
-	}
-
 	onMount(() => {
 		sortMode = loadStoredTaskSort('tasks', DAYMAP_TASK_SORT_OPTIONS);
 		void loadTasks();
@@ -287,21 +406,26 @@
 		};
 	});
 
+	const sortedActiveTasks = $derived(
+		sortTasks(filterTasks(activeTasks, searchQuery), { mode: sortMode, variant: 'active' })
+	);
 	const sortedDaymapTasks = $derived(
 		sortTasks(filterTasks(daymapTasks, searchQuery), { mode: sortMode, variant: 'daymap' })
 	);
 	const sortedInactiveTasks = $derived(
 		sortTasks(filterTasks(inactiveTasks, searchQuery), { mode: sortMode, variant: 'inactive' })
 	);
-	const hasAnyTasks = $derived(daymapTasks.length + inactiveTasks.length > 0);
-	const hasAnyMatches = $derived(sortedDaymapTasks.length + sortedInactiveTasks.length > 0);
+	const hasAnyTasks = $derived(activeTasks.length + daymapTasks.length + inactiveTasks.length > 0);
+	const hasAnyMatches = $derived(
+		sortedActiveTasks.length + sortedDaymapTasks.length + sortedInactiveTasks.length > 0
+	);
 </script>
 
 <svelte:head>
 	<title>Tasks</title>
 	<meta
 		name="description"
-		content="Your daymap and inactive task backlog in one control surface."
+		content="Your active tasks, daymap, and inactive task backlog in one control surface."
 	/>
 </svelte:head>
 
@@ -323,15 +447,10 @@
 	{#if isLoading}
 		<div class="message-card">
 			<strong>Loading tasks</strong>
-			<p>Pulling today&apos;s map and the inactive backlog into one board.</p>
+			<p>Pulling the live board into place.</p>
 		</div>
 	{:else}
 		<div class="tasks-toolbar">
-			<div>
-				<p class="tasks-kicker">Tasks</p>
-				<h1>Daymap and backlog</h1>
-			</div>
-
 			<TaskSortBar
 				value={sortMode}
 				options={DAYMAP_TASK_SORT_OPTIONS}
@@ -340,7 +459,7 @@
 					storeTaskSort('tasks', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
 				}}
 				searchValue={searchQuery}
-				searchPlaceholder="Search both sections"
+				searchPlaceholder="Search board"
 				onSearchChange={(nextSearchQuery) => {
 					searchQuery = nextSearchQuery;
 				}}
@@ -355,8 +474,43 @@
 		{:else if !hasAnyMatches}
 			<div class="message-card">
 				<strong>No matching tasks</strong>
-				<p>Clear search to show both the daymap and inactive backlog.</p>
+				<p>Clear search to show the full board.</p>
 			</div>
+		{/if}
+
+		{#if activeTasks.length > 0}
+			<section class="task-section task-section-active" aria-labelledby="tasks-active-heading">
+				<div class="section-divider section-divider-active">
+					<span></span>
+					<h2 id="tasks-active-heading">Active</h2>
+					<span></span>
+				</div>
+
+				{#if sortedActiveTasks.length === 0}
+					<div class="section-empty">
+						<p>No active matches.</p>
+					</div>
+				{:else}
+					<div class="task-grid">
+						{#each sortedActiveTasks as task}
+							<TaskCard
+								{task}
+								variant="board-active"
+								editableTaskId={task.id}
+								compact={true}
+								showDoneButton={true}
+								showScheduleControls={true}
+								showNextDueTiming={false}
+								lastDonePlacement="schedule"
+								busyAction={busyTasks[task.id] || null}
+								onDone={handleDone}
+								onScheduleChange={handleScheduleChange}
+								onSaveNote={handleSaveNote}
+							/>
+						{/each}
+					</div>
+				{/if}
+			</section>
 		{/if}
 
 		<section class="task-section" aria-labelledby="tasks-daymap-heading">
@@ -381,14 +535,15 @@
 							showDaymapToggle={true}
 							showActivateButton={true}
 							showScheduleControls={true}
+							showNextDueTiming={false}
+							lastDonePlacement="schedule"
 							busyAction={busyTasks[task.id] || null}
 							onDaymapToggle={() => handleMoveToInactive(task.id)}
-							onActivate={() => handleActivate(task.id, 'daymap')}
+							onActivate={() => handleActivate(task.id)}
 							onToggleDaymapLock={handleDaymapLockToggle}
 							onQueueToggle={handleQueueToggle}
 							onScheduleChange={handleScheduleChange}
 							onSaveNote={handleSaveNote}
-							onSaveNextDue={handleSaveNextDue}
 						/>
 					{/each}
 				</div>
@@ -416,14 +571,15 @@
 							showDaymapToggle={true}
 							showActivateButton={true}
 							showScheduleControls={true}
+							showNextDueTiming={false}
+							lastDonePlacement="schedule"
 							busyAction={busyTasks[task.id] || null}
 							showArchiveButton={true}
 							onDaymapToggle={() => handleMoveToDaymap(task.id)}
-							onActivate={() => handleActivate(task.id, 'inactive')}
+							onActivate={() => handleActivate(task.id)}
 							onArchive={handleArchive}
 							onScheduleChange={handleScheduleChange}
 							onSaveNote={handleSaveNote}
-							onSaveNextDue={handleSaveNextDue}
 						/>
 					{/each}
 				</div>
@@ -442,25 +598,9 @@
 	.tasks-toolbar {
 		display: flex;
 		align-items: end;
-		justify-content: space-between;
+		justify-content: flex-end;
 		gap: 1rem;
 		padding: 0.2rem 0 0.1rem;
-	}
-
-	.tasks-kicker {
-		margin: 0 0 0.16rem;
-		font-size: 0.7rem;
-		font-weight: 900;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--color-theme-2);
-	}
-
-	h1 {
-		margin: 0;
-		font-size: clamp(1.35rem, 3vw, 2rem);
-		line-height: 1;
-		color: var(--color-heading);
 	}
 
 	.message-card,
@@ -523,6 +663,23 @@
 		letter-spacing: 0.2em;
 		text-transform: uppercase;
 		color: color-mix(in srgb, var(--color-theme-2) 82%, var(--color-heading));
+	}
+
+	.section-divider-active {
+		color: var(--color-theme-1);
+	}
+
+	.section-divider-active span {
+		background: linear-gradient(
+			90deg,
+			transparent,
+			color-mix(in srgb, var(--color-theme-1) 58%, var(--surface-border)),
+			transparent
+		);
+	}
+
+	.section-divider-active h2 {
+		color: color-mix(in srgb, var(--color-theme-1) 88%, var(--color-heading));
 	}
 
 	.task-grid {

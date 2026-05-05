@@ -49,6 +49,8 @@
 		doneDurationLabel = '',
 		doneTallyCount = null,
 		completedAtLabel = '',
+		showNextDueTiming = true,
+		lastDonePlacement = 'timing',
 		busyAction = null,
 		onSaveNote = null,
 		onSaveInstanceNote = null,
@@ -56,6 +58,7 @@
 		onScheduleChange = null,
 		showDaymapToggle = false,
 		showActivateButton = false,
+		showDoneButton = false,
 		showScheduleControls = false,
 		showArchiveButton = false,
 		onActivate = () => {},
@@ -72,6 +75,7 @@
 	const isTallyTask = $derived(task.trackingType === 'tally');
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
+	const isBoardActiveCard = $derived(variant === 'board-active');
 	const usesInactiveCardClick = $derived(isInactiveCard && enableInactiveCardClick);
 	const isQueuedDaymapTask = $derived(
 		isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0
@@ -81,6 +85,7 @@
 	const showsActions = $derived(variant === 'active');
 	const showsHeaderDaymapToggle = $derived(showDaymapToggle && (isInactiveCard || isDaymapCard));
 	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
+	const showsHeaderDone = $derived(showDoneButton && isBoardActiveCard);
 	const isScheduledOnlyDaymapTask = $derived(
 		isDaymapCard && task.scheduledToday === true && task.mappedToday !== true
 	);
@@ -88,11 +93,17 @@
 	const showsWeekdaySchedule = $derived(
 		showScheduleControls && task.mode === 'repeatable' && Boolean(onScheduleChange)
 	);
+	const showsScheduleLastDone = $derived(lastDonePlacement === 'schedule');
+	const showsTimingLastDone = $derived(!showsScheduleLastDone);
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const canEditInstanceNote = $derived(
 		variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote)
 	);
-	const canEditNextDue = $derived(Boolean(editableTaskId && onSaveNextDue));
+	const canEditNextDue = $derived(showNextDueTiming && Boolean(editableTaskId && onSaveNextDue));
+	const showsNextDueTiming = $derived(
+		showNextDueTiming && (canEditNextDue || Boolean(task.nextDueAt))
+	);
+	const showsTimingRow = $derived(showsTimingLastDone || showsNextDueTiming);
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
 	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
@@ -300,6 +311,16 @@
 		onActivate(task.id);
 	}
 
+	function handleHeaderDoneClick(event) {
+		event.stopPropagation();
+
+		if (!showsHeaderDone || busyAction !== null) {
+			return;
+		}
+
+		onDone(task.id);
+	}
+
 	function handleTallyClick(event, delta) {
 		event.stopPropagation();
 
@@ -380,8 +401,8 @@
 	function formatLastDone(value) {
 		if (!value) {
 			return {
-				weekdayLabel: 'Never',
-				dateTimeLabel: 'No runs'
+				weekdayLabel: '',
+				dateTimeLabel: 'Untracked'
 			};
 		}
 
@@ -389,8 +410,8 @@
 
 		if (Number.isNaN(date.getTime())) {
 			return {
-				weekdayLabel: 'Never',
-				dateTimeLabel: 'No runs'
+				weekdayLabel: '',
+				dateTimeLabel: 'Untracked'
 			};
 		}
 
@@ -425,7 +446,7 @@
 	}
 
 	function formatTimingTitle(label, meta) {
-		return `${label}: ${meta.weekdayLabel} ${meta.dateTimeLabel}`;
+		return `${label}: ${[meta.weekdayLabel, meta.dateTimeLabel].filter(Boolean).join(' ')}`;
 	}
 
 	async function openNextDueEditor(event) {
@@ -603,7 +624,8 @@
 	class:is-inactive={isInactiveCard}
 	class:is-busy={busyAction !== null}
 	class:is-compact={compact}
-	class:is-started-today={task.startedToday === true && variant !== 'active'}
+	class:is-board-active={isBoardActiveCard}
+	class:is-started-today={task.startedToday === true && variant !== 'active' && !isBoardActiveCard}
 	class:uses-card-click={usesInactiveCardClick}
 	style={`--task-accent: ${task.color};`}
 	role={usesInactiveCardClick ? 'button' : undefined}
@@ -750,6 +772,34 @@
 				</button>
 			{/if}
 
+			{#if showsHeaderDone}
+				<button
+					class="task-card__icon-action done-icon-button"
+					type="button"
+					aria-label={`Mark ${task.name} done`}
+					title="Mark done"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleHeaderDoneClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'done'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="m5 12 4.2 4.2L19 6.8"
+								fill="none"
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2.4"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+
 			{#if showArchiveButton}
 				<button
 					class="task-card__icon-action archive-button"
@@ -780,111 +830,140 @@
 		</div>
 	</div>
 
-	<div class="task-card__timing-row" class:is-editing-next-due={nextDueEditorOpen}>
-		{#if true}
-			{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
-			<p
-				class="task-card__timing-meta task-card__last-done"
-				title={formatTimingTitle('Last done', lastDoneMeta)}
-				aria-label={formatTimingTitle('Last done', lastDoneMeta)}
-			>
-				<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>
-				<span class="task-card__timing-date">{lastDoneMeta.dateTimeLabel}</span>
-			</p>
-		{/if}
-
-		<svg class="task-card__timing-arrow" viewBox="0 0 18 10" aria-hidden="true">
-			<path
-				d="M1 5h14m-4-4 4 4-4 4"
-				fill="none"
-				stroke="currentColor"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="1.4"
-			/>
-		</svg>
-
-		{#if true}
-			{@const nextDueMeta = formatNextDue(task.nextDueAt)}
-			{#if nextDueEditorOpen}
-				<form
-					class="task-card__next-due-editor task-card__interactive"
-					onsubmit={handleNextDueSubmit}
-				>
-					<label>
-						<span>Next due</span>
-						<input
-							bind:this={nextDueInput}
-							bind:value={draftNextDueAt}
-							type="datetime-local"
-							disabled={nextDueSaveStatus === 'saving'}
-						/>
-					</label>
-
-					<div class="task-card__next-due-actions">
-						<button type="submit" disabled={nextDueSaveStatus === 'saving'}>
-							{nextDueSaveStatus === 'saving' ? 'Saving...' : 'Save'}
-						</button>
-						<button
-							type="button"
-							disabled={nextDueSaveStatus === 'saving'}
-							onclick={closeNextDueEditor}
-						>
-							Cancel
-						</button>
-					</div>
-
-					{#if nextDueSaveStatus === 'error' && nextDueSaveError}
-						<p class="task-card__next-due-error">{nextDueSaveError}</p>
-					{/if}
-				</form>
-			{:else if canEditNextDue}
-				<button
-					class="task-card__timing-meta task-card__next-due task-card__timing-button"
-					type="button"
-					aria-label={`Edit next due time for ${task.name}. ${formatTimingTitle('Next due', nextDueMeta)}`}
-					title={formatTimingTitle('Next due', nextDueMeta)}
-					onpointerdown={stopEventPropagation}
-					onclick={openNextDueEditor}
-					onkeydown={stopEventPropagation}
-				>
-					<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
-					<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
-				</button>
-			{:else}
+	{#if showsTimingRow}
+		<div
+			class="task-card__timing-row"
+			class:has-last-done={showsTimingLastDone}
+			class:has-next-due={showsNextDueTiming}
+			class:is-editing-next-due={nextDueEditorOpen}
+		>
+			{#if showsTimingLastDone}
+				{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
 				<p
-					class="task-card__timing-meta task-card__next-due"
-					title={formatTimingTitle('Next due', nextDueMeta)}
-					aria-label={formatTimingTitle('Next due', nextDueMeta)}
+					class="task-card__timing-meta task-card__last-done"
+					title={formatTimingTitle('Last done', lastDoneMeta)}
+					aria-label={formatTimingTitle('Last done', lastDoneMeta)}
 				>
-					<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
-					<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
+					{#if lastDoneMeta.weekdayLabel}
+						<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>
+					{/if}
+					<span class="task-card__timing-date">{lastDoneMeta.dateTimeLabel}</span>
 				</p>
 			{/if}
-		{/if}
-	</div>
 
-	{#if showsWeekdaySchedule}
-		<div
-			class="task-card__weekday-schedule task-card__interactive"
-			aria-label={`Auto daymap schedule for ${task.name}`}
-		>
-			{#each weekdayOptions as weekday}
-				<button
-					class="weekday-schedule-button"
-					class:is-selected={isWeekdayScheduled(weekday.value)}
-					class:is-today={weekday.value === currentWeekday}
-					type="button"
-					aria-pressed={isWeekdayScheduled(weekday.value)}
-					title={`${weekday.label}${weekday.value === currentWeekday ? ' (today)' : ''}`}
-					disabled={busyAction !== null}
-					onpointerdown={stopEventPropagation}
-					onclick={(event) => handleScheduleToggle(event, weekday.value)}
-					onkeydown={stopEventPropagation}
+			{#if showsTimingLastDone && showsNextDueTiming}
+				<svg class="task-card__timing-arrow" viewBox="0 0 18 10" aria-hidden="true">
+					<path
+						d="M1 5h14m-4-4 4 4-4 4"
+						fill="none"
+						stroke="currentColor"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.4"
+					/>
+				</svg>
+			{/if}
+
+			{#if showsNextDueTiming}
+				{@const nextDueMeta = formatNextDue(task.nextDueAt)}
+				{#if nextDueEditorOpen}
+					<form
+						class="task-card__next-due-editor task-card__interactive"
+						onsubmit={handleNextDueSubmit}
+					>
+						<label>
+							<span>Next due</span>
+							<input
+								bind:this={nextDueInput}
+								bind:value={draftNextDueAt}
+								type="datetime-local"
+								disabled={nextDueSaveStatus === 'saving'}
+							/>
+						</label>
+
+						<div class="task-card__next-due-actions">
+							<button type="submit" disabled={nextDueSaveStatus === 'saving'}>
+								{nextDueSaveStatus === 'saving' ? 'Saving...' : 'Save'}
+							</button>
+							<button
+								type="button"
+								disabled={nextDueSaveStatus === 'saving'}
+								onclick={closeNextDueEditor}
+							>
+								Cancel
+							</button>
+						</div>
+
+						{#if nextDueSaveStatus === 'error' && nextDueSaveError}
+							<p class="task-card__next-due-error">{nextDueSaveError}</p>
+						{/if}
+					</form>
+				{:else if canEditNextDue}
+					<button
+						class="task-card__timing-meta task-card__next-due task-card__timing-button"
+						type="button"
+						aria-label={`Edit next due time for ${task.name}. ${formatTimingTitle('Next due', nextDueMeta)}`}
+						title={formatTimingTitle('Next due', nextDueMeta)}
+						onpointerdown={stopEventPropagation}
+						onclick={openNextDueEditor}
+						onkeydown={stopEventPropagation}
+					>
+						<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
+						<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
+					</button>
+				{:else}
+					<p
+						class="task-card__timing-meta task-card__next-due"
+						title={formatTimingTitle('Next due', nextDueMeta)}
+						aria-label={formatTimingTitle('Next due', nextDueMeta)}
+					>
+						<strong class="task-card__timing-day">{nextDueMeta.weekdayLabel}</strong>
+						<span class="task-card__timing-date">{nextDueMeta.dateTimeLabel}</span>
+					</p>
+				{/if}
+			{/if}
+		</div>
+	{/if}
+
+	{#if showsWeekdaySchedule || showsScheduleLastDone}
+		<div class="task-card__schedule-row">
+			{#if showsWeekdaySchedule}
+				<div
+					class="task-card__weekday-schedule task-card__interactive"
+					aria-label={`Auto daymap schedule for ${task.name}`}
 				>
-					<span>{weekday.short}</span>
-				</button>
-			{/each}
+					{#each weekdayOptions as weekday}
+						<button
+							class="weekday-schedule-button"
+							class:is-selected={isWeekdayScheduled(weekday.value)}
+							class:is-today={weekday.value === currentWeekday}
+							type="button"
+							aria-pressed={isWeekdayScheduled(weekday.value)}
+							title={`${weekday.label}${weekday.value === currentWeekday ? ' (today)' : ''}`}
+							disabled={busyAction !== null}
+							onpointerdown={stopEventPropagation}
+							onclick={(event) => handleScheduleToggle(event, weekday.value)}
+							onkeydown={stopEventPropagation}
+						>
+							<span>{weekday.short}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			{#if showsScheduleLastDone}
+				{@const lastDoneMeta = formatLastDone(task.lastCompletedAt)}
+				<p
+					class="task-card__timing-meta task-card__last-done task-card__schedule-last-done"
+					title={formatTimingTitle('Last done', lastDoneMeta)}
+					aria-label={formatTimingTitle('Last done', lastDoneMeta)}
+				>
+					{#if lastDoneMeta.weekdayLabel}
+						<strong class="task-card__timing-day">{lastDoneMeta.weekdayLabel}</strong>
+					{/if}
+					<span class="task-card__timing-date">{lastDoneMeta.dateTimeLabel}</span>
+				</p>
+			{/if}
 		</div>
 	{/if}
 
@@ -1203,6 +1282,31 @@
 		opacity: 0.5;
 	}
 
+	.task-card.is-board-active {
+		border-color: color-mix(in srgb, var(--task-accent) 72%, var(--surface-border));
+		background:
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--active-card-bg) 84%, var(--surface-2)),
+				color-mix(in srgb, var(--active-card-bg-2) 80%, var(--surface-1))
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--task-accent) 22%, transparent),
+				transparent 62%
+			);
+		box-shadow:
+			var(--surface-shadow-strong),
+			0 1rem 2.6rem -1rem var(--active-card-glow),
+			0 0 0 1px color-mix(in srgb, var(--task-accent) 22%, transparent),
+			var(--surface-inset);
+	}
+
+	.task-card.is-board-active h2 {
+		color: var(--active-card-text);
+		text-shadow: 0 0 18px color-mix(in srgb, var(--active-card-text) 22%, transparent);
+	}
+
 	.task-card.is-compact::before {
 		width: 0.28rem;
 	}
@@ -1300,13 +1404,30 @@
 			var(--surface-shadow-strong);
 	}
 
+	.task-card__schedule-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 0.48rem;
+		margin-top: -0.14rem;
+		min-width: 0;
+	}
+
+	.task-card.is-compact .task-card__schedule-row {
+		gap: 0.36rem;
+		margin-top: -0.08rem;
+	}
+
 	.task-card__weekday-schedule {
 		display: flex;
 		align-items: center;
+		flex: 1 1 auto;
 		flex-wrap: wrap;
 		gap: 0.2rem;
+		min-width: 0;
 		padding: 0;
-		margin-top: -0.14rem;
+		margin: 0;
 	}
 
 	.weekday-schedule-button {
@@ -1398,6 +1519,15 @@
 			0 0 0 1px color-mix(in srgb, var(--color-theme-1) 9%, transparent);
 	}
 
+	.done-icon-button {
+		background: color-mix(in srgb, var(--color-theme-2) 18%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-theme-2) 42%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-theme-2) 90%, var(--color-heading));
+		box-shadow:
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-theme-2) 13%, transparent);
+	}
+
 	.daymap-lock-button.is-locked {
 		background: color-mix(in srgb, var(--color-warning) 15%, var(--surface-2));
 		border-color: color-mix(in srgb, var(--color-warning) 35%, var(--surface-border));
@@ -1414,7 +1544,8 @@
 	.daymap-lock-button:hover,
 	.queue-button:hover,
 	.daymap-toggle-button:hover,
-	.activate-icon-button:hover {
+	.activate-icon-button:hover,
+	.done-icon-button:hover {
 		transform: translateY(-1px);
 		box-shadow: var(--surface-shadow-strong);
 	}
@@ -1422,7 +1553,8 @@
 	.daymap-lock-button:disabled,
 	.queue-button:disabled,
 	.daymap-toggle-button:disabled,
-	.activate-icon-button:disabled {
+	.activate-icon-button:disabled,
+	.done-icon-button:disabled {
 		cursor: wait;
 		opacity: 0.72;
 		transform: none;
@@ -1510,12 +1642,24 @@
 	}
 
 	.task-card__timing-row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		display: flex;
 		align-items: center;
 		gap: 0.24rem;
 		margin-top: -0.25rem;
 		color: var(--color-muted);
+	}
+
+	.task-card__timing-row.has-last-done.has-next-due {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	}
+
+	.task-card__timing-row.has-last-done:not(.has-next-due) {
+		justify-content: flex-end;
+	}
+
+	.task-card__timing-row.has-next-due:not(.has-last-done) {
+		justify-content: flex-start;
 	}
 
 	.task-card.is-compact .task-card__timing-row {
@@ -1602,6 +1746,12 @@
 		--timing-accent: var(--color-theme-2);
 		justify-content: flex-end;
 		text-align: right;
+	}
+
+	.task-card__schedule-last-done {
+		flex: 0 1 auto;
+		width: auto;
+		margin-left: auto;
 	}
 
 	.task-card__next-due-editor {
