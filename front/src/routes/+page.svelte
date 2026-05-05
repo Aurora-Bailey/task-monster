@@ -8,10 +8,10 @@
 		$session.status === 'authenticated' ? 'Open your table' : 'Create account'
 	);
 
-	const screenshots = {
+	const marketingImages = {
 		daymap: resolve('/images/marketing/daymap-board.png'),
-		active: resolve('/images/marketing/active-run.png'),
-		add: resolve('/images/marketing/add-task-builder.png'),
+		active: resolve('/images/marketing/active-run.svg'),
+		add: resolve('/images/marketing/add-task-builder.svg'),
 		notes: resolve('/images/marketing/task-note-surface.png')
 	};
 </script>
@@ -71,19 +71,19 @@
 				<div class="hero-visual">
 					<figure class="shot-panel hero-main-shot">
 						<img
-							src={screenshots.daymap}
+							src={marketingImages.daymap}
 							alt="Task Monster daymap screen showing staged tasks and task cards."
 						/>
 					</figure>
 
 					<figure class="shot-panel hero-secondary-shot">
 						<img
-							src={screenshots.active}
-							alt="Task Monster active task screen showing pomodoro state, panic time, and done controls."
+							src={marketingImages.active}
+							alt="Task Monster active task screen showing runtime, panic time, and done controls."
 						/>
 					</figure>
 
-					<p class="hero-caption">Real product screens. Daymap behind. Live run in front.</p>
+					<p class="hero-caption">Product surfaces. Daymap behind. Live run in front.</p>
 				</div>
 			</div>
 		</div>
@@ -145,7 +145,7 @@
 
 			<figure class="shot-panel wide-shot">
 				<img
-					src={screenshots.daymap}
+					src={marketingImages.daymap}
 					alt="Task Monster daymap page with staged task cards and sort controls."
 					loading="eager"
 				/>
@@ -157,8 +157,8 @@
 		<div class="band-inner surface-layout reverse">
 			<figure class="shot-panel portrait-shot">
 				<img
-					src={screenshots.active}
-					alt="Task Monster active task screen showing notes, timer, pomodoro phase, panic time, and done controls."
+					src={marketingImages.active}
+					alt="Task Monster active task screen showing notes, timer, panic time, and done controls."
 					loading="lazy"
 				/>
 			</figure>
@@ -167,11 +167,11 @@
 				<p class="section-kicker">Active runtime</p>
 				<h2>When a task goes live, it becomes a real session.</h2>
 				<p>
-					The active screen is where the system earns its keep: duration, pomodoro phase, panic
-					overlap, effective time, run notes, and completion all sit on the same surface.
+					The active screen is where the system earns its keep: duration, panic overlap, effective
+					time, run notes, and completion all sit on the same surface.
 				</p>
 				<ul class="surface-points">
-					<li>Focus and break cadence stay tied to the active task.</li>
+					<li>Runtime stays tied to the active task.</li>
 					<li>Run notes do not get mixed into the template note.</li>
 					<li>Done closes the session instead of toggling a checkbox.</li>
 				</ul>
@@ -194,8 +194,8 @@
 				<p class="section-kicker">Task builder</p>
 				<h2>Tasks carry structure, not just names.</h2>
 				<p>
-					You can define color, type, tracking mode, and pomodoro cadence at creation time so the
-					system knows how that task should behave later.
+					You can define color, type, tracking mode, and task context at creation time so the system
+					knows how that task should behave later.
 				</p>
 				<p>
 					Persistent task context stays separate from run-specific notes, which makes review cleaner
@@ -206,7 +206,7 @@
 			<div class="builder-gallery">
 				<figure class="shot-panel builder-shot">
 					<img
-						src={screenshots.add}
+						src={marketingImages.add}
 						alt="Task Monster add-task screen showing color choice, task type, tracking mode, and add button."
 						loading="lazy"
 					/>
@@ -214,7 +214,7 @@
 
 				<figure class="shot-panel note-shot">
 					<img
-						src={screenshots.notes}
+						src={marketingImages.notes}
 						alt="Task Monster task note surface showing a notepad area inside a task card."
 						loading="lazy"
 					/>

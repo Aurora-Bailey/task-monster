@@ -1,8 +1,6 @@
 const { ObjectId } = require('mongodb');
 
-const { normalizeStoredBellSound } = require('./bell-sounds');
 const { serializedPanicLogItemJsonSchema } = require('./panic');
-const { normalizeStoredPomodoro } = require('./pomodoro');
 
 const TASK_COLOR_MAP = Object.freeze({
 	red: '#c74a4a',
@@ -17,26 +15,6 @@ const TASK_COLOR_MAP = Object.freeze({
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
 const TASK_TRACKING_TYPE_VALUES = Object.freeze(['time', 'tally']);
 
-const serializedPomodoroJsonSchema = {
-	type: ['object', 'null'],
-	required: [
-		'presetKey',
-		'label',
-		'focusMinutes',
-		'shortBreakMinutes',
-		'longBreakMinutes',
-		'longBreakInterval'
-	],
-	properties: {
-		presetKey: { type: 'string' },
-		label: { type: 'string' },
-		focusMinutes: { type: 'integer' },
-		shortBreakMinutes: { type: 'integer' },
-		longBreakMinutes: { type: 'integer' },
-		longBreakInterval: { type: 'integer' }
-	}
-};
-
 const serializedTaskJsonSchema = {
 	type: 'object',
 	required: [
@@ -46,8 +24,6 @@ const serializedTaskJsonSchema = {
 		'colorKey',
 		'mode',
 		'trackingType',
-		'pomodoro',
-		'bellSound',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -77,8 +53,6 @@ const serializedTaskJsonSchema = {
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
-		pomodoro: serializedPomodoroJsonSchema,
-		bellSound: { type: ['string', 'null'] },
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -116,8 +90,6 @@ const serializedCompletedTaskJsonSchema = {
 		'colorKey',
 		'mode',
 		'trackingType',
-		'pomodoro',
-		'bellSound',
 		'tallyUnit',
 		'tallyTarget',
 		'activeTallyCount',
@@ -152,8 +124,6 @@ const serializedCompletedTaskJsonSchema = {
 		colorKey: { type: 'string' },
 		mode: { type: 'string' },
 		trackingType: { type: 'string' },
-		pomodoro: serializedPomodoroJsonSchema,
-		bellSound: { type: ['string', 'null'] },
 		tallyUnit: { type: ['string', 'null'] },
 		tallyTarget: { type: ['integer', 'null'] },
 		activeTallyCount: { type: 'integer' },
@@ -209,9 +179,6 @@ async function findOwnedTask(db, { taskId, userId }) {
 }
 
 function serializeTask(task) {
-	const pomodoro = normalizeStoredPomodoro(task);
-	const bellSound = normalizeStoredBellSound(task);
-
 	return {
 		id: task._id.toString(),
 		name: task.name,
@@ -219,8 +186,6 @@ function serializeTask(task) {
 		colorKey: task.colorKey,
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
-		pomodoro,
-		bellSound,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
@@ -258,7 +223,6 @@ module.exports = {
 	isAllowedTaskMode,
 	isAllowedTaskTrackingType,
 	serializedCompletedTaskJsonSchema,
-	serializedPomodoroJsonSchema,
 	serializedTaskJsonSchema,
 	toObjectId,
 	serializeTask

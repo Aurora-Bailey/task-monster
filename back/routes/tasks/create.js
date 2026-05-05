@@ -1,12 +1,6 @@
 const { ObjectId } = require('mongodb');
 
 const {
-	DEFAULT_BELL_SOUND_KEY,
-	BELL_SOUND_VALUES,
-	isAllowedBellSound
-} = require('../../lib/bell-sounds');
-const { POMODORO_PRESET_KEYS, getPomodoroPreset, isValidPomodoroPresetKey } = require('../../lib/pomodoro');
-const {
 	TASK_COLOR_MAP,
 	TASK_MODE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
@@ -39,14 +33,6 @@ const createTaskSchema = {
 			trackingType: {
 				type: 'string',
 				enum: [...TASK_TRACKING_TYPE_VALUES]
-			},
-			pomodoroPreset: {
-				type: ['string', 'null'],
-				enum: [...POMODORO_PRESET_KEYS, null]
-			},
-			bellSound: {
-				type: ['string', 'null'],
-				enum: [...BELL_SOUND_VALUES, null]
 			},
 			tallyUnit: {
 				type: ['string', 'null'],
@@ -91,14 +77,6 @@ async function createTaskRoute(app) {
 			const color = request.body.color;
 			const mode = request.body.mode;
 			const trackingType = request.body.trackingType || 'time';
-			const hasPomodoroPreset = Object.hasOwn(request.body, 'pomodoroPreset');
-			const pomodoroPresetKey = hasPomodoroPreset
-				? request.body.pomodoroPreset
-				: 'medium';
-			const bellSoundKey =
-				typeof request.body.bellSound === 'string'
-					? request.body.bellSound
-					: DEFAULT_BELL_SOUND_KEY;
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
 			const nextDueAtInput = request.body.nextDueAt;
 
@@ -126,8 +104,6 @@ async function createTaskRoute(app) {
 				});
 			}
 
-			let pomodoro = null;
-			let bellSound = null;
 			let tallyUnit = null;
 			let tallyTarget = null;
 			let nextDueAt = null;
@@ -144,37 +120,7 @@ async function createTaskRoute(app) {
 				nextDueAt = parsedNextDueAt;
 			}
 
-			if (trackingType === 'time') {
-				if (pomodoroPresetKey !== null && !isValidPomodoroPresetKey(pomodoroPresetKey)) {
-					return reply.code(400).send({
-						message: 'Pomodoro preset is not supported.'
-					});
-				}
-
-				pomodoro = pomodoroPresetKey === null ? null : getPomodoroPreset(pomodoroPresetKey);
-
-				if (!isAllowedBellSound(bellSoundKey)) {
-					return reply.code(400).send({
-						message: 'Bell sound is not supported.'
-					});
-				}
-
-				bellSound = bellSoundKey;
-			}
-
 			if (trackingType === 'tally') {
-				if (request.body.pomodoroPreset !== undefined && request.body.pomodoroPreset !== null) {
-					return reply.code(400).send({
-						message: 'Tally tasks do not use pomodoro presets.'
-					});
-				}
-
-				if (request.body.bellSound !== undefined && request.body.bellSound !== null) {
-					return reply.code(400).send({
-						message: 'Tally tasks do not use bell sounds.'
-					});
-				}
-
 				tallyUnit = typeof request.body.tallyUnit === 'string' ? request.body.tallyUnit.trim() : '';
 				tallyTarget = request.body.tallyTarget;
 
@@ -199,8 +145,6 @@ async function createTaskRoute(app) {
 				colorHex: TASK_COLOR_MAP[color],
 				mode,
 				trackingType,
-				pomodoro,
-				bellSound,
 				tallyUnit,
 				tallyTarget,
 				activeTallyCount: 0,

@@ -3,7 +3,6 @@
 
 	import {
 		formatElapsedDuration,
-		formatMinutes,
 		formatTaskMode,
 		formatTaskTrackingType,
 		formatTallyCount,
@@ -33,8 +32,6 @@
 		editableTaskId = null,
 		clickActionLabel = 'Activate',
 		activeDurationLabel = '',
-		pomodoroStatusLabel = '',
-		pomodoroState = null,
 		panicDurationLabel = '',
 		effectiveDurationLabel = '',
 		doneDurationLabel = '',
@@ -56,7 +53,6 @@
 	} = $props();
 
 	const isTallyTask = $derived(task.trackingType === 'tally');
-	const hasPomodoro = $derived(task.trackingType !== 'tally' && task.pomodoro);
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
 	const isQueuedDaymapTask = $derived(
@@ -74,20 +70,6 @@
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
 	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
 	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
-	const pomodoroCycleLabel = $derived(
-		pomodoroState
-			? pomodoroState.isBreak
-				? `Completed ${pomodoroState.completedFocusBlocks} focus block${pomodoroState.completedFocusBlocks === 1 ? '' : 's'}`
-				: `Block ${pomodoroState.focusBlockIndex} of ${pomodoroState.longBreakInterval}`
-			: ''
-	);
-	const pomodoroDetailLabel = $derived(
-		pomodoroState
-			? pomodoroState.isBreak
-				? 'Bell chimes every minute. Focus resumes automatically when the break closes.'
-				: 'Stay with one clear slice. Capture distractions and keep the cut clean.'
-			: ''
-	);
 	const activeTallyCountValue = $derived(
 		Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0
 	);
@@ -102,11 +84,7 @@
 		[
 			variant === 'done' ? 'Completed' : null,
 			task.mode === 'one-time' ? formatTaskMode(task.mode) : null,
-			task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null,
-			hasPomodoro ? `${task.pomodoro.label} pomodoro` : null,
-			hasPomodoro
-				? `${formatMinutes(task.pomodoro.focusMinutes)} / ${formatMinutes(task.pomodoro.shortBreakMinutes)}`
-				: null
+			task.trackingType === 'tally' ? formatTaskTrackingType(task.trackingType) : null
 		].filter(Boolean)
 	);
 
@@ -896,26 +874,10 @@
 				</div>
 
 				<div class="runtime-stat">
-					<span>{variant === 'done' ? 'Completed' : 'Pomodoro'}</span>
-					<strong
-						>{variant === 'done' ? completedAtLabel : pomodoroStatusLabel || 'Manual run'}</strong
-					>
+					<span>{variant === 'done' ? 'Completed' : 'Timer'}</span>
+					<strong>{variant === 'done' ? completedAtLabel : 'Running'}</strong>
 				</div>
 			</div>
-
-			{#if variant === 'active' && hasPomodoro && pomodoroState}
-				<div class:break-panel={pomodoroState.isBreak} class="pomodoro-panel">
-					<div>
-						<strong>{pomodoroState.phaseLabel}</strong>
-						<p>{pomodoroDetailLabel}</p>
-					</div>
-
-					<div class="pomodoro-panel__stats">
-						<span>{pomodoroCycleLabel}</span>
-						<strong>{formatElapsedDuration(pomodoroState.remainingMs)} left</strong>
-					</div>
-				</div>
-			{/if}
 		{/if}
 	{/if}
 
@@ -1075,8 +1037,7 @@
 			0 0 0 1px color-mix(in srgb, var(--task-accent) 20%, transparent);
 	}
 
-	.task-card__header,
-	.pomodoro-panel {
+	.task-card__header {
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
@@ -1242,8 +1203,7 @@
 		margin-top: 0.15rem;
 	}
 
-	.runtime-stat,
-	.pomodoro-panel {
+	.runtime-stat {
 		background: var(--surface-2);
 		border: 1px solid var(--surface-border);
 	}
@@ -1667,66 +1627,6 @@
 		white-space: pre-wrap;
 	}
 
-	.pomodoro-panel {
-		padding: 0.95rem 1rem;
-		border-radius: 18px;
-		background:
-			linear-gradient(
-				180deg,
-				var(--surface-2),
-				color-mix(in srgb, var(--surface-1) 90%, transparent)
-			),
-			var(--surface-1);
-		border-color: color-mix(in srgb, var(--color-accent) 16%, var(--surface-border));
-	}
-
-	.pomodoro-panel.break-panel {
-		background:
-			linear-gradient(
-				180deg,
-				color-mix(in srgb, var(--color-warning) 11%, var(--surface-2)),
-				var(--surface-1)
-			),
-			var(--surface-1);
-		border-color: color-mix(in srgb, var(--color-warning) 18%, var(--surface-border));
-	}
-
-	.pomodoro-panel strong {
-		display: block;
-		margin-bottom: 0.25rem;
-		color: var(--color-heading);
-	}
-
-	.pomodoro-panel.break-panel strong {
-		color: var(--color-warning);
-	}
-
-	.pomodoro-panel p {
-		font-size: 0.88rem;
-		color: var(--color-muted);
-	}
-
-	.pomodoro-panel__stats {
-		display: grid;
-		gap: 0.2rem;
-		text-align: right;
-		flex: 0 0 auto;
-	}
-
-	.pomodoro-panel__stats span {
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-soft);
-	}
-
-	.pomodoro-panel__stats strong {
-		margin: 0;
-		font-size: 0.98rem;
-		color: var(--color-heading);
-	}
-
 	.tally-panel {
 		display: grid;
 		grid-template-columns: auto 1fr auto;
@@ -1869,8 +1769,7 @@
 	}
 
 	@media (max-width: 640px) {
-		.task-card__header,
-		.pomodoro-panel {
+		.task-card__header {
 			flex-direction: column;
 		}
 

@@ -109,8 +109,6 @@ Important task-state fields:
 - `queuePosition`
 - `daymapLocked`
 - `activatedAt`
-- `pomodoro`
-- `bellSound`
 - `activeTallyCount`
 - `lastCompletedTallyCount`
 - `nextDueAt`
@@ -160,25 +158,12 @@ Queue semantics:
 - only daymap tasks can be queued
 - queue order uses `queuePosition`
 - when the last active task is removed by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
-- if older task docs still carry legacy alarm fields, normalize them with:
-  - `npm run migrate:pomodoro`
 
 ## Active runtime behavior
 
 - Active list route:
   - `GET /tasks/active`
-- Time tasks use stored pomodoro cadence:
-  - `none`: no focus/break cycle
-  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
-  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
-  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
-- Time tasks also store a bell sound:
-  - `glass`
-  - `temple`
-  - `arcade`
-- Break behavior:
-  - focus phase is silent
-  - break phase rings a short bell every minute on the frontend
+- Time tasks record active runtime and history only
 - Tally updates:
   - `POST /tasks/:taskId/tally`
 - Task note updates:
@@ -187,7 +172,7 @@ Queue semantics:
   - `PATCH /tasks/:taskId/instance-note`
 - Broad task edits:
   - `PATCH /tasks/:taskId`
-  - supports metadata edits, note, next due, daymap lock, bell sound, pomodoro, tracking type, tally fields, and active started-time changes
+  - supports metadata edits, note, next due, daymap lock, tracking type, tally fields, and active started-time changes
 
 The active list derives and returns:
 
@@ -246,7 +231,7 @@ The current in-app assistant can:
 - search tasks across the full board with backend-owned ranking
 - summarize a selected local day from real stats
 - create tasks
-- edit task metadata, note fields, next due, bell sound, pomodoro, tally settings, daymap lock, and active started time
+- edit task metadata, note fields, next due, tally settings, daymap lock, and active started time
 - bulk-edit shared metadata across a matched task set
 - complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt`, optional `instanceNote`, and optional `nextDueAt`
 - control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
@@ -266,9 +251,6 @@ Assistant request model:
 - route: `GET /assistant/history`
   - returns the most recent persisted messages for the authenticated user in chronological order
 - the backend currently uses the Chat Completions API shape, not the Responses API
-- legacy task docs can be normalized with:
-  - `npm run migrate:pomodoro`
-
 Assistant prompt policy:
 
 - use tools for all task-specific facts and all mutations

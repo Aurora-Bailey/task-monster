@@ -30,7 +30,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/`
   - public landing page with product positioning and signup/login CTA
 - `/demo-board`
-  - public product tour using real app screenshots
+  - public product tour using marketing visuals and product-screen references
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -57,7 +57,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `src/routes/+layout.svelte`
   - session boot gate and redirect logic
 - `static/images/marketing/`
-  - screenshots used by the public landing page and `/demo-board`
+  - marketing visuals used by the public landing page and `/demo-board`
 - `src/lib/session.js`
   - token persistence, authorized requests, logout/revoke helpers
 - `src/lib/api.js`
@@ -117,20 +117,11 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - right side: next due, themed from the primary color
   - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
   - next due opens an inline local datetime editor on inactive, daymap, active, and done cards
-- The add page exposes pomodoro presets directly for time tasks
-  - `none`: manual run with no focus/break bell
-  - `short`: 15/5
-  - `medium`: 25/5
-  - `long`: 50/10
-  - time tasks also choose a bell sound:
-    - `glass`
-    - `temple`
-    - `arcade`
-  - task notes are always visible on the form
+- The add page exposes task color, mode, tracking type, tally fields, and always-visible task notes
 - Active tasks support:
   - inactivate
   - done
-  - pomodoro focus/break runtime for time tasks
+  - elapsed and effective runtime for time tasks
   - tally increment/decrement for tally tasks
 - Marking a task done from `/active` opens a modal that can:
   - edit the run start time directly with a local datetime input
@@ -143,11 +134,6 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - midnight starts at the bottom and the day moves upward
   - overlapping tasks render as two- or three-way horizontal split cells
   - scrolling near the bottom requests older day batches
-- Active pomodoro breaks use browser audio bells
-  - focus is silent
-  - breaks ring once per minute
-  - the bell engine is mounted in the shared header, so it continues across authenticated routes
-  - some browsers require user interaction before audio can play
 - Panic mode is controlled from the header, not from the active page itself
 - PWA behavior:
   - service worker registration is production-only
@@ -182,7 +168,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - The app no longer uses a filler homepage redirect
   - `/` is now a real public marketing page
 - The simulated board preview was split out of the homepage hero
-  - `/demo-board` now carries the public screenshot-led product tour
+  - `/demo-board` now carries the public product-screen tour
 - The following routes are live app surfaces, not placeholder screens:
   - `/`
   - `/demo-board`

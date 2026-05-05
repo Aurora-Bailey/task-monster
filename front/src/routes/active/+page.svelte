@@ -5,7 +5,6 @@
 	import { onMount, tick } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
-	import { getPomodoroState } from '$lib/pomodoro';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -161,20 +160,6 @@
 		}
 
 		return formatElapsedDuration(nowMs - new Date(task.activatedAt).getTime());
-	}
-
-	function getTaskPomodoroState(task) {
-		return getPomodoroState(task, nowMs);
-	}
-
-	function getPomodoroStatusLabel(task) {
-		const pomodoroState = getTaskPomodoroState(task);
-
-		if (!pomodoroState) {
-			return task.pomodoro ? `${task.pomodoro.label} cadence` : 'Manual run';
-		}
-
-		return `${pomodoroState.phaseLabel} · ${formatElapsedDuration(pomodoroState.remainingMs)} left`;
 	}
 
 	function getLivePanicMilliseconds(task) {
@@ -632,8 +617,6 @@
 						variant="active"
 						editableTaskId={task.id}
 						activeDurationLabel={getActiveDurationLabel(task)}
-						pomodoroStatusLabel={getPomodoroStatusLabel(task)}
-						pomodoroState={getTaskPomodoroState(task)}
 						panicDurationLabel={getPanicDurationLabel(task)}
 						effectiveDurationLabel={getEffectiveDurationLabel(task)}
 						onSaveInstanceNote={handleSaveInstanceNote}

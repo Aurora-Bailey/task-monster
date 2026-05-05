@@ -1,12 +1,5 @@
 const { ObjectId } = require('mongodb');
 
-const {
-	BELL_SOUND_VALUES,
-	DEFAULT_BELL_SOUND_KEY,
-	isAllowedBellSound,
-	normalizeStoredBellSound
-} = require('../../lib/bell-sounds');
-const { POMODORO_PRESET_KEYS, getPomodoroPreset, normalizeStoredPomodoro } = require('../../lib/pomodoro');
 const { updateOpenTaskRunFields } = require('../../lib/task-runs');
 const {
 	TASK_COLOR_MAP,
@@ -45,14 +38,6 @@ const updateTaskSchema = {
 			trackingType: {
 				type: 'string',
 				enum: [...TASK_TRACKING_TYPE_VALUES]
-			},
-			pomodoroPreset: {
-				type: ['string', 'null'],
-				enum: [...POMODORO_PRESET_KEYS, null]
-			},
-			bellSound: {
-				type: ['string', 'null'],
-				enum: [...BELL_SOUND_VALUES, null]
 			},
 			tallyUnit: {
 				type: ['string', 'null'],
@@ -145,8 +130,6 @@ async function updateTaskRoute(app) {
 			const nextTask = {
 				...task
 			};
-			const providedPomodoroPreset = Object.hasOwn(request.body, 'pomodoroPreset');
-			const providedBellSound = Object.hasOwn(request.body, 'bellSound');
 			const providedTallyUnit = Object.hasOwn(request.body, 'tallyUnit');
 			const providedTallyTarget = Object.hasOwn(request.body, 'tallyTarget');
 			const providedActiveTallyCount = Object.hasOwn(request.body, 'activeTallyCount');
@@ -245,67 +228,11 @@ async function updateTaskRoute(app) {
 			}
 
 			const nextTrackingType = nextTask.trackingType || 'time';
-			const currentBellSound = normalizeStoredBellSound(task);
-			const currentPomodoro = normalizeStoredPomodoro(task);
 
 			if (nextTrackingType === 'time' && (providedTallyUnit || providedTallyTarget || providedActiveTallyCount)) {
 				return reply.code(400).send({
 					message: 'Time tasks do not use tally fields.'
 				});
-			}
-
-			if (
-				nextTrackingType === 'tally' &&
-				((providedPomodoroPreset && request.body.pomodoroPreset !== null) ||
-					(providedBellSound && request.body.bellSound !== null))
-			) {
-				return reply.code(400).send({
-					message: 'Tally tasks do not use pomodoro or bell sound settings.'
-				});
-			}
-
-			if (nextTrackingType === 'time') {
-				if (providedPomodoroPreset) {
-					nextTask.pomodoro =
-						request.body.pomodoroPreset === null ? null : getPomodoroPreset(request.body.pomodoroPreset);
-
-					if ((currentPomodoro?.presetKey ?? null) !== (request.body.pomodoroPreset ?? null)) {
-						changes.push({
-							field: 'pomodoro',
-							label: 'Changed: pomodoro',
-							value: request.body.pomodoroPreset === null ? 'none' : request.body.pomodoroPreset
-						});
-					}
-				} else if (nextTask.trackingType !== task.trackingType && task.trackingType === 'tally') {
-					nextTask.pomodoro = getPomodoroPreset('medium');
-					changes.push({
-						field: 'pomodoro',
-						label: 'Changed: pomodoro',
-						value: 'medium'
-					});
-				}
-
-				const nextBellSound = providedBellSound
-					? request.body.bellSound ?? DEFAULT_BELL_SOUND_KEY
-					: nextTask.trackingType !== task.trackingType && task.trackingType === 'tally'
-						? DEFAULT_BELL_SOUND_KEY
-						: currentBellSound;
-
-				if (!isAllowedBellSound(nextBellSound)) {
-					return reply.code(400).send({
-						message: 'Bell sound is not supported.'
-					});
-				}
-
-				nextTask.bellSound = nextBellSound;
-
-				if (nextBellSound !== currentBellSound) {
-					changes.push({
-						field: 'bell sound',
-						label: 'Changed: bell sound',
-						value: nextBellSound
-					});
-				}
 			}
 
 			if (nextTrackingType === 'tally') {
@@ -348,8 +275,6 @@ async function updateTaskRoute(app) {
 
 				nextTask.tallyUnit = nextTallyUnit;
 				nextTask.tallyTarget = nextTallyTarget;
-				nextTask.pomodoro = null;
-				nextTask.bellSound = null;
 
 				if (providedActiveTallyCount) {
 					nextTask.activeTallyCount = request.body.activeTallyCount;
@@ -419,8 +344,6 @@ async function updateTaskRoute(app) {
 				colorHex: nextTask.colorHex,
 				mode: nextTask.mode,
 				trackingType: nextTrackingType,
-				pomodoro: nextTask.pomodoro,
-				bellSound: nextTask.bellSound,
 				tallyUnit: nextTask.tallyUnit,
 				tallyTarget: nextTask.tallyTarget,
 				activeTallyCount: nextTask.activeTallyCount,

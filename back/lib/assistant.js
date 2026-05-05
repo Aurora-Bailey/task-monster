@@ -1,11 +1,6 @@
 const { ObjectId } = require('mongodb');
 
 const {
-	BELL_SOUND_VALUES,
-	DEFAULT_BELL_SOUND_KEY,
-	normalizeStoredBellSound
-} = require('./bell-sounds');
-const {
 	getCurrentLocalDay,
 	isValidDayString,
 	parseTimezoneOffsetMinutes
@@ -16,11 +11,6 @@ const {
 	TASK_TRACKING_TYPE_VALUES,
 	toObjectId
 } = require('./tasks');
-const {
-	POMODORO_PRESET_KEYS,
-	getPomodoroPreset,
-	normalizeStoredPomodoro
-} = require('./pomodoro');
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const TOOL_LOOP_LIMIT = 8;
@@ -223,8 +213,6 @@ function summarizeTask(task, openTaskRun) {
 		Number.isInteger(task.queuePosition) && task.queuePosition > 0 ? task.queuePosition : null;
 	const note = task.note ?? null;
 	const instanceNote = openTaskRun?.instanceNote ?? null;
-	const pomodoro = normalizeStoredPomodoro(task);
-	const bellSound = normalizeStoredBellSound(task);
 
 	return {
 		id: task._id.toString(),
@@ -234,8 +222,6 @@ function summarizeTask(task, openTaskRun) {
 		category: TASK_CATEGORY_DETAILS[task.colorKey]?.category || task.colorKey,
 		mode: task.mode,
 		trackingType: task.trackingType || 'time',
-		pomodoro,
-		bellSound,
 		tallyUnit: task.tallyUnit ?? null,
 		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 		activeTallyCount: Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0,
@@ -277,22 +263,12 @@ function summarizeDuplicateGuardTask(task) {
 }
 
 function buildCreateTaskDraftPreview(body, { startState, queued, daymapLocked }) {
-	const pomodoro =
-		body.trackingType === 'time'
-			? body.pomodoroPreset
-				? getPomodoroPreset(body.pomodoroPreset)
-				: null
-			: null;
-	const bellSound = body.trackingType === 'time' ? body.bellSound || DEFAULT_BELL_SOUND_KEY : null;
-
 	return {
 		name: body.name,
 		category: TASK_CATEGORY_DETAILS[body.color]?.category || body.color,
 		colorKey: body.color,
 		mode: body.mode,
 		trackingType: body.trackingType,
-		pomodoro,
-		bellSound,
 		note: body.note ?? null,
 		startState,
 		queued,
@@ -700,14 +676,6 @@ function buildTaskEditRequestBody(
 		body.trackingType = args.trackingType;
 	}
 
-	if (Object.hasOwn(args, 'pomodoroPreset')) {
-		body.pomodoroPreset = args.pomodoroPreset;
-	}
-
-	if (Object.hasOwn(args, 'bellSound')) {
-		body.bellSound = args.bellSound;
-	}
-
 	if (Object.hasOwn(args, 'note')) {
 		body.note = typeof args.note === 'string' ? args.note : null;
 	}
@@ -788,22 +756,6 @@ function selectTasksForAssistantFilter(tasks, args = {}) {
 		}
 
 		if (typeof args.colorKey === 'string' && args.colorKey !== task.colorKey) {
-			return false;
-		}
-
-		const pomodoroPreset = normalizeStoredPomodoro(task)?.presetKey ?? null;
-
-		if (Object.hasOwn(args, 'pomodoroPreset') && args.pomodoroPreset !== pomodoroPreset) {
-			return false;
-		}
-
-		if (typeof args.hasPomodoro === 'boolean' && args.hasPomodoro !== (pomodoroPreset !== null)) {
-			return false;
-		}
-
-		const bellSound = trackingType === 'time' ? normalizeStoredBellSound(task) : null;
-
-		if (Object.hasOwn(args, 'bellSound') && args.bellSound !== bellSound) {
 			return false;
 		}
 
@@ -921,9 +873,7 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath, timezoneO
 		'Operating context:',
 		'- Task Monster is a constrained task board, not a generic to-do dump.',
 		'- Inactive means backlog. Daymap means on today\'s table but not currently running. Active means currently on the table. Done or archive depends on the task mode.',
-		'- Time-tracked tasks may have no pomodoro at all, or use a pomodoro cadence instead of alarms. Short = 15/5 with a 15-minute long break every 4 focus blocks. Medium = 25/5 with a 20-minute long break every 4 blocks. Long = 50/10 with a 30-minute long break every 3 blocks.',
-		'- During focus there is no sound. During breaks the app rings a short bell every minute so the user can switch hands-free.',
-		'- Time tasks also carry a bell sound. Supported bell sounds are glass, temple, and arcade.',
+		'- Time-tracked tasks record active runtime only.',
 		'- Prefer reusing, moving, or updating an existing task over creating near-duplicates.',
 		'- Category/color mapping: red=System, orange=World, gold=Home, green=Body, teal=Reset, blue=Craft, violet=Becoming.',
 		'- Persistent task notes live on the task note. Active-run notes live on the instance note.',
@@ -934,14 +884,14 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath, timezoneO
 		'- For get_board_snapshot, send {"scope":"board"}. For get_day_summary, send {"scope":"day"} and add a day only when needed.',
 		'- Use get_board_snapshot for broad board reads like "what can you see", "what is on my board", or "what is active right now". The snapshot task lists are previews, not exhaustive sections.',
 		'- Never claim that all tasks in a status are clean, missing, or changed based only on a board snapshot preview.',
-		'- Use filter_tasks for full-set checks like "which inactive tasks still have pomodoro?" or "show every daymap-locked task".',
+		'- Use filter_tasks for full-set checks like "show every daymap-locked task" or "which inactive tasks are due this week?".',
 		'- Use bulk_edit_tasks when the user says all, every, entire, or cleanup across a matching set. Do not loop edit_task for large set edits.',
 		'- Use search_tasks for task lookup instead of trying to paginate broad task lists yourself.',
 		'- Use complete_task_run when the user says a task was finished or done and especially when they mention a corrected finish time.',
 		'- If a task is not active but the user gives an explicit historical start and end time, still use complete_task_run with both startedAt and completedAt.',
 		'- Use control_task for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
-		'- For metadata edits like name, category, mode, pomodoro, bell sound, next due, tally target, task note, or active started time, prefer the edit_task tool.',
+		'- For metadata edits like name, category, mode, tracking type, next due, tally target, task note, or active started time, prefer the edit_task tool.',
 		'- If the user asks to correct when a run started or ended, pass the corrected time in the tool arguments. Do not treat a timing correction as a note.',
 		'- For startedAt and completedAt tool arguments, use the user local timezone offset above. Do not send UTC Z times for ordinary local user requests.',
 		'- Never change startedAt as a substitute for a requested completedAt unless the user explicitly asked to change the start time.',
@@ -1424,18 +1374,6 @@ async function executeCreateTaskTool(app, request, args, timezoneOffsetMinutes) 
 		color: colorKey,
 		mode,
 		trackingType,
-		pomodoroPreset:
-			trackingType === 'time'
-				? Object.hasOwn(args, 'pomodoroPreset')
-					? args.pomodoroPreset
-					: 'medium'
-				: null,
-		bellSound:
-			trackingType === 'time'
-				? typeof args.bellSound === 'string'
-					? args.bellSound
-					: DEFAULT_BELL_SOUND_KEY
-				: null,
 		note: typeof args.note === 'string' ? args.note : null,
 		nextDueAt:
 			typeof args.nextDueAt === 'string'
@@ -1444,24 +1382,6 @@ async function executeCreateTaskTool(app, request, args, timezoneOffsetMinutes) 
 		tallyUnit: null,
 		tallyTarget: null
 	};
-
-	if (trackingType === 'time') {
-		if (body.pomodoroPreset !== null && !POMODORO_PRESET_KEYS.includes(body.pomodoroPreset)) {
-			return {
-				output: {
-					ok: false,
-					message: 'Time tasks need a supported pomodoro preset.'
-				},
-				actions: [],
-				refresh: {
-					tasks: false,
-					stats: false,
-					panic: false
-				}
-			};
-		}
-
-	}
 
 	if (trackingType === 'tally') {
 		if (typeof args.tallyUnit !== 'string' || !args.tallyUnit.trim()) {
@@ -1528,21 +1448,6 @@ async function executeCreateTaskTool(app, request, args, timezoneOffsetMinutes) 
 						daymapLocked,
 						note: body.note ?? null
 					}
-				},
-				actions: [],
-				refresh: {
-					tasks: false,
-					stats: false,
-					panic: false
-				}
-			};
-		}
-
-		if (!BELL_SOUND_VALUES.includes(body.bellSound)) {
-			return {
-				output: {
-					ok: false,
-					message: 'Time tasks need a supported bell sound.'
 				},
 				actions: [],
 				refresh: {
@@ -3112,17 +3017,6 @@ const ASSISTANT_TOOLS = [
 						type: 'string',
 						enum: [...TASK_COLOR_KEYS]
 					},
-					pomodoroPreset: {
-						type: ['string', 'null'],
-						enum: [...POMODORO_PRESET_KEYS, null]
-					},
-					hasPomodoro: {
-						type: 'boolean'
-					},
-					bellSound: {
-						type: ['string', 'null'],
-						enum: [...BELL_SOUND_VALUES, null]
-					},
 					daymapLocked: {
 						type: 'boolean'
 					},
@@ -3250,14 +3144,6 @@ const ASSISTANT_TOOLS = [
 						type: 'string',
 						enum: [...TASK_TRACKING_TYPE_VALUES]
 					},
-					pomodoroPreset: {
-						type: ['string', 'null'],
-						enum: [...POMODORO_PRESET_KEYS, null]
-					},
-					bellSound: {
-						type: 'string',
-						enum: [...BELL_SOUND_VALUES]
-					},
 					tallyUnit: {
 						type: 'string',
 						maxLength: 60
@@ -3299,7 +3185,7 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'edit_task',
 			description:
-				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, pomodoro, bell sound, next due, tally settings, daymap lock, task note, or active started time changes.',
+				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, next due, tally settings, daymap lock, task note, or active started time changes.',
 			parameters: {
 				type: 'object',
 				required: ['taskQuery'],
@@ -3326,14 +3212,6 @@ const ASSISTANT_TOOLS = [
 					trackingType: {
 						type: 'string',
 						enum: [...TASK_TRACKING_TYPE_VALUES]
-					},
-					pomodoroPreset: {
-						type: ['string', 'null'],
-						enum: [...POMODORO_PRESET_KEYS, null]
-					},
-					bellSound: {
-						type: ['string', 'null'],
-						enum: [...BELL_SOUND_VALUES, null]
 					},
 					note: {
 						type: ['string', 'null'],
@@ -3373,7 +3251,7 @@ const ASSISTANT_TOOLS = [
 		function: {
 			name: 'bulk_edit_tasks',
 			description:
-				'Apply one shared metadata change set to every task matching a backend-owned filter. Use this for requests like "remove pomodoro from all inactive tasks" or other status-wide cleanup.',
+				'Apply one shared metadata change set to every task matching a backend-owned filter. Use this for status-wide cleanup requests.',
 			parameters: {
 				type: 'object',
 				required: ['filter', 'changes'],
@@ -3406,17 +3284,6 @@ const ASSISTANT_TOOLS = [
 							colorKey: {
 								type: 'string',
 								enum: [...TASK_COLOR_KEYS]
-							},
-							pomodoroPreset: {
-								type: ['string', 'null'],
-								enum: [...POMODORO_PRESET_KEYS, null]
-							},
-							hasPomodoro: {
-								type: 'boolean'
-							},
-							bellSound: {
-								type: ['string', 'null'],
-								enum: [...BELL_SOUND_VALUES, null]
 							},
 							daymapLocked: {
 								type: 'boolean'
@@ -3452,14 +3319,6 @@ const ASSISTANT_TOOLS = [
 							trackingType: {
 								type: 'string',
 								enum: [...TASK_TRACKING_TYPE_VALUES]
-							},
-							pomodoroPreset: {
-								type: ['string', 'null'],
-								enum: [...POMODORO_PRESET_KEYS, null]
-							},
-							bellSound: {
-								type: ['string', 'null'],
-								enum: [...BELL_SOUND_VALUES, null]
 							},
 							note: {
 								type: ['string', 'null'],

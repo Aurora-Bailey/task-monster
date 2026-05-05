@@ -66,8 +66,6 @@ If you are setting up a new machine, start by copying `.env.example` to `.env` a
    - `cd front && npm install`
    - `npm run dev`
 5. Open the Vite dev server in your browser.
-6. If you are upgrading an older local database that still has legacy alarm fields on tasks:
-   - `cd back && npm run migrate:pomodoro`
 
 Creating an account currently requires alpha code `gyarados`.
 Creating an account also requires agreeing to the current Privacy Policy and Terms & Conditions.
@@ -90,15 +88,7 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 
 - Tasks are either `one-time` or `repeatable`
 - Tasks track either by `time` or `tally`
-- Time-tracked tasks now use stored pomodoro cadences:
-  - `none`: no focus/break cycle; task still records active time and history
-  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
-  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
-  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
-- Time tasks also store a per-task break bell sound:
-  - `glass`
-  - `temple`
-  - `arcade`
+- Time-tracked tasks record active runtime and history only
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
@@ -119,7 +109,7 @@ Public frontend routes:
 
 - `/`
 - `/demo-board`
-  - public product tour page using real app screenshots
+  - public product tour page using marketing visuals and product-screen references
 - `/auth`
 - `/privacy`
 - `/terms`
@@ -150,8 +140,8 @@ Assistant route:
     - full-board filtered reads for exact set checks
     - full-board task search with backend-side ranking
     - create tasks
-    - edit a single task’s metadata, notes, pomodoro, bell sound, tally settings, and active started time
-    - bulk-edit matching task sets for shared metadata cleanup like removing pomodoro from every inactive task
+    - edit a single task’s metadata, notes, next due, tally settings, and active started time
+    - bulk-edit matching task sets for shared metadata cleanup
     - complete an active run or a historical daymap/inactive run with optional corrected `startedAt` / `completedAt`
     - activate, daymap, backlog, queue, unqueue, and archive control actions
     - adjust active tally counts
@@ -195,7 +185,7 @@ Task routes:
 - `PATCH /tasks/:taskId/instance-note`
 - `PATCH /tasks/:taskId/daymap-lock`
 - `PATCH /tasks/:taskId`
-  - broad task edit route for metadata, notes, next due, bell sound, pomodoro, tracking type, tally fields, daymap lock, and active started time
+  - broad task edit route for metadata, notes, next due, tracking type, tally fields, daymap lock, and active started time
 
 Panic and stats routes:
 

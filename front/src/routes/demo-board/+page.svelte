@@ -8,10 +8,10 @@
 		$session.status === 'authenticated' ? 'Open your table' : 'Create account'
 	);
 
-	const screenshots = {
+	const marketingImages = {
 		daymap: resolve('/images/marketing/daymap-board.png'),
-		active: resolve('/images/marketing/active-run.png'),
-		add: resolve('/images/marketing/add-task-builder.png'),
+		active: resolve('/images/marketing/active-run.svg'),
+		add: resolve('/images/marketing/add-task-builder.svg'),
 		notes: resolve('/images/marketing/task-note-surface.png')
 	};
 </script>
@@ -30,7 +30,7 @@
 		<h1>See the actual surfaces that make the system work.</h1>
 		<p class="lede">
 			This page is a quick visual walkthrough of the core product: daymapping, active runtime, task
-			setup, and note structure. These are real screenshots from the app, not marketing mockups.
+			setup, and note structure through current product-screen references.
 		</p>
 
 		<div class="hero-actions">
@@ -41,7 +41,7 @@
 
 	<figure class="shot-frame hero-shot">
 		<img
-			src={screenshots.daymap}
+			src={marketingImages.daymap}
 			alt="Task Monster daymap screen showing staged task cards and sort controls."
 		/>
 	</figure>
@@ -62,8 +62,8 @@
 		<article class="tour-card">
 			<figure class="shot-frame">
 				<img
-					src={screenshots.active}
-					alt="Task Monster active task screen showing timer, notes, pomodoro phase, panic time, and done controls."
+					src={marketingImages.active}
+					alt="Task Monster active task screen showing timer, notes, panic time, and done controls."
 					loading="lazy"
 				/>
 			</figure>
@@ -71,7 +71,7 @@
 				<p class="card-index">II</p>
 				<h2>Active runtime keeps the session honest.</h2>
 				<p>
-					Pomodoro phase, panic overlap, effective time, and run notes all stay attached to the live
+					Elapsed time, panic overlap, effective time, and run notes all stay attached to the live
 					task instead of being scattered into separate utilities.
 				</p>
 			</div>
@@ -80,7 +80,7 @@
 		<article class="tour-card">
 			<figure class="shot-frame">
 				<img
-					src={screenshots.add}
+					src={marketingImages.add}
 					alt="Task Monster add-task builder showing color selection, task type, and tracking mode."
 					loading="lazy"
 				/>
@@ -89,8 +89,8 @@
 				<p class="card-index">III</p>
 				<h2>Tasks are configured for the workflow they belong to.</h2>
 				<p>
-					You can define type, color, tracking mode, and pomodoro cadence up front so the system
-					behaves differently for different categories of work.
+					You can define type, color, tracking mode, and notes up front so the system behaves
+					differently for different categories of work.
 				</p>
 			</div>
 		</article>
@@ -98,7 +98,7 @@
 		<article class="tour-card">
 			<figure class="shot-frame">
 				<img
-					src={screenshots.notes}
+					src={marketingImages.notes}
 					alt="Task Monster task note surface showing a persistent note area."
 					loading="lazy"
 				/>

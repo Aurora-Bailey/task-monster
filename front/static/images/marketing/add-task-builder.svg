@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1032" height="1448" viewBox="0 0 1032 1448" role="img" aria-labelledby="title desc">
+	<title id="title">Task Monster add task screen</title>
+	<desc id="desc">A task creation form showing task name, color, task type, tracking mode, task notes, and an add button.</desc>
+	<defs>
+		<linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#ffffff" offset="0" />
+			<stop stop-color="#f8fbff" offset="1" />
+		</linearGradient>
+		<linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#f9fbff" offset="0" />
+			<stop stop-color="#eef4fa" offset="1" />
+		</linearGradient>
+		<linearGradient id="button" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#3f7eb8" offset="0" />
+			<stop stop-color="#6ca4d9" offset="1" />
+		</linearGradient>
+		<filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+			<feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#1e293b" flood-opacity=".11" />
+		</filter>
+	</defs>
+	<rect width="1032" height="1448" rx="28" fill="#dce6f2" />
+	<rect x="9" y="4" width="1014" height="1440" rx="26" fill="url(#paper)" stroke="#d4dce5" stroke-width="3" />
+
+	<g font-family="Avenir Next, Gill Sans, Trebuchet MS, sans-serif" fill="#1f2937">
+		<text x="66" y="86" fill="#6d6f73" font-size="27" font-weight="900" letter-spacing="5">NAME THAT TASK</text>
+		<text x="66" y="168" fill="#9ca3af" font-size="37">Wash dishes</text>
+		<rect x="66" y="206" width="900" height="4" fill="#b9cadc" />
+
+		<text x="66" y="270" fill="#6d6f73" font-size="27" font-weight="900" letter-spacing="4">TASK COLOR</text>
+		<g transform="translate(82 320)">
+			<g>
+				<circle cx="32" cy="0" r="40" fill="#fff" stroke="#d14c50" stroke-width="4" />
+				<circle cx="32" cy="0" r="30" fill="#d14c50" />
+				<text x="-18" y="74" font-size="22" font-weight="900" fill="#343a43">SYSTEM</text>
+			</g>
+			<g transform="translate(132 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#e6d0bd" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#e47d33" />
+				<text x="-18" y="74" font-size="22" font-weight="900" fill="#777">WORLD</text>
+			</g>
+			<g transform="translate(264 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#e5d7a7" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#dbbb3d" />
+				<text x="-4" y="74" font-size="22" font-weight="900" fill="#777">HOME</text>
+			</g>
+			<g transform="translate(396 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#c9dfc4" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#5f9b55" />
+				<text x="-5" y="74" font-size="22" font-weight="900" fill="#777">BODY</text>
+			</g>
+			<g transform="translate(528 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#bfdddc" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#3d9790" />
+				<text x="-8" y="74" font-size="22" font-weight="900" fill="#777">RESET</text>
+			</g>
+			<g transform="translate(660 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#c4d1f0" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#4f6ed6" />
+				<text x="-6" y="74" font-size="22" font-weight="900" fill="#777">CRAFT</text>
+			</g>
+			<g transform="translate(792 0)">
+				<circle cx="32" cy="0" r="35" fill="#fff" stroke="#d7c7f2" stroke-width="3" />
+				<circle cx="32" cy="0" r="28" fill="#8a5bd1" />
+				<text x="-34" y="74" font-size="22" font-weight="900" fill="#777">BECOMING</text>
+			</g>
+		</g>
+
+		<g filter="url(#shadow)">
+			<rect x="66" y="434" width="900" height="248" rx="28" fill="#fff" stroke="#dce7f4" />
+			<circle cx="114" cy="488" r="16" fill="#d14c50" stroke="#f2f2f2" stroke-width="4" />
+			<text x="144" y="500" font-size="32" font-weight="900">SYSTEM</text>
+			<text x="100" y="552" font-size="30" fill="#4b5563">The stuff that keeps life from drifting off the rails:</text>
+			<text x="100" y="596" font-size="30" fill="#4b5563">bills, forms, insurance, lease, car upkeep,</text>
+			<text x="100" y="640" font-size="30" fill="#4b5563">scheduling, paperwork, email, and account fixes.</text>
+		</g>
+
+		<text x="66" y="752" fill="#6d6f73" font-size="27" font-weight="900" letter-spacing="4">TASK TYPE</text>
+		<rect x="66" y="762" width="900" height="118" rx="59" fill="#eaf1f8" stroke="#cbdcec" stroke-width="2" />
+		<rect x="520" y="774" width="432" height="94" rx="47" fill="#fff" />
+		<text x="204" y="832" font-size="29" font-weight="800" fill="#6f7277">One-time task</text>
+		<text x="630" y="832" font-size="29" font-weight="800" fill="#3f79af">Repeatable task</text>
+
+		<text x="66" y="938" fill="#6d6f73" font-size="27" font-weight="900" letter-spacing="4">HOW IT TRACKS</text>
+		<rect x="66" y="948" width="900" height="118" rx="59" fill="#eaf1f8" stroke="#cbdcec" stroke-width="2" />
+		<rect x="78" y="960" width="442" height="94" rx="47" fill="#fff" />
+		<text x="225" y="1018" font-size="29" font-weight="800" fill="#6f7277">Clock time</text>
+		<text x="696" y="1018" font-size="29" font-weight="800" fill="#6f7277">Tallies</text>
+
+		<text x="66" y="1144" fill="#6d6f73" font-size="27" font-weight="900" letter-spacing="4">TASK NOTEPAD</text>
+		<rect x="66" y="1164" width="900" height="128" rx="22" fill="url(#field)" stroke="#dce7f4" />
+		<text x="98" y="1236" font-size="30" fill="#9ca3af">Extra context, reminders, or anything that helps.</text>
+
+		<rect x="66" y="1324" width="900" height="106" rx="18" fill="url(#button)" />
+		<text x="480" y="1390" fill="#fff" font-size="31" font-weight="900" letter-spacing="4">ADD</text>
+	</g>
+</svg>

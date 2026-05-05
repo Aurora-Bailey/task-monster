@@ -19,7 +19,6 @@
 
 	import AssistantDrawer from '$lib/AssistantDrawer.svelte';
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
-	import { playBellSound, unlockBellAudio } from '$lib/bell-sounds';
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
@@ -27,11 +26,9 @@
 		startPanic,
 		stopPanic
 	} from '$lib/panic-client';
-	import { getPomodoroState } from '$lib/pomodoro';
 	import { normalizeAppPathname } from '$lib/routing';
 	import { logoutAccount } from '$lib/session';
 	import { formatElapsedDuration } from '$lib/task-format';
-	import { loadActiveTasks, TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 	import logo from '$lib/images/tm-logo-crop.png';
 
 	let { user = null } = $props();
@@ -48,10 +45,6 @@
 	let panicReturnCharge = $state(5);
 	let panicReturnNoteInput = $state(null);
 	let showAssistantDrawer = $state(false);
-	let activeBellTasks = $state([]);
-
-	let bellAudioContext = null;
-	let lastPomodoroBellKeys = new Map();
 
 	const navLinks = [
 		{ href: '/add', label: 'Add', icon: Plus },
@@ -111,60 +104,6 @@
 			panicError = error.message;
 		} finally {
 			isPanicLoading = false;
-		}
-	}
-
-	async function loadGlobalBellTasks() {
-		try {
-			activeBellTasks = await loadActiveTasks();
-		} catch (error) {
-			console.error(error);
-		}
-	}
-
-	async function primeBellAudio() {
-		const result = await unlockBellAudio(bellAudioContext);
-		bellAudioContext = result.audioContext;
-	}
-
-	function syncGlobalBreakBell(referenceNowMs = nowMs) {
-		if (!browser) {
-			return;
-		}
-
-		const dueSounds = [];
-		const activeTaskIds = new Set(activeBellTasks.map((task) => task.id));
-
-		for (const taskId of lastPomodoroBellKeys.keys()) {
-			if (!activeTaskIds.has(taskId)) {
-				lastPomodoroBellKeys.delete(taskId);
-			}
-		}
-
-		for (const task of activeBellTasks) {
-			const pomodoroState = getPomodoroState(task, referenceNowMs);
-
-			if (!pomodoroState?.isBreak || !pomodoroState.bellKey) {
-				lastPomodoroBellKeys.delete(task.id);
-				continue;
-			}
-
-			if (lastPomodoroBellKeys.get(task.id) !== pomodoroState.bellKey) {
-				lastPomodoroBellKeys.set(task.id, pomodoroState.bellKey);
-				dueSounds.push(task.bellSound);
-			}
-		}
-
-		if (dueSounds.length > 0) {
-			void primeBellAudio().then(() => {
-				if (!bellAudioContext || bellAudioContext.state !== 'running') {
-					return;
-				}
-
-				for (const soundKey of dueSounds) {
-					playBellSound(bellAudioContext, soundKey);
-				}
-			});
 		}
 	}
 
@@ -251,15 +190,12 @@
 
 	onMount(() => {
 		void loadPanic();
-		void loadGlobalBellTasks();
 
 		if (!browser) {
 			return;
 		}
 
 		const handleGlobalKeydown = async (event) => {
-			void primeBellAudio();
-
 			if (
 				event.defaultPrevented ||
 				event.metaKey ||
@@ -320,50 +256,20 @@
 				currentLocalDay = nextLocalDay;
 				void loadPanic();
 			}
-
-			syncGlobalBreakBell(nextNowMs);
 		}, 1000);
 		const handleAssistantRefresh = async (event) => {
 			if (event.detail?.refresh?.panic === true) {
 				await loadPanic();
 			}
-
-			if (event.detail?.refresh?.tasks === true) {
-				await loadGlobalBellTasks();
-			}
-		};
-		const handleTasksUpdated = async () => {
-			await loadGlobalBellTasks();
-		};
-		const handlePointerDown = () => {
-			void primeBellAudio();
-		};
-		const handleVisibilityChange = async () => {
-			if (document.visibilityState === 'visible') {
-				await loadGlobalBellTasks();
-			}
 		};
 
 		window.addEventListener('keydown', handleGlobalKeydown);
-		window.addEventListener('pointerdown', handlePointerDown);
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
-		window.addEventListener(TASKS_UPDATED_EVENT, handleTasksUpdated);
-		window.addEventListener('focus', handleTasksUpdated);
-		document.addEventListener('visibilitychange', handleVisibilityChange);
 
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
-			window.removeEventListener('pointerdown', handlePointerDown);
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
-			window.removeEventListener(TASKS_UPDATED_EVENT, handleTasksUpdated);
-			window.removeEventListener('focus', handleTasksUpdated);
-			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			window.clearInterval(intervalId);
-			lastPomodoroBellKeys = new Map();
-
-			if (bellAudioContext) {
-				void bellAudioContext.close();
-			}
 		};
 	});
 </script>

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="996" height="1536" viewBox="0 0 996 1536" role="img" aria-labelledby="title desc">
+	<title id="title">Task Monster active task screen</title>
+	<desc id="desc">An active task card showing timing, notes, panic overlap, effective time, and task controls.</desc>
+	<defs>
+		<linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#f7fbff" offset="0" />
+			<stop stop-color="#edf4fb" offset="1" />
+		</linearGradient>
+		<linearGradient id="note" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#f7faff" offset="0" />
+			<stop stop-color="#eef4fa" offset="1" />
+		</linearGradient>
+		<linearGradient id="instance" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#fffaf5" offset="0" />
+			<stop stop-color="#f7f1ea" offset="1" />
+		</linearGradient>
+		<linearGradient id="done" x1="0" y1="0" x2="1" y2="1">
+			<stop stop-color="#4ca368" offset="0" />
+			<stop stop-color="#68bf82" offset="1" />
+		</linearGradient>
+		<filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+			<feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1e293b" flood-opacity=".12" />
+		</filter>
+	</defs>
+	<rect width="996" height="1536" rx="44" fill="#dbe6f3" />
+	<rect x="19" y="12" width="958" height="1512" rx="42" fill="url(#page)" stroke="#b9c9f7" stroke-width="4" />
+
+	<g font-family="Avenir Next, Gill Sans, Trebuchet MS, sans-serif" fill="#1f2937">
+		<text x="56" y="92" font-size="42" font-weight="800">Task Monster Dev Work</text>
+		<g font-size="24" font-weight="800" fill="#354b91">
+			<text x="56" y="144">Time</text>
+			<text x="150" y="144">Repeatable</text>
+		</g>
+		<rect x="56" y="157" width="58" height="4" fill="#8fa5ef" />
+		<rect x="150" y="157" width="112" height="4" fill="#8fa5ef" />
+
+		<g transform="translate(64 205)">
+			<text x="0" y="0" fill="#98a0aa" font-size="25" font-weight="700">Sat</text>
+			<text x="52" y="0" fill="#9ca3af" font-size="25">May 2 @ 1:01pm</text>
+			<path d="M395 -8h72m-12 -12 14 14 -14 14" fill="none" stroke="#b8bec8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+			<text x="510" y="0" fill="#354b91" font-size="25" font-weight="700">Today</text>
+			<text x="590" y="0" fill="#394256" font-size="25">May 5 @ 6:30pm</text>
+		</g>
+
+		<g filter="url(#shadow)">
+			<rect x="68" y="255" width="860" height="250" rx="28" fill="url(#note)" />
+			<rect x="68" y="255" width="6" height="250" fill="#9eb1f6" />
+			<text x="106" y="307" fill="#8a8f98" font-size="23" font-weight="800" letter-spacing="4">NOTEPAD</text>
+			<text x="106" y="365" font-size="34" fill="#4b5563">- Text messages to phone.</text>
+			<text x="106" y="417" font-size="34" fill="#4b5563">- Remove old timing clutter.</text>
+			<text x="106" y="469" font-size="34" fill="#4b5563">- Keep runtime simple and honest.</text>
+		</g>
+
+		<g filter="url(#shadow)">
+			<rect x="68" y="535" width="860" height="250" rx="28" fill="url(#instance)" />
+			<rect x="68" y="535" width="6" height="250" fill="#ca9a74" />
+			<text x="106" y="587" fill="#8a8f98" font-size="23" font-weight="800" letter-spacing="4">INSTANCE NOTEPAD</text>
+			<text x="106" y="645" font-size="34" fill="#949aa3">Add to this session...</text>
+		</g>
+
+		<g filter="url(#shadow)" font-size="23" font-weight="800" letter-spacing="4" fill="#8a8f98">
+			<rect x="56" y="817" width="420" height="154" rx="28" fill="#fff" stroke="#e5e7eb" />
+			<text x="90" y="870">ACTIVE FOR</text>
+			<text x="90" y="928" fill="#374151" font-size="34" letter-spacing="0">2h 41m 40s</text>
+			<rect x="520" y="817" width="420" height="154" rx="28" fill="#fff" stroke="#e5e7eb" />
+			<text x="554" y="870">TIMER</text>
+			<text x="554" y="928" fill="#374151" font-size="34" letter-spacing="0">Running</text>
+		</g>
+
+		<text x="64" y="1025" fill="#be6b43" font-size="28" font-weight="800">Panic 2h 41m 25s</text>
+		<text x="64" y="1075" fill="#4f8f6b" font-size="28" font-weight="800">Effective 14s</text>
+
+		<rect x="56" y="1178" width="420" height="104" rx="28" fill="#edf0f4" stroke="#d6dce4" />
+		<text x="216" y="1243" font-size="27" font-weight="900" letter-spacing="4" fill="#3f4651">DAYMAP</text>
+		<rect x="516" y="1178" width="424" height="104" rx="28" fill="url(#done)" />
+		<text x="700" y="1243" font-size="27" font-weight="900" letter-spacing="4" fill="#fff">DONE</text>
+	</g>
+</svg>

@@ -47,7 +47,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - frontend Vite config points `envDir` at the repo root
   - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
 - `/` is now a public marketing landing page
-- `/demo-board` is also public and currently acts as a screenshot-led product tour without requiring auth
+- `/demo-board` is also public and currently acts as a product-screen tour without requiring auth
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
 - Backend config is in `back/lib/config.js`
@@ -199,19 +199,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Active list route:
   - `GET /tasks/active`
-- Time tasks now use pomodoro cadence derived from the task itself:
-  - `none`: no focus/break cycle
-  - `short`: 15/5 with a 15-minute long break every 4 focus blocks
-  - `medium`: 25/5 with a 20-minute long break every 4 focus blocks
-  - `long`: 50/10 with a 30-minute long break every 3 focus blocks
-- Time tasks also carry a bell sound:
-  - `glass`
-  - `temple`
-  - `arcade`
-- Break behavior:
-  - focus phase is silent
-  - break phase rings a short bell every minute
-  - the bell engine now lives in the shared authenticated header, so it keeps running across authenticated routes instead of only on `/active`
+- Time tasks record active runtime and history only
 - Tally tasks update through:
   - `POST /tasks/:taskId/tally`
 - Task note route:
@@ -281,7 +269,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/routes/+layout.svelte`
   - public routes are currently `/`, `/demo-board`, `/auth`, `/privacy`, and `/terms`
   - protected routes still wait for session initialization before redirecting guests
-- Marketing screenshots used by the public landing/product-tour pages live in:
+- Marketing visuals used by the public landing/product-tour pages live in:
   - `front/static/images/marketing/`
 - Session storage and authorized fetch helpers:
   - `front/src/lib/session.js`
@@ -313,7 +301,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/`
   - public landing page with marketing copy and signup/login CTA
 - `/demo-board`
-  - public product-tour page using real app screenshots
+  - public product-tour page using marketing visuals and product-screen references
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -332,8 +320,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - real minute-map stats from backend heatmap batches
 - `/add`
   - task creation form
-  - time tasks now choose a visible pomodoro preset (`none`, `short`, `medium`, `long`)
-  - time tasks also choose a stored bell sound on the form
   - task notes are always visible on the form; there is no notes checkbox gate
 - `/profile`
   - active sessions plus recent login attempt history
@@ -341,7 +327,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 ## Current UI behavior worth knowing
 
 - `/` is a public landing page, not a redirect anymore
-- `/demo-board` now holds the screenshot-led product tour that replaced the old simulated board demo
+- `/demo-board` now holds the product-screen tour that replaced the old simulated board demo
 - Inactive cards use the whole card as the action target
   - click or keyboard activation moves the task to daymap, not directly to active
 - Account creation on `/auth` now requires:
@@ -370,11 +356,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - visible labels stay out of the strip; hover/title and aria text carry the `Last done` and `Next due` context
   - clicking the visible `Next due` value opens an inline local datetime editor on inactive, daymap, active, and done pages
 - Active page includes:
-  - browser audio break-bell behavior
   - tally increment and decrement controls
   - done modal with direct local start and finish datetime editors
   - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
-- Some browsers require prior user interaction before break audio can play
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The header now also exposes an `AI` button next to `Panic`
   - it opens a right-side assistant drawer
@@ -387,8 +371,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - the drawer only sends the most recent 12 messages to the backend on each request
   - the drawer hydrates from `GET /assistant/history`
 - Panic controls live in the header, not on the active page itself
-- Local DB upgrade note:
-  - if older task docs still carry legacy alarm fields, run `cd back && npm run migrate:pomodoro`
 
 ## In-app assistant
 
@@ -420,9 +402,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `create_task`
     - still guarded against close duplicates in `inactive` and `daymap`
   - `edit_task`
-    - metadata, note, next due, pomodoro, bell sound, tally settings, daymap lock, and active `startedAt`
+    - metadata, note, next due, tally settings, daymap lock, and active `startedAt`
   - `bulk_edit_tasks`
-    - shared metadata cleanup across a matched task set, such as removing pomodoro from all inactive tasks
+    - shared metadata cleanup across a matched task set
   - `complete_task_run`
     - marks an active task done, or records a historical daymap/inactive completion when both times are supplied, and can correct `startedAt`, `completedAt`, and `instanceNote` in one call
   - `control_task`
@@ -436,7 +418,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - the model is explicitly told to always send a JSON object for tool arguments
   - for broad reads it should call `get_board_snapshot` with `{"scope":"board"}`
   - board snapshot task arrays are previews only and must not be treated as exhaustive sections
-  - for full-set checks like “all inactive tasks with pomodoro” it should call `filter_tasks`
+  - for full-set checks like “all inactive tasks due this week” it should call `filter_tasks`
   - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
   - `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
@@ -449,7 +431,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - structured replies should use markdown when it helps
   - raw millisecond values should usually be converted into human-readable durations
   - the intended tone is calm, sharp, concise, and slightly futuristic
-  - time tasks should be described in terms of pomodoro cadence, focus, and break rather than alarms
+  - time tasks should be described in terms of active runtime and completion history
 - Task creation guard:
   - `create_task` now checks for close existing matches in `inactive` and `daymap` before creating
   - if a close match exists, the backend returns `requiresChoice: true` with `errorCode: duplicate_task_guard`
