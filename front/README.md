@@ -9,7 +9,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - the default API base is `http://127.0.0.1:3001`
 - `PUBLIC_API_BASE_URL` is now read from the repo root `.env`
 - Vite env loading is configured to use the repo root as `envDir`
-- authenticated app pages now also expose a right-side AI drawer in the header
+- authenticated app pages expose icon-only top-nav controls for AI, panic, and profile; logout lives on the profile page
 
 ## Commands
 
@@ -37,10 +37,13 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - public legal page
 - `/terms`
   - public legal page
+- `/tasks`
+  - combined task board with Day Map above Inactive
+  - one shared search/sort control filters both sections without moving tasks between sections
 - `/inactive`
-  - backlog tasks not selected for today yet
+  - redirects to `/tasks`
 - `/daymap`
-  - tasks selected for today but not active yet
+  - redirects to `/tasks`
 - `/active`
   - current active tasks
 - `/done`
@@ -84,7 +87,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `src/routes/layout.css`
   - root theme tokens and shared themed surfaces
 - `src/routes/Header.svelte`
-  - top nav, panic control, AI drawer trigger, logout, and arrow-key page navigation
+  - top nav, AI drawer trigger, panic control, profile link, and arrow-key page navigation
 - `static/sw.js`
   - production PWA service worker; dev hosts clear Task Monster caches and unregister instead of serving cached app files
 - `static/manifest.webmanifest`
@@ -92,21 +95,25 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 
 ## Current UI behavior
 
-- Inactive cards use the full card as the action target
-  - clicking the card moves the task to daymap
+- `/tasks` uses compact cards and can fit up to three cards per row on desktop
+- Inactive task cards expose icon actions for moving to daymap, activating directly, and archiving
 - Account creation on `/auth` now requires:
   - prerelease alpha code
   - password confirmation
   - checking agreement to the Privacy Policy and Terms & Conditions
 - The profile page exposes the theme engine grouped into Light and Dark sections
   - the selected theme is stored only in this browser under `task_monster_theme`
+- Logout is available from the profile page instead of the global header controls
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
-- Daymap cards support queueing and daymap locking
-- The daymap sort bar has a daymap-only `Queue` mode
+- Repeatable task cards on `/tasks` expose seven weekday buttons for automatic Day Map scheduling
+- Tasks scheduled for the current local weekday appear in Day Map automatically and are excluded from Inactive
+- Daymap/inactive cards fade to 50% opacity after the task has been started once in the current local day
+- Daymap task cards support activating, queueing, daymap locking, and toggling manually mapped tasks back to inactive
+- The `/tasks` sort menu includes `Queue`
   - queued tasks rise to the top in queue-number order
   - unqueued tasks stay below them
-- All board pages share a right-side board control strip
+- Task board pages share a right-side board control strip
   - search opens from a search icon, filters the loaded tasks, and clears/closes from the inline `x`
   - sort opens from a sort icon into a dropdown with `Date`, `Color`, `A-Z`, `Next`, and `Last`
   - `Next` sorts by the optional `nextDueAt` timestamp, with undated tasks below dated ones
@@ -116,8 +123,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - center: a tiny low-contrast arrow
   - right side: next due, themed from the primary color
   - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
-  - next due opens an inline local datetime editor on inactive, daymap, active, and done cards
-- The add page exposes task color, mode, tracking type, tally fields, and always-visible task notes
+  - next due opens an inline local datetime editor on tasks, active, and done cards
+- The add page exposes task color, mode, tracking type, auto-daymap weekdays, tally fields, and always-visible task notes
 - Active tasks support:
   - inactivate
   - done
@@ -134,7 +141,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - midnight starts at the bottom and the day moves upward
   - overlapping tasks render as two- or three-way horizontal split cells
   - scrolling near the bottom requests older day batches
-- Panic mode is controlled from the header, not from the active page itself
+- Panic mode is controlled from the top nav, not from the active page itself
 - PWA behavior:
   - service worker registration is production-only
   - production navigation uses network-first fallback behavior
@@ -151,7 +158,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - the drawer only sends the most recent 12 messages to the backend
   - successful turns are persisted on the backend, so reloading the page restores the latest stored thread slice
   - assistant-triggered task or panic changes dispatch `taskmonster:assistant-refresh`
-  - active, daymap, inactive, done, and stats pages listen for that refresh event
+  - active, tasks, done, and stats pages listen for that refresh event
 - Assistant create behavior now has a duplicate guard
   - if the backend sees a close match already in `inactive` or `daymap`, the assistant should present a `1 / 2 / 3` choice instead of silently creating another task
   - that follow-up choice still depends on the relevant choice being present in the current 12-message working window
@@ -175,8 +182,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - `/auth`
   - `/privacy`
   - `/terms`
-  - `/inactive`
-  - `/daymap`
+  - `/tasks`
   - `/active`
   - `/done`
   - `/stats`

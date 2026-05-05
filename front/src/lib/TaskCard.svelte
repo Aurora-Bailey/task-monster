@@ -25,12 +25,24 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
+	const weekdayOptions = [
+		{ value: 1, short: 'M', label: 'Monday' },
+		{ value: 2, short: 'T', label: 'Tuesday' },
+		{ value: 3, short: 'W', label: 'Wednesday' },
+		{ value: 4, short: 'T', label: 'Thursday' },
+		{ value: 5, short: 'F', label: 'Friday' },
+		{ value: 6, short: 'S', label: 'Saturday' },
+		{ value: 0, short: 'S', label: 'Sunday' }
+	];
+	const currentWeekday = new Date().getDay();
 
 	let {
 		task,
 		variant = 'inactive',
 		editableTaskId = null,
 		clickActionLabel = 'Activate',
+		enableInactiveCardClick = false,
+		compact = false,
 		activeDurationLabel = '',
 		panicDurationLabel = '',
 		effectiveDurationLabel = '',
@@ -41,8 +53,13 @@
 		onSaveNote = null,
 		onSaveInstanceNote = null,
 		onSaveNextDue = null,
+		onScheduleChange = null,
+		showDaymapToggle = false,
+		showActivateButton = false,
+		showScheduleControls = false,
 		showArchiveButton = false,
 		onActivate = () => {},
+		onDaymapToggle = () => {},
 		onArchive = () => {},
 		onToggleDaymapLock = () => {},
 		onQueueToggle = () => {},
@@ -55,12 +72,22 @@
 	const isTallyTask = $derived(task.trackingType === 'tally');
 	const isInactiveCard = $derived(variant === 'inactive');
 	const isDaymapCard = $derived(variant === 'daymap');
+	const usesInactiveCardClick = $derived(isInactiveCard && enableInactiveCardClick);
 	const isQueuedDaymapTask = $derived(
 		isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0
 	);
 	const showsDaymapLock = $derived(isDaymapCard && task.mode === 'repeatable');
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
-	const showsActions = $derived(variant === 'active' || variant === 'daymap');
+	const showsActions = $derived(variant === 'active');
+	const showsHeaderDaymapToggle = $derived(showDaymapToggle && (isInactiveCard || isDaymapCard));
+	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
+	const isScheduledOnlyDaymapTask = $derived(
+		isDaymapCard && task.scheduledToday === true && task.mappedToday !== true
+	);
+	const canUseHeaderDaymapToggle = $derived(showsHeaderDaymapToggle && !isScheduledOnlyDaymapTask);
+	const showsWeekdaySchedule = $derived(
+		showScheduleControls && task.mode === 'repeatable' && Boolean(onScheduleChange)
+	);
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const canEditInstanceNote = $derived(
 		variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote)
@@ -128,7 +155,7 @@
 	}
 
 	function handleInactiveActivate(event) {
-		if (!isInactiveCard || busyAction !== null) {
+		if (!usesInactiveCardClick || busyAction !== null) {
 			return;
 		}
 
@@ -140,7 +167,7 @@
 	}
 
 	function handleInactiveKeydown(event) {
-		if (!isInactiveCard || busyAction !== null) {
+		if (!usesInactiveCardClick || busyAction !== null) {
 			return;
 		}
 
@@ -222,6 +249,55 @@
 		}
 
 		onToggleDaymapLock(task);
+	}
+
+	function handleDaymapToggleClick(event) {
+		event.stopPropagation();
+
+		if (!canUseHeaderDaymapToggle || busyAction !== null) {
+			return;
+		}
+
+		onDaymapToggle(task);
+	}
+
+	function getScheduledWeekdays() {
+		return Array.isArray(task.daymapWeekdays) ? task.daymapWeekdays : [];
+	}
+
+	function isWeekdayScheduled(weekday) {
+		return getScheduledWeekdays().includes(weekday);
+	}
+
+	function handleScheduleToggle(event, weekday) {
+		event.stopPropagation();
+
+		if (!showsWeekdaySchedule || busyAction !== null) {
+			return;
+		}
+
+		const nextWeekdays = new Set(getScheduledWeekdays());
+
+		if (nextWeekdays.has(weekday)) {
+			nextWeekdays.delete(weekday);
+		} else {
+			nextWeekdays.add(weekday);
+		}
+
+		onScheduleChange(
+			task,
+			[...nextWeekdays].sort((left, right) => left - right)
+		);
+	}
+
+	function handleHeaderActivateClick(event) {
+		event.stopPropagation();
+
+		if (!showsHeaderActivate || busyAction !== null) {
+			return;
+		}
+
+		onActivate(task.id);
 	}
 
 	function handleTallyClick(event, delta) {
@@ -526,13 +602,16 @@
 	class:is-active={variant !== 'inactive'}
 	class:is-inactive={isInactiveCard}
 	class:is-busy={busyAction !== null}
+	class:is-compact={compact}
+	class:is-started-today={task.startedToday === true && variant !== 'active'}
+	class:uses-card-click={usesInactiveCardClick}
 	style={`--task-accent: ${task.color};`}
-	role={isInactiveCard ? 'button' : undefined}
-	tabindex={isInactiveCard ? 0 : undefined}
-	aria-label={isInactiveCard ? `${clickActionLabel} ${task.name}` : undefined}
-	aria-disabled={isInactiveCard ? busyAction !== null : undefined}
-	onclick={isInactiveCard ? handleInactiveActivate : undefined}
-	onkeydown={isInactiveCard ? handleInactiveKeydown : undefined}
+	role={usesInactiveCardClick ? 'button' : undefined}
+	tabindex={usesInactiveCardClick ? 0 : undefined}
+	aria-label={usesInactiveCardClick ? `${clickActionLabel} ${task.name}` : undefined}
+	aria-disabled={usesInactiveCardClick ? busyAction !== null : undefined}
+	onclick={usesInactiveCardClick ? handleInactiveActivate : undefined}
+	onkeydown={usesInactiveCardClick ? handleInactiveKeydown : undefined}
 >
 	<div class="task-card__header">
 		<div class="task-card__header-main">
@@ -550,9 +629,46 @@
 		</div>
 
 		<div class="task-card__header-actions">
+			{#if showsHeaderDaymapToggle}
+				<button
+					class="task-card__icon-action daymap-toggle-button"
+					class:is-selected={isDaymapCard && task.mappedToday === true}
+					type="button"
+					aria-label={isScheduledOnlyDaymapTask
+						? `${task.name} is scheduled for today. Toggle today's weekday off to remove it from the daymap.`
+						: isDaymapCard
+							? `Move ${task.name} to inactive`
+							: `Move ${task.name} to daymap`}
+					title={isScheduledOnlyDaymapTask
+						? "Scheduled today; toggle today's weekday off below"
+						: isDaymapCard
+							? 'Move to inactive'
+							: 'Move to daymap'}
+					disabled={busyAction !== null || !canUseHeaderDaymapToggle}
+					onpointerdown={stopEventPropagation}
+					onclick={handleDaymapToggleClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'daymap' || busyAction === 'unmap'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="m12 3 2.72 5.5 6.07.88-4.39 4.28 1.04 6.04L12 16.84 6.56 19.7l1.04-6.04-4.39-4.28 6.07-.88L12 3Z"
+								fill={task.mappedToday === true ? 'currentColor' : 'none'}
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="1.65"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+
 			{#if showsDaymapLock}
 				<button
-					class="daymap-lock-button"
+					class="task-card__icon-action daymap-lock-button"
 					class:is-locked={task.daymapLocked}
 					type="button"
 					aria-label={task.daymapLocked
@@ -585,7 +701,7 @@
 
 			{#if isDaymapCard}
 				<button
-					class="queue-button"
+					class="task-card__icon-action queue-button"
 					class:is-queued={isQueuedDaymapTask}
 					type="button"
 					aria-label={isQueuedDaymapTask
@@ -607,9 +723,36 @@
 				</button>
 			{/if}
 
+			{#if showsHeaderActivate}
+				<button
+					class="task-card__icon-action activate-icon-button"
+					type="button"
+					aria-label={`Activate ${task.name}`}
+					title="Activate"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleHeaderActivateClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'activate'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M8 5v14l11-7L8 5Z"
+								fill="currentColor"
+								stroke="currentColor"
+								stroke-linejoin="round"
+								stroke-width="1.4"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+
 			{#if showArchiveButton}
 				<button
-					class="archive-button"
+					class="task-card__icon-action archive-button"
 					type="button"
 					aria-label={`Archive ${task.name}`}
 					title="Archive task"
@@ -618,16 +761,20 @@
 					onclick={handleArchiveClick}
 					onkeydown={stopEventPropagation}
 				>
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path
-							d="M4 7h16M7 7V5h10v2m-9 4h8m-9 0v6h10v-6"
-							fill="none"
-							stroke="currentColor"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="1.8"
-						/>
-					</svg>
+					{#if busyAction === 'archive'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M4 7h16M7 7V5h10v2m-9 4h8m-9 0v6h10v-6"
+								fill="none"
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="1.8"
+							/>
+						</svg>
+					{/if}
 				</button>
 			{/if}
 		</div>
@@ -717,6 +864,30 @@
 		{/if}
 	</div>
 
+	{#if showsWeekdaySchedule}
+		<div
+			class="task-card__weekday-schedule task-card__interactive"
+			aria-label={`Auto daymap schedule for ${task.name}`}
+		>
+			{#each weekdayOptions as weekday}
+				<button
+					class="weekday-schedule-button"
+					class:is-selected={isWeekdayScheduled(weekday.value)}
+					class:is-today={weekday.value === currentWeekday}
+					type="button"
+					aria-pressed={isWeekdayScheduled(weekday.value)}
+					title={`${weekday.label}${weekday.value === currentWeekday ? ' (today)' : ''}`}
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={(event) => handleScheduleToggle(event, weekday.value)}
+					onkeydown={stopEventPropagation}
+				>
+					<span>{weekday.short}</span>
+				</button>
+			{/each}
+		</div>
+	{/if}
+
 	{#if task.note || canEditNote}
 		<div class="task-card__note-block">
 			<div
@@ -745,7 +916,7 @@
 				<textarea
 					bind:value={draftNote}
 					class="task-card__note-input"
-					rows="3"
+					rows={compact ? 2 : 3}
 					placeholder="Add to notepad..."
 					onpointerdown={stopEventPropagation}
 					onclick={stopEventPropagation}
@@ -791,7 +962,7 @@
 				<textarea
 					bind:value={draftInstanceNote}
 					class="task-card__note-input"
-					rows="3"
+					rows={compact ? 2 : 3}
 					placeholder="Add to this session..."
 					onpointerdown={stopEventPropagation}
 					onclick={stopEventPropagation}
@@ -990,14 +1161,17 @@
 			var(--surface-shadow),
 			0 0 0 1px color-mix(in srgb, var(--task-accent) 16%, transparent),
 			var(--surface-inset);
-		cursor: pointer;
 		transition:
 			transform 0.16s ease,
 			box-shadow 0.16s ease,
 			border-color 0.16s ease;
 	}
 
-	.task-card.is-inactive:hover {
+	.task-card.uses-card-click {
+		cursor: pointer;
+	}
+
+	.task-card.is-inactive.uses-card-click:hover {
 		transform: translateY(-2px);
 		border-color: color-mix(in srgb, var(--task-accent) 82%, var(--surface-border));
 		box-shadow:
@@ -1006,7 +1180,7 @@
 			var(--surface-inset);
 	}
 
-	.task-card.is-inactive:focus-visible {
+	.task-card.is-inactive.uses-card-click:focus-visible {
 		outline: none;
 		box-shadow:
 			0 0 0 4px color-mix(in srgb, var(--task-accent) 24%, transparent),
@@ -1017,6 +1191,20 @@
 	.task-card.is-inactive.is-busy {
 		cursor: wait;
 		transform: none;
+	}
+
+	.task-card.is-compact {
+		gap: 0.68rem;
+		padding: 0.82rem 0.88rem 0.88rem;
+		border-radius: 16px;
+	}
+
+	.task-card.is-started-today {
+		opacity: 0.5;
+	}
+
+	.task-card.is-compact::before {
+		width: 0.28rem;
 	}
 
 	.task-card::before {
@@ -1056,7 +1244,7 @@
 		display: inline-flex;
 		align-items: flex-start;
 		justify-content: flex-end;
-		gap: 0.7rem;
+		gap: 0.48rem;
 		flex: 0 0 auto;
 	}
 
@@ -1066,8 +1254,15 @@
 		min-width: 0;
 	}
 
-	.queue-button,
-	.daymap-lock-button {
+	.task-card.is-compact .task-card__header {
+		gap: 0.65rem;
+	}
+
+	.task-card.is-compact .task-card__header-actions {
+		gap: 0.34rem;
+	}
+
+	.task-card__icon-action {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -1088,6 +1283,87 @@
 			border-color 0.15s ease;
 	}
 
+	.task-card.is-compact .task-card__icon-action {
+		width: 2.05rem;
+		height: 2.05rem;
+	}
+
+	.task-card__icon-action svg {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	.task-card__icon-action:focus-visible {
+		outline: none;
+		box-shadow:
+			0 0 0 3px color-mix(in srgb, var(--color-theme-1) 20%, transparent),
+			var(--surface-shadow-strong);
+	}
+
+	.task-card__weekday-schedule {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 0.28rem;
+		padding: 0.35rem;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+		border: 1px solid color-mix(in srgb, var(--task-accent) 14%, var(--surface-border));
+		box-shadow: var(--surface-inset);
+	}
+
+	.weekday-schedule-button {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 0;
+		height: 1.82rem;
+		padding: 0;
+		border: 1px solid var(--surface-border);
+		border-radius: 999px;
+		background: var(--surface-2);
+		color: var(--color-muted);
+		font: inherit;
+		font-size: 0.68rem;
+		font-weight: 900;
+		cursor: pointer;
+		transition:
+			transform 0.15s ease,
+			border-color 0.15s ease,
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.weekday-schedule-button:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--task-accent) 32%, var(--surface-border));
+		color: var(--color-heading);
+	}
+
+	.weekday-schedule-button.is-selected {
+		background: color-mix(in srgb, var(--task-accent) 24%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--task-accent) 48%, var(--surface-border));
+		color: color-mix(in srgb, var(--task-accent) 82%, var(--color-heading));
+	}
+
+	.weekday-schedule-button.is-today::after {
+		content: '';
+		position: absolute;
+		right: 0.32rem;
+		bottom: 0.24rem;
+		width: 0.24rem;
+		height: 0.24rem;
+		border-radius: 999px;
+		background: currentColor;
+		opacity: 0.72;
+	}
+
+	.weekday-schedule-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
+	}
+
 	.daymap-lock-button {
 		color: var(--color-muted);
 	}
@@ -1104,9 +1380,23 @@
 		color: color-mix(in srgb, var(--task-accent) 72%, var(--color-heading));
 	}
 
-	.daymap-lock-button svg {
-		width: 1rem;
-		height: 1rem;
+	.daymap-toggle-button {
+		color: color-mix(in srgb, var(--color-theme-2) 74%, var(--color-muted));
+	}
+
+	.daymap-toggle-button.is-selected {
+		background: color-mix(in srgb, var(--color-theme-2) 18%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-theme-2) 38%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-theme-2) 88%, var(--color-heading));
+	}
+
+	.activate-icon-button {
+		background: color-mix(in srgb, var(--color-theme-1) 14%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-theme-1) 30%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-theme-1) 86%, var(--color-heading));
+		box-shadow:
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-theme-1) 9%, transparent);
 	}
 
 	.daymap-lock-button.is-locked {
@@ -1123,13 +1413,17 @@
 	}
 
 	.daymap-lock-button:hover,
-	.queue-button:hover {
+	.queue-button:hover,
+	.daymap-toggle-button:hover,
+	.activate-icon-button:hover {
 		transform: translateY(-1px);
 		box-shadow: var(--surface-shadow-strong);
 	}
 
 	.daymap-lock-button:disabled,
-	.queue-button:disabled {
+	.queue-button:disabled,
+	.daymap-toggle-button:disabled,
+	.activate-icon-button:disabled {
 		cursor: wait;
 		opacity: 0.72;
 		transform: none;
@@ -1145,27 +1439,7 @@
 	}
 
 	.archive-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.3rem;
-		height: 2.3rem;
-		padding: 0;
-		border: 1px solid var(--surface-border-strong);
-		border-radius: 999px;
-		background: var(--surface-2);
 		color: var(--color-muted);
-		box-shadow: var(--surface-shadow);
-		cursor: pointer;
-		transition:
-			transform 0.15s ease,
-			color 0.15s ease,
-			box-shadow 0.15s ease;
-	}
-
-	.archive-button svg {
-		width: 1rem;
-		height: 1rem;
 	}
 
 	.archive-button:hover {
@@ -1193,6 +1467,11 @@
 		color: var(--color-heading);
 	}
 
+	.task-card.is-compact h2 {
+		font-size: 1.05rem;
+		line-height: 1.12;
+	}
+
 	.task-card__title-chips {
 		display: flex;
 		flex-wrap: wrap;
@@ -1217,6 +1496,15 @@
 		line-height: 1.15;
 	}
 
+	.task-card.is-compact .task-card__title-chips {
+		gap: 0.55rem;
+		margin-top: 0.05rem;
+	}
+
+	.task-card.is-compact .task-card__title-chips span {
+		font-size: 0.68rem;
+	}
+
 	.task-card__title-chips span.highlight-chip {
 		border-bottom-color: color-mix(in srgb, var(--task-accent) 48%, var(--surface-border));
 		color: color-mix(in srgb, var(--task-accent) 68%, var(--color-heading));
@@ -1229,6 +1517,15 @@
 		gap: 0.24rem;
 		margin-top: -0.25rem;
 		color: var(--color-muted);
+	}
+
+	.task-card.is-compact .task-card__timing-row {
+		gap: 0.16rem;
+		margin-top: -0.12rem;
+	}
+
+	.task-card.is-compact .task-card__timing-meta {
+		font-size: 0.58rem;
 	}
 
 	.task-card__timing-row.is-editing-next-due {
@@ -1407,6 +1704,21 @@
 		box-shadow: var(--surface-inset);
 	}
 
+	.task-card.is-compact .task-card__note-block {
+		padding: 0.64rem 0.74rem;
+		margin-left: 0.22rem;
+		border-radius: 0 12px 12px 0;
+	}
+
+	.task-card.is-compact .task-card__note-header {
+		margin-bottom: 0.24rem;
+	}
+
+	.task-card.is-compact .task-card__note-label {
+		font-size: 0.62rem;
+		letter-spacing: 0.07em;
+	}
+
 	.task-card__note-block-instance {
 		background:
 			linear-gradient(
@@ -1462,6 +1774,12 @@
 		font: inherit;
 		line-height: 1.5;
 		color: var(--color-muted);
+	}
+
+	.task-card.is-compact .task-card__note,
+	.task-card.is-compact .task-card__note-input {
+		font-size: 0.88rem;
+		line-height: 1.36;
 	}
 
 	.task-card__note-input::placeholder {

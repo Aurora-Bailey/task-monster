@@ -28,6 +28,16 @@ async function loadTaskList(path) {
 	return body?.tasks ?? [];
 }
 
+function getTimezoneOffsetMinutes() {
+	return new Date().getTimezoneOffset();
+}
+
+function withLocalDayQuery(path) {
+	const separator = path.includes('?') ? '&' : '?';
+
+	return `${path}${separator}tzOffsetMinutes=${encodeURIComponent(String(getTimezoneOffsetMinutes()))}`;
+}
+
 async function runTaskAction(taskId, action, body) {
 	const response = await authorizedRequest(`/tasks/${taskId}/${action}`, {
 		method: 'POST',
@@ -115,11 +125,11 @@ export function loadActiveTasks() {
 }
 
 export function loadDaymapTasks() {
-	return loadTaskList('/tasks/daymap');
+	return loadTaskList(withLocalDayQuery('/tasks/daymap'));
 }
 
 export function loadInactiveTasks() {
-	return loadTaskList('/tasks/inactive');
+	return loadTaskList(withLocalDayQuery('/tasks/inactive'));
 }
 
 export function loadDoneTasks() {
@@ -225,6 +235,14 @@ export async function updateTask(taskId, changes) {
 export async function updateTaskNextDue(taskId, nextDueAt) {
 	const body = await updateTask(taskId, {
 		nextDueAt
+	});
+
+	return body?.task ?? null;
+}
+
+export async function updateTaskDaymapWeekdays(taskId, daymapWeekdays) {
+	const body = await updateTask(taskId, {
+		daymapWeekdays
 	});
 
 	return body?.task ?? null;

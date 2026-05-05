@@ -77,6 +77,7 @@ async function activateTaskRoute(app) {
 						queuePosition: null,
 						activeToday: true,
 						activatedAt,
+						lastStartedAt: activatedAt,
 						activeTallyCount,
 						updatedAt: activatedAt
 					}

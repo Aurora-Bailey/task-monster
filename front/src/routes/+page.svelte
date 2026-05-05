@@ -133,8 +133,8 @@
 				<p class="section-kicker">Daymap</p>
 				<h2>Shape the day before the timer starts.</h2>
 				<p>
-					Tasks move from inactive into the daymap first, which gives you a staging layer instead of
-					forcing planning and execution into the same pile.
+					Tasks can be staged into the daymap or activated directly, which keeps planning visible
+					without blocking fast starts when the next move is obvious.
 				</p>
 				<ul class="surface-points">
 					<li>Only today&apos;s work gets mapped in.</li>

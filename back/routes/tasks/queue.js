@@ -48,9 +48,9 @@ async function queueTaskRoute(app) {
 				});
 			}
 
-			if (task.activeToday || task.mappedToday !== true) {
+			if (task.activeToday) {
 				return reply.code(409).send({
-					message: 'Only daymap tasks can be queued.'
+					message: 'Active tasks are already on the table.'
 				});
 			}
 
@@ -69,12 +69,13 @@ async function queueTaskRoute(app) {
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
-					mappedToday: true,
 					activeToday: false,
 					queuePosition: null
 				},
 				{
 					$set: {
+						mappedToday: true,
+						mappedAt: task.mappedAt || updatedAt,
 						queuePosition,
 						updatedAt
 					}

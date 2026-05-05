@@ -248,6 +248,7 @@ async function doneTaskRoute(app) {
 						activeTallyCount: 0,
 						lastCompletedTallyCount: completedTallyCount,
 						lastCompletedAt: completedAt,
+						lastStartedAt: startedAt,
 						lastInactivatedAt: completedAt,
 						nextDueAt: task.mode === 'repeatable' ? nextDueAt : null,
 						archived: task.mode === 'one-time',

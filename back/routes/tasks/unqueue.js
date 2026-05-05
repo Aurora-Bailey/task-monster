@@ -48,9 +48,9 @@ async function unqueueTaskRoute(app) {
 				});
 			}
 
-			if (task.activeToday || task.mappedToday !== true) {
+			if (task.activeToday) {
 				return reply.code(409).send({
-					message: 'Only daymap tasks can be removed from the queue.'
+					message: 'Active tasks are already on the table.'
 				});
 			}
 
@@ -66,7 +66,6 @@ async function unqueueTaskRoute(app) {
 					_id: task._id,
 					userId: task.userId,
 					archived: false,
-					mappedToday: true,
 					activeToday: false,
 					queuePosition: task.queuePosition
 				},

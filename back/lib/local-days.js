@@ -20,6 +20,12 @@ function getCurrentLocalDay(timezoneOffsetMinutes) {
 	return new Date(Date.now() - timezoneOffsetMinutes * 60 * 1000).toISOString().slice(0, 10);
 }
 
+function getLocalWeekdayIndex(day) {
+	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
+
+	return new Date(Date.UTC(year, month - 1, date, 0, 0, 0, 0)).getUTCDay();
+}
+
 function getUtcRangeForLocalDay(day, timezoneOffsetMinutes) {
 	const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
 
@@ -33,6 +39,7 @@ function getUtcRangeForLocalDay(day, timezoneOffsetMinutes) {
 
 module.exports = {
 	getCurrentLocalDay,
+	getLocalWeekdayIndex,
 	getUtcRangeForLocalDay,
 	isValidDayString,
 	parseTimezoneOffsetMinutes

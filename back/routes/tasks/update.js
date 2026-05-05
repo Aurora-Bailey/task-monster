@@ -5,7 +5,10 @@ const {
 	TASK_COLOR_MAP,
 	TASK_MODE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
+	TASK_WEEKDAY_VALUES,
+	areTaskWeekdaysEqual,
 	findOwnedTask,
+	normalizeTaskWeekdays,
 	serializedTaskJsonSchema,
 	serializeTask
 } = require('../../lib/tasks');
@@ -63,6 +66,15 @@ const updateTaskSchema = {
 			},
 			daymapLocked: {
 				type: 'boolean'
+			},
+			daymapWeekdays: {
+				type: 'array',
+				maxItems: 7,
+				uniqueItems: true,
+				items: {
+					type: 'integer',
+					enum: [...TASK_WEEKDAY_VALUES]
+				}
 			},
 			startedAt: {
 				type: 'string',
@@ -134,6 +146,7 @@ async function updateTaskRoute(app) {
 			const providedTallyTarget = Object.hasOwn(request.body, 'tallyTarget');
 			const providedActiveTallyCount = Object.hasOwn(request.body, 'activeTallyCount');
 			const providedNextDueAt = Object.hasOwn(request.body, 'nextDueAt');
+			const providedDaymapWeekdays = Object.hasOwn(request.body, 'daymapWeekdays');
 
 			if (typeof request.body.name === 'string') {
 				const nextName = request.body.name.trim();
@@ -216,6 +229,19 @@ async function updateTaskRoute(app) {
 					label: 'Changed: daymap lock',
 					value: request.body.daymapLocked ? 'locked' : 'unlocked'
 				});
+			}
+
+			if (providedDaymapWeekdays) {
+				const nextDaymapWeekdays = normalizeTaskWeekdays(request.body.daymapWeekdays);
+
+				if (!areTaskWeekdaysEqual(nextDaymapWeekdays, task.daymapWeekdays)) {
+					nextTask.daymapWeekdays = nextDaymapWeekdays;
+					changes.push({
+						field: 'daymap schedule',
+						label: 'Changed: daymap schedule',
+						value: nextDaymapWeekdays.length > 0 ? nextDaymapWeekdays.join(',') : 'cleared'
+					});
+				}
 			}
 
 			if (typeof request.body.trackingType === 'string' && request.body.trackingType !== (task.trackingType || 'time')) {
@@ -310,6 +336,7 @@ async function updateTaskRoute(app) {
 
 				const clampedStartedAt = new Date(Math.min(parsedStartedAt.getTime(), updatedAt.getTime()));
 				nextTask.activatedAt = clampedStartedAt;
+				nextTask.lastStartedAt = clampedStartedAt;
 				openRunPatch.startedAt = clampedStartedAt;
 				changes.push({
 					field: 'started time',
@@ -350,7 +377,9 @@ async function updateTaskRoute(app) {
 				note: nextTask.note ?? null,
 				nextDueAt: nextTask.nextDueAt ?? null,
 				daymapLocked: nextTask.daymapLocked === true,
+				daymapWeekdays: normalizeTaskWeekdays(nextTask.daymapWeekdays),
 				activatedAt: nextTask.activatedAt ?? null,
+				lastStartedAt: nextTask.lastStartedAt ?? null,
 				updatedAt
 			};
 

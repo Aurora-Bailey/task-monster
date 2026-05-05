@@ -4,13 +4,14 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 - `inactive`: backlog tasks not selected for today yet
 - `daymap`: tasks chosen for today but not active yet
+- `tasks`: combined daymap and inactive board, with each section kept separate under one search/sort control
 - `active`: tasks currently on the table
 - `done`: completed run history
 - `stats`: minute-map heatmaps and daily summaries derived from task/run history
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages now also expose an AI assistant drawer in the header. It talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
+Authenticated app pages expose icon-only top-nav controls for AI, panic, and profile; logout lives on the profile page. The AI drawer talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
 
 ## Current app status
 
@@ -21,8 +22,9 @@ Authenticated app pages now also expose an AI assistant drawer in the header. It
   - `/privacy`
   - `/terms`
 - Authenticated frontend routes:
-  - `/inactive`
-  - `/daymap`
+  - `/tasks`
+  - `/inactive` redirects to `/tasks`
+  - `/daymap` redirects to `/tasks`
   - `/active`
   - `/done`
   - `/stats`
@@ -90,10 +92,12 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 - Tasks track either by `time` or `tally`
 - Time-tracked tasks record active runtime and history only
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
+- Repeatable tasks can also store `daymapWeekdays`; matching local weekdays are included in Day Map automatically
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
-- Tasks carry nullable timing fields for `nextDueAt`, `lastCompletedAt`, and `lastInactivatedAt`
-- Queueing is only for daymap tasks
+- Tasks carry nullable timing fields for `nextDueAt`, `lastStartedAt`, `lastCompletedAt`, and `lastInactivatedAt`
+- Task cards fade when the task has a `task_runs.startedAt` inside the current local day
+- Queueing a scheduled Day Map task materializes it onto the manual daymap before assigning queue order
 - When the last active task leaves the table, the backend auto-activates the next queued daymap task if one exists
 - Panic does not currently pause tasks automatically; it affects derived effective-time calculations instead
 

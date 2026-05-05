@@ -4,9 +4,11 @@ const {
 	TASK_COLOR_MAP,
 	TASK_MODE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
+	TASK_WEEKDAY_VALUES,
 	isAllowedTaskColor,
 	isAllowedTaskMode,
 	isAllowedTaskTrackingType,
+	normalizeTaskWeekdays,
 	serializedTaskJsonSchema,
 	serializeTask
 } = require('../../lib/tasks');
@@ -50,6 +52,15 @@ const createTaskSchema = {
 			nextDueAt: {
 				type: ['string', 'null'],
 				format: 'date-time'
+			},
+			daymapWeekdays: {
+				type: 'array',
+				maxItems: 7,
+				uniqueItems: true,
+				items: {
+					type: 'integer',
+					enum: [...TASK_WEEKDAY_VALUES]
+				}
 			}
 		}
 	},
@@ -79,6 +90,7 @@ async function createTaskRoute(app) {
 			const trackingType = request.body.trackingType || 'time';
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
 			const nextDueAtInput = request.body.nextDueAt;
+			const daymapWeekdays = normalizeTaskWeekdays(request.body.daymapWeekdays);
 
 			if (!name) {
 				return reply.code(400).send({
@@ -152,12 +164,14 @@ async function createTaskRoute(app) {
 				nextDueAt,
 				note,
 				daymapLocked: false,
+				daymapWeekdays,
 				mappedToday: false,
 				mappedAt: null,
 				queuePosition: null,
 				activeToday: false,
 				activatedAt: null,
 				lastCompletedAt: null,
+				lastStartedAt: null,
 				lastInactivatedAt: null,
 				archived: false,
 				createdAt,

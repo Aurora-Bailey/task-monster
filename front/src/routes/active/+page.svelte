@@ -311,7 +311,7 @@
 				return;
 			}
 
-			await goto(resolve('/daymap'));
+			await goto(resolve('/tasks'));
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -589,7 +589,7 @@
 	{:else if tasks.length === 0}
 		<div class="message-card">
 			<strong>No active tasks</strong>
-			<p>Nothing is on the table right now. Start something from the daymap when you are ready.</p>
+			<p>Nothing is on the table right now. Start something from tasks when you are ready.</p>
 		</div>
 	{:else}
 		<TaskSortBar

@@ -119,10 +119,20 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Tasks have two tracking types:
   - `time`
   - `tally`
+- Repeatable tasks can store automatic daymap weekdays:
+  - `tasks.daymapWeekdays`
+  - integer values use JavaScript weekday numbering: `0` Sunday through `6` Saturday
+  - `/tasks/daymap` and `/tasks/inactive` accept `tzOffsetMinutes` and derive today's local weekday from it
+  - scheduled tasks are shown in Daymap automatically on matching weekdays even when `mappedToday !== true`
+  - scheduled tasks are excluded from Inactive on matching weekdays
+- Task responses can include local-day derived display flags:
+  - `scheduledToday`
+  - `startedToday`
+- Task responses also include `lastStartedAt`; card fading uses `task_runs.startedAt` inside the current local day so overnight sleep tasks are attributed by start time
 - Shared task validation and serialization live in `back/lib/tasks.js`
 - Template-level task note:
   - stored on `tasks.note`
-  - editable from inactive, daymap, active, and done views
+  - editable from tasks, active, and done views
 - Per-run instance note:
   - stored on the open or closed `task_runs` record
   - editable only while active
@@ -137,8 +147,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `archived: false`
   - `activeToday: false`
   - `mappedToday !== true`
+  - not scheduled for the current local weekday
 - Daymap:
-  - `mappedToday: true`
+  - `mappedToday: true`, or scheduled for the current local weekday
   - `activeToday: false`
 - Active:
   - `activeToday: true`
@@ -180,6 +191,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Repeatable task:
   - returns to inactive by default
   - if `daymapLocked === true`, it returns to daymap instead
+  - if scheduled for the current weekday, it still appears on Daymap through derived schedule membership
 
 ### Daymap and queue behavior
 
@@ -189,7 +201,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `POST /tasks/:taskId/queue`
   - `POST /tasks/:taskId/unqueue`
 - Queue order uses `queuePosition`
-- Only daymap tasks can be queued
+- Queueing a scheduled-only Daymap task sets `mappedToday: true` before assigning `queuePosition`
 - When the last active task is removed from the table by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`
@@ -292,9 +304,10 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
   - `front/src/lib/TaskSortBar.svelte`
-- Top nav and panic control:
+- Top nav and utility controls:
   - `front/src/routes/Header.svelte`
-  - now also owns the authenticated AI drawer trigger and drawer mount
+  - owns icon-only top-nav controls for AI, panic, and profile
+  - owns the authenticated AI drawer trigger and drawer mount
 
 ## Main frontend routes
 
@@ -308,10 +321,13 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - public legal page, accessible without authentication
 - `/terms`
   - public legal page, accessible without authentication
+- `/tasks`
+  - combined task board with a Day Map section above an Inactive section
+  - one shared search/sort control filters both sections, but tasks stay in their section
 - `/inactive`
-  - inactive backlog
+  - redirects to `/tasks`
 - `/daymap`
-  - tasks chosen for today but not active yet
+  - redirects to `/tasks`
 - `/active`
   - current active tasks
 - `/done`
@@ -328,25 +344,30 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - `/` is a public landing page, not a redirect anymore
 - `/demo-board` now holds the product-screen tour that replaced the old simulated board demo
-- Inactive cards use the whole card as the action target
-  - click or keyboard activation moves the task to daymap, not directly to active
+- `/tasks` uses compact task cards to fit up to three cards per row on desktop
+- Repeatable cards on `/tasks` expose seven weekday buttons for automatic Daymap scheduling
+- Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day
+- Inactive cards expose icon actions:
+  - star moves the task to daymap
+  - play activates directly
+  - archive hides inactive tasks
 - Account creation on `/auth` now requires:
   - alpha code entry
   - password confirmation
   - checking agreement to the Privacy Policy and Terms & Conditions
-- The inactive card intentionally uses a `svelte-ignore a11y_no_noninteractive_tabindex` comment because the card itself carries button semantics
 - Task note autosave is debounced in `TaskCard.svelte`
 - Active-task instance note autosave is also debounced in `TaskCard.svelte`
 - Daymap cards expose:
-  - activate
+  - activate through a play icon
   - queue or unqueue
   - daymap lock toggle
-  - unmap back to inactive
-  - a daymap-only `Queue` sort mode that floats queued tasks to the top in queue-number order
-- All board pages now expose a shared right-side board control strip
+  - star toggle back to inactive for manually mapped tasks
+  - scheduled-only cards use the weekday buttons to remove today's automatic Daymap membership
+  - the shared `/tasks` sort menu includes `Queue`, which floats queued daymap tasks to the top in queue-number order
+- Task board pages now expose a shared right-side board control strip
   - search opens from a search icon, filters the loaded task list, and can be cleared with the inline `x`
   - sort opens from a sort icon into a dropdown menu with `Date`, `Color`, `A-Z`, `Next`, and `Last`
-  - daymap also exposes the daymap-only `Queue` sort mode
+  - `/tasks` also exposes `Queue`
   - `Next` sorts tasks with a `nextDueAt` first by soonest due time
   - `Last` sorts by the most recent completed time
 - Task cards can now show:
@@ -354,23 +375,23 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `Last done`
   - both timing values are always visible as a compact one-line strip: last done on the left, a subtle arrow, next due on the right
   - visible labels stay out of the strip; hover/title and aria text carry the `Last done` and `Next due` context
-  - clicking the visible `Next due` value opens an inline local datetime editor on inactive, daymap, active, and done pages
+  - clicking the visible `Next due` value opens an inline local datetime editor on tasks, active, and done pages
 - Active page includes:
   - tally increment and decrement controls
   - done modal with direct local start and finish datetime editors
   - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
-- The header now also exposes an `AI` button next to `Panic`
+- The top nav exposes icon-only `AI`, `Panic`, and `Profile` controls
   - it opens a right-side assistant drawer
   - `Esc` opens the drawer and focuses the input
   - pressing `Esc` again closes it
   - assistant replies are rendered through a local safe markdown renderer, not a third-party package
   - assistant-triggered changes dispatch `taskmonster:assistant-refresh`
-  - active/daymap/inactive/done/stats listen for that event and reload as needed
+  - active/tasks/done/stats listen for that event and reload as needed
   - arrow-key navigation is intentionally disabled while the drawer is open
   - the drawer only sends the most recent 12 messages to the backend on each request
   - the drawer hydrates from `GET /assistant/history`
-- Panic controls live in the header, not on the active page itself
+- Panic controls live in the top nav, not on the active page itself
 
 ## In-app assistant
 
@@ -448,8 +469,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Real backend-driven pages:
   - `/auth`
-  - `/inactive`
-  - `/daymap`
+  - `/tasks`
   - `/active`
   - `/done`
   - `/stats`
@@ -467,10 +487,11 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/routes/layout.css`
 - Add page:
   - `front/src/routes/add/+page.svelte`
+  - repeatable tasks can choose automatic Daymap weekdays
 - Active page:
   - `front/src/routes/active/+page.svelte`
-- Daymap page:
-  - `front/src/routes/daymap/+page.svelte`
+- Tasks page:
+  - `front/src/routes/tasks/+page.svelte`
 - Done page:
   - `front/src/routes/done/+page.svelte`
 - Stats page:

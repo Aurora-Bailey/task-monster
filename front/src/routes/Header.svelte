@@ -5,13 +5,11 @@
 	import { page } from '$app/state';
 	import {
 		Bot,
-		CalendarDays,
 		ChartNoAxesColumn,
 		CircleCheck,
 		CirclePlay,
 		Flame,
 		Inbox,
-		LogOut,
 		Plus,
 		UserRound
 	} from 'lucide-svelte';
@@ -27,13 +25,10 @@
 		stopPanic
 	} from '$lib/panic-client';
 	import { normalizeAppPathname } from '$lib/routing';
-	import { logoutAccount } from '$lib/session';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import logo from '$lib/images/tm-logo-crop.png';
 
 	let { user = null } = $props();
-	let isLoggingOut = $state(false);
-	let logoutError = $state('');
 	let panic = $state(null);
 	let panicError = $state('');
 	let isPanicLoading = $state(true);
@@ -48,8 +43,7 @@
 
 	const navLinks = [
 		{ href: '/add', label: 'Add', icon: Plus },
-		{ href: '/inactive', label: 'Inactive', icon: Inbox },
-		{ href: '/daymap', label: 'Daymap', icon: CalendarDays },
+		{ href: '/tasks', label: 'Tasks', icon: Inbox },
 		{ href: '/active', label: 'Active', icon: CirclePlay },
 		{ href: '/done', label: 'Done', icon: CircleCheck },
 		{ href: '/stats', label: 'Stats', icon: ChartNoAxesColumn }
@@ -175,19 +169,6 @@
 		}
 	}
 
-	async function handleLogout() {
-		logoutError = '';
-		isLoggingOut = true;
-
-		try {
-			await logoutAccount();
-		} catch (error) {
-			logoutError = error.message;
-		} finally {
-			isLoggingOut = false;
-		}
-	}
-
 	onMount(() => {
 		void loadPanic();
 
@@ -282,7 +263,7 @@
 		</a>
 	</div>
 
-	<nav class="header-actions" aria-label="Header controls">
+	<nav class="header-actions" aria-label="Primary navigation">
 		<div class="nav-tools">
 			<ul class="desktop-route-list" aria-label="Primary">
 				{#each navLinks as link}
@@ -293,77 +274,48 @@
 					</li>
 				{/each}
 			</ul>
-
-			<button
-				class="panic-button"
-				class:is-active={panicIsActive}
-				type="button"
-				title={panicButtonTitle}
-				aria-label={panicButtonTitle}
-				disabled={isPanicBusy || isPanicLoading}
-				onclick={handlePanicToggle}
-			>
-				<span class="mobile-action-icon" aria-hidden="true">
-					<Flame size={22} strokeWidth={2.4} />
-				</span>
-				<span class="panic-button__label">
-					{#if isPanicBusy}
-						{panicIsActive ? 'Stopping...' : 'Starting...'}
-					{:else}
-						Panic
-					{/if}
-				</span>
-				{#if panicIsActive && !isPanicBusy}
-					<span class="panic-button__time">{panicElapsedLabel}</span>
-				{/if}
-			</button>
-
-			<button
-				class="assistant-button"
-				class:is-open={showAssistantDrawer}
-				type="button"
-				title={assistantButtonTitle}
-				aria-label={assistantButtonTitle}
-				onclick={showAssistantDrawer ? closeAssistantDrawer : openAssistantDrawer}
-			>
-				<span class="mobile-action-icon" aria-hidden="true">
-					<Bot size={22} strokeWidth={2.35} />
-				</span>
-				<span class="assistant-button__label">AI</span>
-				<span class="assistant-button__meta">{showAssistantDrawer ? 'Open' : 'Ready'}</span>
-			</button>
 		</div>
 	</nav>
 
-	<div class="session-tools">
+	<nav class="header-utilities" aria-label="Utility controls">
+		<button
+			class="utility-button assistant-button"
+			class:is-open={showAssistantDrawer}
+			type="button"
+			title={assistantButtonTitle}
+			aria-label={assistantButtonTitle}
+			onclick={showAssistantDrawer ? closeAssistantDrawer : openAssistantDrawer}
+		>
+			<Bot size={21} strokeWidth={2.35} aria-hidden="true" />
+		</button>
+
+		<button
+			class="utility-button panic-button"
+			class:is-active={panicIsActive}
+			type="button"
+			title={panicButtonTitle}
+			aria-label={panicButtonTitle}
+			disabled={isPanicBusy || isPanicLoading}
+			onclick={handlePanicToggle}
+		>
+			<Flame size={21} strokeWidth={2.4} aria-hidden="true" />
+			{#if panicIsActive && !isPanicBusy}
+				<span class="panic-status-dot" aria-hidden="true"></span>
+			{/if}
+		</button>
+
 		{#if user}
 			<a
-				class="user-pill"
+				class="utility-button user-pill"
 				href={resolve('/profile')}
 				aria-current={isCurrent('/profile') ? 'page' : undefined}
 				aria-label={`Profile for ${user.username}`}
 				title={`Profile for ${user.username}`}
 			>
-				<span class="mobile-session-icon" aria-hidden="true">
-					<UserRound size={20} strokeWidth={2.3} />
-				</span>
-				<span class="session-label">{user.username}</span>
+				<UserRound size={20} strokeWidth={2.3} aria-hidden="true" />
 			</a>
-			<button
-				class="logout-button"
-				type="button"
-				title="Log out"
-				aria-label={isLoggingOut ? 'Logging out' : 'Log out'}
-				onclick={handleLogout}
-				disabled={isLoggingOut}
-			>
-				<span class="mobile-session-icon" aria-hidden="true">
-					<LogOut size={20} strokeWidth={2.3} />
-				</span>
-				<span class="session-label">{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
-			</button>
 		{/if}
-	</div>
+	</nav>
 </header>
 
 <nav class="mobile-bottom-nav" aria-label="Primary">
@@ -385,10 +337,6 @@
 		{/each}
 	</ul>
 </nav>
-
-{#if logoutError}
-	<p class="logout-error">{logoutError}</p>
-{/if}
 
 {#if panicError}
 	<p class="panic-error">{panicError}</p>
@@ -506,8 +454,8 @@
 		color: var(--color-heading);
 	}
 
-	nav,
-	.session-tools {
+	.header-actions {
+		justify-self: center;
 		display: flex;
 		justify-content: center;
 	}
@@ -523,17 +471,7 @@
 		display: none;
 	}
 
-	.mobile-action-icon,
-	.mobile-session-icon {
-		display: none;
-	}
-
-	.session-tools {
-		align-items: center;
-		gap: 0.65rem;
-	}
-
-	ul {
+	.desktop-route-list {
 		padding: 0.32rem;
 		margin: 0;
 		display: flex;
@@ -546,7 +484,7 @@
 		box-shadow: var(--surface-shadow), var(--surface-inset);
 	}
 
-	nav a {
+	.desktop-route-list a {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -565,28 +503,84 @@
 			box-shadow 0.2s ease;
 	}
 
-	nav a:hover {
+	.desktop-route-list a:hover {
 		transform: translateY(-1px);
 		color: var(--color-accent);
 	}
 
-	nav a[aria-current='page'] {
+	.desktop-route-list a[aria-current='page'] {
 		background: var(--accent-gradient);
 		color: var(--color-accent-contrast);
 		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 32%, transparent);
 	}
 
-	.panic-button {
+	.header-utilities {
+		justify-self: end;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.42rem;
+		padding: 0.34rem;
+		border: 1px solid color-mix(in srgb, var(--surface-border) 82%, transparent);
+		border-radius: 999px;
+		background:
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 14%, transparent),
+				transparent 44%
+			),
+			color-mix(in srgb, var(--surface-2) 88%, transparent);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
+		backdrop-filter: blur(20px);
+	}
+
+	.utility-button {
+		position: relative;
+		width: 2.74rem;
+		min-width: 2.74rem;
+		height: 2.74rem;
+		min-height: 2.74rem;
+		padding: 0;
 		display: inline-flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.1rem;
-		min-width: 7.2rem;
-		min-height: 3.2rem;
-		padding: 0.55rem 0.95rem;
-		border: 0;
+		appearance: none;
+		border: 1px solid color-mix(in srgb, var(--surface-border) 80%, transparent);
 		border-radius: 999px;
+		color: var(--color-muted);
+		font: inherit;
+		text-decoration: none;
+		cursor: pointer;
+		transition:
+			color 0.18s ease,
+			background-color 0.18s ease,
+			border-color 0.18s ease,
+			box-shadow 0.18s ease,
+			filter 0.18s ease,
+			transform 0.18s ease;
+	}
+
+	.utility-button:hover {
+		transform: translateY(-1px);
+		color: var(--color-heading);
+		filter: brightness(1.04);
+	}
+
+	.utility-button:focus-visible {
+		outline: none;
+		box-shadow:
+			0 0 0 3px var(--focus-ring),
+			var(--surface-shadow);
+	}
+
+	.utility-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
+	}
+
+	.panic-button {
+		border: 0;
 		background: linear-gradient(
 			135deg,
 			var(--color-warning),
@@ -594,23 +588,9 @@
 		);
 		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-warning) 28%, transparent);
 		color: var(--color-accent-contrast);
-		cursor: pointer;
-		transition:
-			transform 0.2s ease,
-			box-shadow 0.2s ease,
-			filter 0.2s ease;
 	}
 
 	.assistant-button {
-		display: inline-flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.1rem;
-		min-width: 7.2rem;
-		min-height: 3.2rem;
-		padding: 0.55rem 0.95rem;
-		border-radius: 999px;
 		background:
 			radial-gradient(
 				circle at top left,
@@ -625,33 +605,6 @@
 		border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--surface-border));
 		box-shadow: var(--surface-shadow);
 		color: var(--color-heading);
-		cursor: pointer;
-		transition:
-			transform 0.2s ease,
-			box-shadow 0.2s ease,
-			filter 0.2s ease;
-	}
-
-	.panic-button:hover {
-		transform: translateY(-1px);
-		filter: brightness(1.03);
-	}
-
-	.assistant-button:hover {
-		transform: translateY(-1px);
-		filter: brightness(1.04);
-	}
-
-	.panic-button:disabled {
-		cursor: wait;
-		opacity: 0.82;
-		transform: none;
-	}
-
-	.assistant-button:disabled {
-		cursor: wait;
-		opacity: 0.82;
-		transform: none;
 	}
 
 	.panic-button.is-active {
@@ -664,6 +617,17 @@
 		animation: panic-flash 0.9s ease-in-out infinite alternate;
 	}
 
+	.panic-status-dot {
+		position: absolute;
+		top: 0.42rem;
+		right: 0.42rem;
+		width: 0.46rem;
+		height: 0.46rem;
+		border-radius: 999px;
+		background: var(--color-danger);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-contrast) 65%, transparent);
+	}
+
 	.assistant-button.is-open {
 		border-color: color-mix(in srgb, var(--color-accent) 42%, var(--surface-border));
 		background: var(--accent-gradient);
@@ -673,76 +637,14 @@
 			0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
 	}
 
-	.assistant-button__label,
-	.panic-button__label {
-		font-size: 0.76rem;
-		font-weight: 900;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		line-height: 1;
-	}
-
-	.assistant-button__meta,
-	.panic-button__time {
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		line-height: 1;
-	}
-
-	.user-pill,
-	.logout-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.7rem 0.9rem;
-		border-radius: 999px;
+	.user-pill {
 		background: var(--surface-1);
-		border: 1px solid var(--surface-border);
-		box-shadow: var(--surface-shadow);
-		font-size: 0.76rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-muted);
-		text-decoration: none;
-	}
-
-	.user-pill .session-label,
-	.logout-button .session-label,
-	.user-pill .mobile-session-icon,
-	.logout-button .mobile-session-icon {
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.logout-button {
-		cursor: pointer;
 	}
 
 	.user-pill[aria-current='page'] {
 		background: color-mix(in srgb, var(--color-accent) 16%, var(--surface-2));
 		color: var(--color-accent);
 		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 18%, transparent);
-	}
-
-	.logout-button:hover {
-		transform: translateY(-1px);
-		color: var(--color-accent);
-	}
-
-	.logout-button:disabled {
-		cursor: wait;
-		opacity: 0.72;
-	}
-
-	.logout-error {
-		margin: 0;
-		padding: 0 1rem 0.75rem;
-		font-size: 0.78rem;
-		font-weight: 700;
-		color: var(--color-danger);
-		text-align: right;
 	}
 
 	.panic-error {
@@ -942,12 +844,7 @@
 		}
 
 		.header-actions {
-			justify-content: flex-end;
-		}
-
-		.nav-tools {
-			justify-content: flex-end;
-			gap: 0.45rem;
+			display: none;
 		}
 
 		.desktop-route-list {
@@ -962,38 +859,16 @@
 			letter-spacing: 0.1em;
 		}
 
-		.panic-button,
-		.assistant-button,
-		.user-pill,
-		.logout-button {
-			width: 2.75rem;
-			min-width: 2.75rem;
-			height: 2.75rem;
-			min-height: 2.75rem;
-			padding: 0;
-			border-radius: 999px;
+		.header-utilities {
+			gap: 0.34rem;
+			padding: 0.28rem;
 		}
 
-		.mobile-action-icon,
-		.mobile-session-icon {
-			display: block;
-			flex: 0 0 auto;
-		}
-
-		.panic-button__label,
-		.panic-button__time,
-		.assistant-button__label,
-		.assistant-button__meta,
-		.session-label {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			padding: 0;
-			margin: -1px;
-			overflow: hidden;
-			clip: rect(0, 0, 0, 0);
-			white-space: nowrap;
-			border: 0;
+		.utility-button {
+			width: 2.58rem;
+			min-width: 2.58rem;
+			height: 2.58rem;
+			min-height: 2.58rem;
 		}
 
 		.mobile-bottom-nav {
@@ -1012,7 +887,7 @@
 			margin: 0 auto;
 			padding: 0.5rem;
 			display: grid;
-			grid-template-columns: repeat(6, minmax(0, 1fr));
+			grid-template-columns: repeat(5, minmax(0, 1fr));
 			gap: 0.12rem;
 			background: var(--surface-2);
 			border: 1px solid var(--surface-border);
@@ -1093,7 +968,6 @@
 		}
 
 		header {
-			grid-template-columns: auto 1fr auto;
 			padding-inline: 0.72rem;
 		}
 
@@ -1102,20 +976,7 @@
 			height: 2.05rem;
 		}
 
-		.session-tools {
-			gap: 0.4rem;
-		}
-
-		.user-pill,
-		.logout-button {
-			width: 2.52rem;
-			min-width: 2.52rem;
-			height: 2.52rem;
-			min-height: 2.52rem;
-		}
-
-		.panic-button,
-		.assistant-button {
+		.utility-button {
 			width: 2.52rem;
 			min-width: 2.52rem;
 			height: 2.52rem;

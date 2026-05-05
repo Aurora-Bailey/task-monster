@@ -60,6 +60,15 @@
 				'Vision, planning, and deeper arc work: daymaps, long-term goals, HW autobahn thinking, identity design, personal philosophy, dream notes, and future-self architecture.'
 		}
 	];
+	const weekdayOptions = [
+		{ value: 1, short: 'M', label: 'Monday' },
+		{ value: 2, short: 'T', label: 'Tuesday' },
+		{ value: 3, short: 'W', label: 'Wednesday' },
+		{ value: 4, short: 'T', label: 'Thursday' },
+		{ value: 5, short: 'F', label: 'Friday' },
+		{ value: 6, short: 'S', label: 'Saturday' },
+		{ value: 0, short: 'S', label: 'Sunday' }
+	];
 
 	let taskName = $state('');
 	let selectedColor = $state(taskColors[0].value);
@@ -67,6 +76,7 @@
 	let trackingType = $state('time');
 	let tallyUnit = $state('');
 	let tallyTarget = $state('10');
+	let daymapWeekdays = $state([]);
 	let note = $state('');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
@@ -82,7 +92,20 @@
 		trackingType = 'time';
 		tallyUnit = '';
 		tallyTarget = '10';
+		daymapWeekdays = [];
 		note = '';
+	}
+
+	function toggleWeekday(weekday) {
+		const nextWeekdays = new Set(daymapWeekdays);
+
+		if (nextWeekdays.has(weekday)) {
+			nextWeekdays.delete(weekday);
+		} else {
+			nextWeekdays.add(weekday);
+		}
+
+		daymapWeekdays = [...nextWeekdays].sort((left, right) => left - right);
 	}
 
 	async function handleSubmit(event) {
@@ -101,6 +124,7 @@
 					trackingType,
 					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
 					tallyTarget: trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
+					daymapWeekdays: taskMode === 'repeatable' ? daymapWeekdays : [],
 					note: note.trim() ? note : null
 				}
 			});
@@ -214,6 +238,27 @@
 					<label class="mode-option mode-option-repeatable" for="tracking-tally">Tallies</label>
 				</div>
 			</fieldset>
+
+			{#if taskMode === 'repeatable'}
+				<fieldset class="weekday-picker">
+					<legend class="field-label">Auto daymap</legend>
+					<div class="weekday-options" aria-label="Automatically place this task on the daymap">
+						{#each weekdayOptions as weekday}
+							<button
+								class="weekday-option"
+								class:is-selected={daymapWeekdays.includes(weekday.value)}
+								type="button"
+								aria-pressed={daymapWeekdays.includes(weekday.value)}
+								title={weekday.label}
+								onclick={() => toggleWeekday(weekday.value)}
+							>
+								<span>{weekday.short}</span>
+							</button>
+						{/each}
+					</div>
+					<p class="weekday-help">Selected days automatically appear in the Day Map.</p>
+				</fieldset>
+			{/if}
 
 			{#if trackingType === 'tally'}
 				<div class="tally-fields">
@@ -448,6 +493,59 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
+	}
+
+	.weekday-picker {
+		display: grid;
+		gap: 0.58rem;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.weekday-options {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 0.42rem;
+	}
+
+	.weekday-option {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.45rem;
+		border: 1px solid var(--surface-border);
+		border-radius: 999px;
+		background: var(--surface-2);
+		box-shadow: var(--surface-shadow);
+		color: var(--color-muted);
+		font: inherit;
+		font-size: 0.78rem;
+		font-weight: 900;
+		cursor: pointer;
+		transition:
+			transform 0.16s ease,
+			border-color 0.16s ease,
+			background 0.16s ease,
+			color 0.16s ease;
+	}
+
+	.weekday-option:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--color-theme-2) 34%, var(--surface-border));
+		color: var(--color-heading);
+	}
+
+	.weekday-option.is-selected {
+		background: var(--accent-gradient);
+		border-color: color-mix(in srgb, var(--color-accent) 45%, var(--surface-border));
+		color: var(--color-accent-contrast);
+	}
+
+	.weekday-help {
+		margin: 0;
+		font-size: 0.82rem;
+		color: var(--color-muted);
 	}
 
 	.mode-slider {

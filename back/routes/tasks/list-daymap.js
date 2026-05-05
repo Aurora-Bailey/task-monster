@@ -1,6 +1,11 @@
 const { ObjectId } = require('mongodb');
 
-const { serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
+const {
+	getCurrentLocalDay,
+	getLocalWeekdayIndex,
+	parseTimezoneOffsetMinutes
+} = require('../../lib/local-days');
+const { decorateTasksForLocalDay, serializedTaskJsonSchema, serializeTask } = require('../../lib/tasks');
 
 function compareDaymapTasks(left, right) {
 	if (left.mode !== right.mode) {
@@ -18,6 +23,15 @@ async function listDaymapTasksRoute(app) {
 		'/tasks/daymap',
 		{
 			schema: {
+				querystring: {
+					type: 'object',
+					additionalProperties: false,
+					properties: {
+						tzOffsetMinutes: {
+							type: ['integer', 'string']
+						}
+					}
+				},
 				response: {
 					200: {
 						type: 'object',
@@ -32,19 +46,44 @@ async function listDaymapTasksRoute(app) {
 				}
 			}
 		},
-		async (request) => {
+		async (request, reply) => {
+			let timezoneOffsetMinutes;
+
+			try {
+				timezoneOffsetMinutes = parseTimezoneOffsetMinutes(request.query.tzOffsetMinutes);
+			} catch (error) {
+				return reply.code(400).send({
+					message: error.message
+				});
+			}
+
+			const localDay = getCurrentLocalDay(timezoneOffsetMinutes);
+			const weekdayIndex = getLocalWeekdayIndex(localDay);
 			const tasks = await app.mongo.db
 				.collection('tasks')
 				.find({
 					userId: new ObjectId(request.auth.userId),
 					archived: false,
-					mappedToday: true,
-					activeToday: false
+					activeToday: false,
+					$or: [
+						{
+							mappedToday: true
+						},
+						{
+							daymapWeekdays: weekdayIndex
+						}
+					]
 				})
 				.toArray();
+			const decoratedTasks = await decorateTasksForLocalDay(app.mongo.db, {
+				tasks,
+				userId: request.auth.userId,
+				day: localDay,
+				timezoneOffsetMinutes
+			});
 
 			return {
-				tasks: tasks.sort(compareDaymapTasks).map(serializeTask)
+				tasks: decoratedTasks.sort(compareDaymapTasks).map(serializeTask)
 			};
 		}
 	);

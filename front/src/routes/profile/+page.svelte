@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { readApiBody, readApiError } from '$lib/api';
-	import { authorizedRequest, revokeSession, session } from '$lib/session';
+	import { authorizedRequest, logoutAccount, revokeSession, session } from '$lib/session';
 	import { THEMES, setTheme, theme } from '$lib/theme';
 
 	const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -27,7 +27,9 @@
 	let isLoading = true;
 	let loadError = '';
 	let revokeError = '';
+	let logoutError = '';
 	let revokingSessionId = null;
+	let isLoggingOut = false;
 	let activeSessions = [];
 	let loginAttempts = [];
 
@@ -118,6 +120,19 @@
 		}
 	}
 
+	async function handleLogout() {
+		logoutError = '';
+		isLoggingOut = true;
+
+		try {
+			await logoutAccount();
+		} catch (error) {
+			logoutError = error.message;
+		} finally {
+			isLoggingOut = false;
+		}
+	}
+
 	onMount(() => {
 		loadProfile();
 	});
@@ -136,6 +151,19 @@
 			{$session.user?.username || 'Your account'} can review recent login traffic, see which sessions
 			are still alive, and void any token from here.
 		</p>
+		<div class="hero-actions">
+			<button
+				class="profile-logout-button"
+				type="button"
+				disabled={isLoggingOut}
+				onclick={handleLogout}
+			>
+				{isLoggingOut ? 'Logging out...' : 'Log out'}
+			</button>
+		</div>
+		{#if logoutError}
+			<p class="inline-error">{logoutError}</p>
+		{/if}
 	</div>
 
 	<section class="panel theme-panel" aria-labelledby="theme-panel-heading">
@@ -374,6 +402,54 @@
 	.empty-card p {
 		margin: 0;
 		color: var(--color-muted);
+	}
+
+	.hero-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		margin-top: 0.15rem;
+	}
+
+	.profile-logout-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.7rem;
+		padding: 0.72rem 1rem;
+		border: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--surface-border));
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-1));
+		box-shadow: var(--surface-shadow);
+		color: var(--color-danger);
+		font-size: 0.76rem;
+		font-weight: 900;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			transform 0.16s ease,
+			border-color 0.16s ease,
+			box-shadow 0.16s ease;
+	}
+
+	.profile-logout-button:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--color-danger) 44%, var(--surface-border));
+		box-shadow: var(--surface-shadow-strong);
+	}
+
+	.profile-logout-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
+	}
+
+	.inline-error {
+		margin: 0;
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: var(--color-danger);
 	}
 
 	.section-grid {
