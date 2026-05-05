@@ -429,7 +429,7 @@
 	/>
 </svelte:head>
 
-<section class="tasks-board">
+<section class="tasks-board app-page">
 	{#if loadError}
 		<div class="message-card error-card">
 			<strong>Could not load tasks</strong>
@@ -479,7 +479,7 @@
 
 		{#if activeTasks.length > 0}
 			<section class="task-section task-section-active" aria-labelledby="tasks-active-heading">
-				<div class="section-divider section-divider-active">
+				<div class="section-divider section-divider--primary">
 					<span></span>
 					<h2 id="tasks-active-heading">Active</h2>
 					<span></span>
@@ -591,7 +591,6 @@
 	.tasks-board {
 		display: grid;
 		gap: 1rem;
-		padding: 1.1rem 0 2.6rem;
 	}
 
 	.tasks-toolbar {
@@ -636,51 +635,6 @@
 		gap: 0.9rem;
 	}
 
-	.section-divider {
-		display: grid;
-		grid-template-columns: minmax(1rem, 1fr) auto minmax(1rem, 1fr);
-		align-items: center;
-		gap: 0.75rem;
-		margin-top: 0.4rem;
-		color: var(--color-theme-2);
-	}
-
-	.section-divider span {
-		height: 1px;
-		background: linear-gradient(
-			90deg,
-			transparent,
-			color-mix(in srgb, var(--color-theme-2) 52%, var(--surface-border)),
-			transparent
-		);
-	}
-
-	.section-divider h2 {
-		margin: 0;
-		font-size: 0.72rem;
-		font-weight: 900;
-		letter-spacing: 0.2em;
-		text-transform: uppercase;
-		color: color-mix(in srgb, var(--color-theme-2) 82%, var(--color-heading));
-	}
-
-	.section-divider-active {
-		color: var(--color-theme-1);
-	}
-
-	.section-divider-active span {
-		background: linear-gradient(
-			90deg,
-			transparent,
-			color-mix(in srgb, var(--color-theme-1) 58%, var(--surface-border)),
-			transparent
-		);
-	}
-
-	.section-divider-active h2 {
-		color: color-mix(in srgb, var(--color-theme-1) 88%, var(--color-heading));
-	}
-
 	.task-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -694,10 +648,6 @@
 	}
 
 	@media (max-width: 720px) {
-		.tasks-board {
-			padding-top: 0.7rem;
-		}
-
 		.tasks-toolbar {
 			align-items: stretch;
 			gap: 0.75rem;
@@ -706,10 +656,6 @@
 		.task-grid {
 			grid-template-columns: 1fr;
 			gap: 0.75rem;
-		}
-
-		.section-divider {
-			gap: 0.55rem;
 		}
 	}
 

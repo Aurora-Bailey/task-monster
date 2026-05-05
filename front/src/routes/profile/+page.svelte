@@ -143,9 +143,14 @@
 	<meta name="description" content="Review recent login attempts and active sessions." />
 </svelte:head>
 
-<section class="profile-page">
+<section class="profile-page app-page">
+	<div class="section-divider section-divider--primary">
+		<span></span>
+		<h1>Profile</h1>
+		<span></span>
+	</div>
+
 	<div class="hero">
-		<p class="eyebrow">Profile</p>
 		<h1>Account and session control</h1>
 		<p class="lede">
 			{$session.user?.username || 'Your account'} can review recent login traffic, see which sessions
@@ -164,6 +169,12 @@
 		{#if logoutError}
 			<p class="inline-error">{logoutError}</p>
 		{/if}
+	</div>
+
+	<div class="section-divider">
+		<span></span>
+		<h2>Display</h2>
+		<span></span>
 	</div>
 
 	<section class="panel theme-panel" aria-labelledby="theme-panel-heading">
@@ -214,6 +225,12 @@
 			{/each}
 		</div>
 	</section>
+
+	<div class="section-divider">
+		<span></span>
+		<h2>Security</h2>
+		<span></span>
+	</div>
 
 	{#if isLoading}
 		<div class="page-loader" aria-label="Loading profile data">
@@ -351,7 +368,6 @@
 	.profile-page {
 		display: grid;
 		gap: 1.35rem;
-		padding: 1.4rem 0 2.6rem;
 	}
 
 	.hero {
@@ -360,7 +376,6 @@
 		max-width: 42rem;
 	}
 
-	.eyebrow,
 	.section-label {
 		margin: 0;
 		font-size: 0.78rem;
@@ -370,25 +385,27 @@
 		color: var(--color-accent);
 	}
 
-	h1,
-	h2,
-	h3 {
+	.hero h1,
+	.panel h2,
+	.session-card h3,
+	.attempt-card h3 {
 		margin: 0;
 		text-align: left;
 	}
 
-	h1 {
+	.hero h1 {
 		font-size: clamp(2.2rem, 5vw, 3.8rem);
 		line-height: 0.95;
 		letter-spacing: -0.05em;
 		color: var(--color-heading);
 	}
 
-	h2 {
+	.panel h2 {
 		font-size: 1.45rem;
 	}
 
-	h3 {
+	.session-card h3,
+	.attempt-card h3 {
 		font-size: 1rem;
 	}
 

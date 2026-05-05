@@ -184,7 +184,7 @@
 	/>
 </svelte:head>
 
-<section class="board">
+<section class="board app-page">
 	{#if loadError}
 		<div class="message-card error-card">
 			<strong>Could not load completed tasks</strong>
@@ -213,6 +213,12 @@
 				searchQuery = nextSearchQuery;
 			}}
 		/>
+
+		<div class="section-divider section-divider--primary">
+			<span></span>
+			<h1>Done</h1>
+			<span></span>
+		</div>
 
 		{#if sortedTasks.length === 0}
 			<div class="message-card">
@@ -254,7 +260,6 @@
 	.board {
 		display: grid;
 		gap: 1rem;
-		padding: 1.4rem 0 2.4rem;
 	}
 
 	.message-card p {

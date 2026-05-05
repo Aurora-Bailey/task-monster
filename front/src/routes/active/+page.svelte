@@ -462,7 +462,7 @@
 	<meta name="description" content="Tasks currently active on the table." />
 </svelte:head>
 
-<section class="board">
+<section class="board app-page">
 	{#if loadError}
 		<div class="message-card error-card">
 			<strong>Could not load active tasks</strong>
@@ -603,6 +603,12 @@
 			}}
 		/>
 
+		<div class="section-divider section-divider--primary">
+			<span></span>
+			<h1>Active</h1>
+			<span></span>
+		</div>
+
 		{#if sortedTasks.length === 0}
 			<div class="message-card">
 				<strong>No matching tasks</strong>
@@ -636,7 +642,6 @@
 	.board {
 		display: grid;
 		gap: 1rem;
-		padding: 1.4rem 0 2.4rem;
 	}
 
 	.message-card p {

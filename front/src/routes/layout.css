@@ -1019,6 +1019,86 @@ pre {
 	margin: 0 auto;
 }
 
+.app-page {
+	display: grid;
+	gap: 1rem;
+	align-content: start;
+	padding: 1.1rem 0 2.6rem;
+}
+
+.section-divider {
+	display: grid;
+	grid-template-columns: minmax(1rem, 1fr) auto minmax(1rem, 1fr);
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 0.4rem;
+	color: var(--color-theme-2);
+}
+
+.section-divider:first-child {
+	margin-top: 0;
+}
+
+.section-divider span {
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-theme-2) 52%, var(--surface-border)),
+		transparent
+	);
+}
+
+.section-divider h1,
+.section-divider h2,
+.section-divider h3 {
+	margin: 0;
+	font-size: 0.72rem;
+	font-weight: 900;
+	letter-spacing: 0.2em;
+	text-align: center;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--color-theme-2) 82%, var(--color-heading));
+}
+
+.section-divider--primary {
+	color: var(--color-theme-1);
+}
+
+.section-divider--primary span {
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-theme-1) 58%, var(--surface-border)),
+		transparent
+	);
+}
+
+.section-divider--primary h1,
+.section-divider--primary h2,
+.section-divider--primary h3 {
+	color: color-mix(in srgb, var(--color-theme-1) 88%, var(--color-heading));
+}
+
+.section-divider--soft {
+	color: var(--color-muted);
+}
+
+.section-divider--soft span {
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-muted) 32%, var(--surface-border)),
+		transparent
+	);
+}
+
+.section-divider--soft h1,
+.section-divider--soft h2,
+.section-divider--soft h3 {
+	color: color-mix(in srgb, var(--color-muted) 80%, var(--color-heading));
+}
+
 input,
 button,
 select,

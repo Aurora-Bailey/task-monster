@@ -149,7 +149,13 @@
 	<meta name="description" content="Add a task" />
 </svelte:head>
 
-<div class="text-column">
+<section class="add-page app-page">
+	<div class="section-divider section-divider--primary">
+		<span></span>
+		<h1>Add Task</h1>
+		<span></span>
+	</div>
+
 	<div class="paper">
 		<form class="task-form" onsubmit={handleSubmit}>
 			<label class="field-label" for="task-name">Name that task</label>
@@ -315,13 +321,16 @@
 			</button>
 		</form>
 	</div>
-</div>
+</section>
 
 <style>
+	.add-page {
+		justify-items: center;
+	}
+
 	.paper {
 		position: relative;
 		width: min(100%, 32rem);
-		margin: 0 auto;
 		padding: 1.75rem;
 		box-sizing: border-box;
 		border-radius: 12px;

@@ -309,7 +309,13 @@
 	/>
 </svelte:head>
 
-<section class="stats-page">
+<section class="stats-page app-page">
+	<div class="section-divider section-divider--primary">
+		<span></span>
+		<h1>Stats</h1>
+		<span></span>
+	</div>
+
 	<header class="stats-header">
 		<div class="legend" aria-label="Task color legend">
 			{#each taskColorLegend as item}
@@ -384,7 +390,6 @@
 	.stats-page {
 		display: grid;
 		gap: 1rem;
-		padding: 1.4rem 0 2.4rem;
 	}
 
 	.stats-header,
@@ -556,7 +561,6 @@
 	@media (max-width: 640px) {
 		.stats-page {
 			gap: 0.75rem;
-			padding-top: 0.9rem;
 		}
 
 		.stats-header {
