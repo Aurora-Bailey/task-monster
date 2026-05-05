@@ -111,12 +111,8 @@
 </script>
 
 {#if shouldShowBoot}
-	<div class="boot-shell">
-		<div class="boot-card">
-			<p class="boot-kicker">Task Monster</p>
-			<h1>Checking your session</h1>
-			<p>Making sure the board knows who you are before it renders anything else.</p>
-		</div>
+	<div class="page-loader page-loader--screen" aria-label="Checking your session">
+		<span class="page-spinner" aria-hidden="true"></span>
 	</div>
 {:else if isAuthRoute}
 	<main class="auth-main">{@render children()}</main>
@@ -174,7 +170,6 @@
 	}
 
 	.auth-main,
-	.boot-shell,
 	.public-main {
 		min-height: 100vh;
 		width: 100%;
@@ -186,40 +181,6 @@
 
 	.marketing-main {
 		padding-top: 0;
-	}
-
-	.boot-shell {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.boot-card {
-		max-width: 26rem;
-		padding: 1.8rem;
-		border-radius: 26px;
-		background: var(--surface-1);
-		border: 1px solid var(--surface-border);
-		box-shadow: var(--surface-shadow-strong);
-	}
-
-	.boot-kicker {
-		margin: 0 0 0.65rem;
-		font-size: 0.78rem;
-		font-weight: 800;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--color-theme-2);
-	}
-
-	.boot-card h1 {
-		margin: 0 0 0.7rem;
-		text-align: left;
-	}
-
-	.boot-card p:last-child {
-		margin: 0;
-		color: var(--color-muted);
 	}
 
 	.site-footer {

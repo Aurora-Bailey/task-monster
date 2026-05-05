@@ -329,9 +329,8 @@
 	{/if}
 
 	{#if isLoadingInitial}
-		<div class="message-card">
-			<strong>Loading minute maps</strong>
-			<p>Pulling 10 local days and painting each active minute.</p>
+		<div class="page-loader" aria-label="Loading minute maps">
+			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if !hasDays}
 		<div class="message-card">
@@ -373,7 +372,7 @@
 
 		<div class="load-sentinel" bind:this={sentinel}>
 			{#if isLoadingMore}
-				<span>Loading older days...</span>
+				<span class="page-spinner page-spinner--small" aria-label="Loading older days"></span>
 			{:else}
 				<span>Scroll for older days</span>
 			{/if}

@@ -582,9 +582,8 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="message-card">
-			<strong>Loading active tasks</strong>
-			<p>Pulling the current table and timer state from the database.</p>
+		<div class="page-loader" aria-label="Loading active tasks">
+			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
 		<div class="message-card">

@@ -445,9 +445,8 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="message-card">
-			<strong>Loading tasks</strong>
-			<p>Pulling the live board into place.</p>
+		<div class="page-loader" aria-label="Loading tasks">
+			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else}
 		<div class="tasks-toolbar">

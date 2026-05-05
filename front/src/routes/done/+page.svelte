@@ -193,9 +193,8 @@
 	{/if}
 
 	{#if isLoadingInitial}
-		<div class="message-card">
-			<strong>Loading completed tasks</strong>
-			<p>Pulling the 10 freshest done tasks from the database.</p>
+		<div class="page-loader" aria-label="Loading completed tasks">
+			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
 		<div class="message-card">
@@ -241,7 +240,7 @@
 
 		<div class="load-sentinel" bind:this={sentinel}>
 			{#if isLoadingMore}
-				<span>Loading older done tasks...</span>
+				<span class="page-spinner page-spinner--small" aria-label="Loading older done tasks"></span>
 			{:else if hasMore}
 				<span>Scroll for older done tasks</span>
 			{:else}

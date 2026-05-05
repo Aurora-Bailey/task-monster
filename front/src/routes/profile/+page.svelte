@@ -216,9 +216,8 @@
 	</section>
 
 	{#if isLoading}
-		<div class="status-card">
-			<strong>Loading profile data</strong>
-			<p>Pulling your session list and recent login attempts.</p>
+		<div class="page-loader" aria-label="Loading profile data">
+			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else}
 		{#if loadError}
