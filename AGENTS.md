@@ -345,7 +345,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/` is a public landing page, not a redirect anymore
 - `/demo-board` now holds the product-screen tour that replaced the old simulated board demo
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
-- Repeatable cards on `/tasks` expose seven weekday buttons for automatic Daymap scheduling
+- Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
+- `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes
 - Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day
 - Inactive cards expose icon actions:
   - star moves the task to daymap

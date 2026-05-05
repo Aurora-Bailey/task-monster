@@ -90,6 +90,37 @@
 		inactiveTasks = inactiveTasks.map(mergeTask);
 	}
 
+	function isScheduledForToday(daymapWeekdays) {
+		return Array.isArray(daymapWeekdays) && daymapWeekdays.includes(new Date().getDay());
+	}
+
+	function upsertTask(tasks, nextTask) {
+		const hasTask = tasks.some((task) => task.id === nextTask.id);
+
+		return hasTask
+			? tasks.map((task) => (task.id === nextTask.id ? nextTask : task))
+			: [...tasks, nextTask];
+	}
+
+	function applyTaskBoardMembership(nextTask) {
+		const shouldShowInDaymap = nextTask.mappedToday === true || nextTask.scheduledToday === true;
+
+		if (shouldShowInDaymap) {
+			daymapTasks = upsertTask(
+				daymapTasks.filter((task) => task.id !== nextTask.id),
+				nextTask
+			);
+			inactiveTasks = inactiveTasks.filter((task) => task.id !== nextTask.id);
+			return;
+		}
+
+		daymapTasks = daymapTasks.filter((task) => task.id !== nextTask.id);
+		inactiveTasks = upsertTask(
+			inactiveTasks.filter((task) => task.id !== nextTask.id),
+			nextTask
+		);
+	}
+
 	async function handleMoveToDaymap(taskId) {
 		actionError = '';
 		setBusy(taskId, 'daymap');
@@ -202,8 +233,18 @@
 		setBusy(task.id, 'schedule');
 
 		try {
-			await updateTaskDaymapWeekdays(task.id, daymapWeekdays);
-			await loadTasks();
+			const updatedTask = (await updateTaskDaymapWeekdays(task.id, daymapWeekdays)) ?? {};
+			const scheduledToday = isScheduledForToday(daymapWeekdays);
+			const nextTask = {
+				...task,
+				...updatedTask,
+				daymapWeekdays,
+				scheduledToday,
+				startedToday: task.startedToday || updatedTask?.startedToday === true,
+				lastStartedAt: updatedTask?.lastStartedAt ?? task.lastStartedAt
+			};
+
+			applyTaskBoardMembership(nextTask);
 		} catch (error) {
 			actionError = error.message;
 		} finally {

@@ -108,7 +108,9 @@ Important task-state fields:
 - `activeToday`
 - `queuePosition`
 - `daymapLocked`
+- `daymapWeekdays`
 - `activatedAt`
+- `lastStartedAt`
 - `activeTallyCount`
 - `lastCompletedTallyCount`
 - `nextDueAt`
@@ -155,8 +157,9 @@ Done semantics:
 
 Queue semantics:
 
-- only daymap tasks can be queued
+- active tasks cannot be queued
 - queue order uses `queuePosition`
+- queueing a scheduled-only Day Map task materializes it with `mappedToday: true` before assigning queue order
 - when the last active task is removed by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 
 ## Active runtime behavior

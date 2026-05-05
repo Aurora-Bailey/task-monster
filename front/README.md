@@ -106,8 +106,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Logout is available from the profile page instead of the global header controls
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
-- Repeatable task cards on `/tasks` expose seven weekday buttons for automatic Day Map scheduling
+- Repeatable task cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Day Map scheduling
 - Tasks scheduled for the current local weekday appear in Day Map automatically and are excluded from Inactive
+- Weekday schedule toggles on `/tasks` hot-update the current board arrays instead of calling the full task loader, so the page does not flash through its loading state
 - Daymap/inactive cards fade to 50% opacity after the task has been started once in the current local day
 - Daymap task cards support activating, queueing, daymap locking, and toggling manually mapped tasks back to inactive
 - The `/tasks` sort menu includes `Queue`

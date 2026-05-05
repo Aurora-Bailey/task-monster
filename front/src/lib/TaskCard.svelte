@@ -1301,14 +1301,12 @@
 	}
 
 	.task-card__weekday-schedule {
-		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
-		gap: 0.28rem;
-		padding: 0.35rem;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--surface-1) 72%, transparent);
-		border: 1px solid color-mix(in srgb, var(--task-accent) 14%, var(--surface-border));
-		box-shadow: var(--surface-inset);
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.2rem;
+		padding: 0;
+		margin-top: -0.14rem;
 	}
 
 	.weekday-schedule-button {
@@ -1316,16 +1314,17 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 0;
-		height: 1.82rem;
+		width: 1.42rem;
+		height: 1.42rem;
 		padding: 0;
-		border: 1px solid var(--surface-border);
+		border: 1px solid color-mix(in srgb, var(--task-accent) 18%, var(--surface-border));
 		border-radius: 999px;
-		background: var(--surface-2);
+		background: color-mix(in srgb, var(--surface-2) 72%, transparent);
 		color: var(--color-muted);
 		font: inherit;
-		font-size: 0.68rem;
+		font-size: 0.58rem;
 		font-weight: 900;
+		line-height: 1;
 		cursor: pointer;
 		transition:
 			transform 0.15s ease,
@@ -1349,10 +1348,10 @@
 	.weekday-schedule-button.is-today::after {
 		content: '';
 		position: absolute;
-		right: 0.32rem;
-		bottom: 0.24rem;
-		width: 0.24rem;
-		height: 0.24rem;
+		right: 0.2rem;
+		bottom: 0.18rem;
+		width: 0.18rem;
+		height: 0.18rem;
 		border-radius: 999px;
 		background: currentColor;
 		opacity: 0.72;

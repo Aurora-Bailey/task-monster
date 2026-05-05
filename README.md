@@ -93,6 +93,7 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 - Time-tracked tasks record active runtime and history only
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Repeatable tasks can also store `daymapWeekdays`; matching local weekdays are included in Day Map automatically
+- The `/tasks` board hot-updates weekday schedule changes and moves cards between Day Map and Inactive without a full board reload
 - Active spans are recorded in `task_runs`
 - Panic sessions are recorded in `panic_runs`
 - Tasks carry nullable timing fields for `nextDueAt`, `lastStartedAt`, `lastCompletedAt`, and `lastInactivatedAt`
