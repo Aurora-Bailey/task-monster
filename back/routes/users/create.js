@@ -1,6 +1,7 @@
 const { MongoServerError } = require('mongodb');
 
 const { hashPassword } = require('../../lib/passwords');
+const { DEFAULT_THEME } = require('../../lib/themes');
 const { normalizeUsername, validateUsername } = require('../../lib/users');
 
 const PRERELEASE_ALPHA_CODE = 'gyarados';
@@ -41,15 +42,16 @@ const createUserSchema = {
 					properties: {
 						id: { type: 'string' },
 						username: { type: 'string' },
+						theme: { type: 'string' },
 						createdAt: { type: 'string' }
 					},
-					required: ['id', 'username', 'createdAt']
+					required: ['id', 'username', 'theme', 'createdAt']
 				}
 			},
 			required: ['user']
 		}
 	}
-}
+};
 
 async function createUserRoute(app) {
 	app.post(
@@ -105,6 +107,7 @@ async function createUserRoute(app) {
 					username,
 					usernameLower,
 					passwordHash,
+					theme: DEFAULT_THEME,
 					legalAcceptance: {
 						acceptedAt: createdAt,
 						version: LEGAL_DOCUMENTS_VERSION
@@ -117,6 +120,7 @@ async function createUserRoute(app) {
 					user: {
 						id: result.insertedId.toString(),
 						username,
+						theme: DEFAULT_THEME,
 						createdAt: createdAt.toISOString()
 					}
 				});

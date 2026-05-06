@@ -2,8 +2,14 @@
 	import { onMount } from 'svelte';
 
 	import { readApiBody, readApiError } from '$lib/api';
-	import { authorizedRequest, logoutAccount, revokeSession, session } from '$lib/session';
-	import { THEMES, setTheme, theme } from '$lib/theme';
+	import {
+		authorizedRequest,
+		logoutAccount,
+		revokeSession,
+		saveCurrentUserTheme,
+		session
+	} from '$lib/session';
+	import { THEMES, theme } from '$lib/theme';
 
 	const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
 		month: 'short',
@@ -28,10 +34,13 @@
 	let loadError = '';
 	let revokeError = '';
 	let logoutError = '';
+	let themeError = '';
 	let revokingSessionId = null;
 	let isLoggingOut = false;
+	let savingThemeId = null;
 	let activeSessions = [];
 	let loginAttempts = [];
+	let loadedProfileUserKey = '';
 
 	function formatDateTime(value) {
 		return dateTimeFormatter.format(new Date(value));
@@ -67,8 +76,17 @@
 		return userAgent.length > 88 ? `${userAgent.slice(0, 88)}...` : userAgent;
 	}
 
-	function handleThemeSelect(themeId) {
-		setTheme(themeId);
+	async function handleThemeSelect(themeId) {
+		themeError = '';
+		savingThemeId = themeId;
+
+		try {
+			await saveCurrentUserTheme(themeId);
+		} catch (error) {
+			themeError = error.message;
+		} finally {
+			savingThemeId = null;
+		}
 	}
 
 	async function loadProfile() {
@@ -134,7 +152,18 @@
 	}
 
 	onMount(() => {
-		loadProfile();
+		const unsubscribeSession = session.subscribe((currentSession) => {
+			const userKey = currentSession.user?.id || currentSession.user?.username || '';
+
+			if (!userKey || loadedProfileUserKey === userKey) {
+				return;
+			}
+
+			loadedProfileUserKey = userKey;
+			void loadProfile();
+		});
+
+		return unsubscribeSession;
 	});
 </script>
 
@@ -183,13 +212,16 @@
 				<p class="section-label">Display</p>
 				<h2 id="theme-panel-heading">Theme engine</h2>
 			</div>
-			<span class="pill">Local only</span>
+			<span class="pill">Account</span>
 		</div>
 
 		<p class="theme-copy">
-			Pick the app skin for this browser. This only writes the selected theme key to local storage,
-			not your account.
+			Pick the app skin for this account. It follows the account when you switch users on this
+			device.
 		</p>
+		{#if themeError}
+			<p class="inline-error">{themeError}</p>
+		{/if}
 
 		<div class="theme-sections" aria-label="Theme choices">
 			{#each themeGroups as themeGroup}
@@ -206,6 +238,7 @@
 								class:is-selected={$theme === themeOption.id}
 								type="button"
 								aria-pressed={$theme === themeOption.id}
+								disabled={savingThemeId !== null}
 								style={`--swatch-0: ${themeOption.swatch[0]}; --swatch-1: ${themeOption.swatch[1]}; --swatch-2: ${themeOption.swatch[2]};`}
 								onclick={() => handleThemeSelect(themeOption.id)}
 							>
@@ -565,6 +598,12 @@
 		transform: translateY(-1px);
 		border-color: color-mix(in srgb, var(--swatch-2) 40%, var(--surface-border));
 		box-shadow: var(--surface-shadow-strong);
+	}
+
+	.theme-option:disabled {
+		cursor: wait;
+		opacity: 0.76;
+		transform: none;
 	}
 
 	.theme-option:focus-visible {

@@ -35,10 +35,15 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - service worker registration happens from `front/src/routes/+layout.svelte` in production builds only
   - dev builds actively unregister Task Monster service workers and clear `task-monster-pwa-*` caches so local work is never served from the PWA cache
   - manifest URLs intentionally stay relative so the app works at both `/` and the GitHub Pages `/task-monster` base path
-- Frontend theme support is browser-local only.
-  - theme definitions and persistence live in `front/src/lib/theme.js`
-  - the selected theme key is stored in `localStorage` under `task_monster_theme`
-  - `front/src/app.html` applies the saved theme before Svelte boots to avoid a light-theme flash
+- Theme support is account-backed.
+  - frontend theme definitions live in `front/src/lib/theme.js`
+  - backend-valid theme ids live in `back/lib/themes.js` and should stay in sync with the frontend theme list
+  - the selected theme key is stored on `users.theme`
+  - `PATCH /users/theme` updates the authenticated user theme
+  - `GET /whoami` and `POST /sessions/login` return the current user's theme
+  - `localStorage` key `task_monster_theme` is now only a boot-time cache to avoid a theme flash before session verification
+  - stored account session metadata in `task_monster_session_accounts` also caches each account theme for preboot rendering and the account switcher
+  - `front/src/app.html` applies the cached active account theme before Svelte boots
   - `front/src/routes/profile/+page.svelte` exposes the theme picker grouped by light and dark themes
   - root theme tokens live in `front/src/routes/layout.css`
 - Root `.env` is the env source of truth for the current frontend and backend runtime
@@ -96,6 +101,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - if the legal page content materially changes, bump `LEGAL_DOCUMENTS_VERSION`
 - Session verification route:
   - `GET /whoami`
+  - returns `id`, `username`, and `theme`
 - Assistant route:
   - `POST /assistant/chat`
   - runs authenticated tool actions under the current user
@@ -104,6 +110,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `DELETE /sessions/:sessionId`
   - `POST /sessions/logout`
   - `GET /login-attempts`
+- User preference routes:
+  - `PATCH /users/theme`
 - Security details:
   - passwords use salted `scrypt` in `back/lib/passwords.js`
   - auth tokens are generated raw once, but only SHA-256 token hashes are stored in Mongo
@@ -285,6 +293,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/static/images/marketing/`
 - Session storage and authorized fetch helpers:
   - `front/src/lib/session.js`
+  - stores the active token under `task_monster_session_token`
+  - stores switchable account sessions under `task_monster_session_accounts`
+  - mirrors the active token to the legacy single-token cookie and each stored account token to a per-account cookie
 - Raw API helper:
   - `front/src/lib/api.js`
 - Task API wrapper:
@@ -306,7 +317,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `front/src/lib/TaskSortBar.svelte`
 - Top nav and utility controls:
   - `front/src/routes/Header.svelte`
-  - owns icon-only top-nav controls for AI, panic, and profile
+  - owns icon-only top-nav controls for AI and panic
+  - owns the theme-colored account switcher dropdown
+  - owns the current-hour activity trace under the header
   - owns the authenticated AI drawer trigger and drawer mount
 
 ## Main frontend routes
@@ -382,7 +395,11 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - done modal with direct local start and finish datetime editors
   - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
-- The top nav exposes icon-only `AI`, `Panic`, and `Profile` controls
+- The top nav exposes icon-only `AI` and `Panic` controls plus a theme-colored account switcher
+  - the account switcher lists stored accounts with initial/name rows rendered in each account's saved theme
+  - `Add account` opens `/auth?addAccount=1` without logging out the current account
+  - `Settings for <user>` opens `/profile`
+  - switching accounts verifies the stored token, makes it active, applies that user's theme, and refreshes account-backed board data
   - it opens a right-side assistant drawer
   - `Esc` opens the drawer and focuses the input
   - pressing `Esc` again closes it

@@ -92,6 +92,9 @@
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
 	const isMarketingRoute = $derived(currentPath === '/' || currentPath === '/demo-board');
 	const isAuthRoute = $derived(currentPath === '/auth');
+	const isAddAccountRoute = $derived(
+		isAuthRoute && page.url.searchParams.get('addAccount') === '1'
+	);
 	const isLegalRoute = $derived(currentPath === '/privacy' || currentPath === '/terms');
 	const allowsGuest = $derived(PUBLIC_ROUTE_PATHS.has(currentPath));
 	const isSessionReady = $derived(
@@ -104,7 +107,12 @@
 			goto(resolve('/auth'), { replaceState: true });
 		}
 
-		if (isSessionReady && $session.status === 'authenticated' && isAuthRoute) {
+		if (
+			isSessionReady &&
+			$session.status === 'authenticated' &&
+			isAuthRoute &&
+			!isAddAccountRoute
+		) {
 			goto(resolve('/active'), { replaceState: true });
 		}
 	});

@@ -91,7 +91,32 @@
 				]);
 
 				try {
-					const storedTheme = localStorage.getItem('task_monster_theme');
+					const readCookieValue = (name) => {
+						const cookie = document.cookie
+							.split(';')
+							.map((part) => part.trim())
+							.find((part) => part.startsWith(`${name}=`));
+
+						return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
+					};
+					const activeToken =
+						readCookieValue('task_monster_session_token') ||
+						localStorage.getItem('task_monster_session_token') ||
+						'';
+					let accounts = [];
+
+					try {
+						const parsedAccounts = JSON.parse(
+							localStorage.getItem('task_monster_session_accounts') || '[]'
+						);
+						accounts = Array.isArray(parsedAccounts) ? parsedAccounts : [];
+					} catch {
+						accounts = [];
+					}
+
+					const activeAccount = accounts.find((account) => account?.token === activeToken);
+					const storedTheme =
+						activeAccount?.user?.theme || localStorage.getItem('task_monster_theme');
 					const theme = themes.has(storedTheme) ? storedTheme : 'light';
 					const themeColor = themeMetaColors[theme] || themeMetaColors.light;
 

@@ -2,6 +2,9 @@ import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 
 export const THEME_STORAGE_KEY = 'task_monster_theme';
+const SESSION_STORAGE_KEY = 'task_monster_session_token';
+const SESSION_ACCOUNTS_STORAGE_KEY = 'task_monster_session_accounts';
+const SESSION_COOKIE_NAME = 'task_monster_session_token';
 
 export const THEMES = [
 	{
@@ -203,12 +206,46 @@ const defaultTheme = THEMES[0];
 
 export const theme = writable(defaultTheme.id);
 
-function getThemeDefinition(themeId) {
+export function getThemeDefinition(themeId) {
 	return THEMES.find((item) => item.id === themeId) ?? defaultTheme;
 }
 
-function normalizeTheme(themeId) {
+export function normalizeTheme(themeId) {
 	return themeIds.has(themeId) ? themeId : defaultTheme.id;
+}
+
+function parseCookieValue(name) {
+	const cookie = document.cookie
+		.split(';')
+		.map((part) => part.trim())
+		.find((part) => part.startsWith(`${name}=`));
+
+	if (!cookie) {
+		return null;
+	}
+
+	return decodeURIComponent(cookie.slice(name.length + 1));
+}
+
+function readCachedAccountTheme() {
+	const activeToken =
+		parseCookieValue(SESSION_COOKIE_NAME) || localStorage.getItem(SESSION_STORAGE_KEY) || '';
+	let accounts = [];
+
+	try {
+		const parsedAccounts = JSON.parse(localStorage.getItem(SESSION_ACCOUNTS_STORAGE_KEY) || '[]');
+		accounts = Array.isArray(parsedAccounts) ? parsedAccounts : [];
+	} catch {
+		accounts = [];
+	}
+
+	if (!activeToken) {
+		return null;
+	}
+
+	const activeAccount = accounts.find((account) => account?.token === activeToken);
+
+	return activeAccount?.user?.theme ?? null;
 }
 
 function readStoredTheme() {
@@ -216,7 +253,7 @@ function readStoredTheme() {
 		return defaultTheme.id;
 	}
 
-	return normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY));
+	return normalizeTheme(readCachedAccountTheme() || localStorage.getItem(THEME_STORAGE_KEY));
 }
 
 function updateThemeColor(themeDefinition) {
@@ -227,7 +264,7 @@ function updateThemeColor(themeDefinition) {
 	}
 }
 
-export function applyTheme(themeId, { persist = false } = {}) {
+export function applyTheme(themeId, { cache = false, persist = false } = {}) {
 	const normalizedThemeId = normalizeTheme(themeId);
 	const themeDefinition = getThemeDefinition(normalizedThemeId);
 
@@ -241,11 +278,15 @@ export function applyTheme(themeId, { persist = false } = {}) {
 	document.documentElement.style.colorScheme = themeDefinition.colorScheme;
 	updateThemeColor(themeDefinition);
 
-	if (persist) {
+	if (cache || persist) {
 		localStorage.setItem(THEME_STORAGE_KEY, normalizedThemeId);
 	}
 
 	return normalizedThemeId;
+}
+
+export function cacheTheme(themeId) {
+	return applyTheme(themeId, { cache: true });
 }
 
 export function initializeTheme() {
@@ -253,5 +294,5 @@ export function initializeTheme() {
 }
 
 export function setTheme(themeId) {
-	return applyTheme(themeId, { persist: true });
+	return applyTheme(themeId);
 }

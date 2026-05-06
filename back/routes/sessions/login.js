@@ -6,6 +6,7 @@ const {
 	recordFailedLoginAttempt
 } = require('../../lib/login-rate-limit');
 const { verifyPassword } = require('../../lib/passwords');
+const { normalizeTheme } = require('../../lib/themes');
 const { normalizeUsername } = require('../../lib/users');
 
 const loginSchema = {
@@ -34,10 +35,11 @@ const loginSchema = {
 				token: { type: 'string' },
 				user: {
 					type: 'object',
-					required: ['id', 'username'],
+					required: ['id', 'username', 'theme'],
 					properties: {
 						id: { type: 'string' },
-						username: { type: 'string' }
+						username: { type: 'string' },
+						theme: { type: 'string' }
 					}
 				},
 				session: {
@@ -174,7 +176,8 @@ async function loginRoute(app) {
 				token,
 				user: {
 					id: user._id.toString(),
-					username: user.username
+					username: user.username,
+					theme: normalizeTheme(user.theme)
 				},
 				session
 			});

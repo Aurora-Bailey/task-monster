@@ -6,12 +6,13 @@
 	import {
 		Bot,
 		ChartNoAxesColumn,
+		Check,
 		CircleCheck,
 		CirclePlay,
 		Flame,
 		Inbox,
 		Plus,
-		UserRound
+		Settings
 	} from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
@@ -27,8 +28,10 @@
 		stopPanic
 	} from '$lib/panic-client';
 	import { normalizeAppPathname } from '$lib/routing';
+	import { accountSessions, session, switchAccount } from '$lib/session';
 	import { loadStatsHeatmap } from '$lib/stats-client';
 	import { formatElapsedDuration } from '$lib/task-format';
+	import { getThemeDefinition } from '$lib/theme';
 	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 	import logo from '$lib/images/tm-logo-crop.png';
 
@@ -55,6 +58,10 @@
 	let panicReturnCharge = $state(5);
 	let panicReturnNoteInput = $state(null);
 	let showAssistantDrawer = $state(false);
+	let accountMenuOpen = $state(false);
+	let accountMenuError = $state('');
+	let switchingAccountToken = $state(null);
+	let accountMenuElement = $state(null);
 
 	const navLinks = [
 		{ href: '/add', label: 'Add', icon: Plus },
@@ -65,6 +72,13 @@
 	];
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
+	const accountMenuAccounts = $derived(
+		$accountSessions.length > 0
+			? $accountSessions
+			: user && $session.token
+				? [{ token: $session.token, user }]
+				: []
+	);
 
 	function isCurrent(href) {
 		return currentPath === href || currentPath.startsWith(`${href}/`);
@@ -88,6 +102,25 @@
 		const closestEditable = target.closest('input, textarea, select, [contenteditable="true"]');
 
 		return Boolean(closestEditable);
+	}
+
+	function formatAccountName(username) {
+		if (!username) {
+			return 'Account';
+		}
+
+		return `${username.slice(0, 1).toUpperCase()}${username.slice(1)}`;
+	}
+
+	function getAccountInitial(username) {
+		return (username || '?').slice(0, 1).toUpperCase();
+	}
+
+	function getAccountAvatarStyle(accountUser) {
+		const themeDefinition = getThemeDefinition(accountUser?.theme);
+		const avatarText = themeDefinition.colorScheme === 'dark' ? '#ffffff' : '#111827';
+
+		return `--account-swatch-0: ${themeDefinition.swatch[0]}; --account-swatch-1: ${themeDefinition.swatch[1]}; --account-swatch-2: ${themeDefinition.swatch[2]}; --account-avatar-text: ${avatarText};`;
 	}
 
 	const panicIsActive = $derived(Boolean(panic?.active) && panic?.day === currentLocalDay);
@@ -283,6 +316,7 @@
 	}
 
 	async function openPanicReturnModal() {
+		accountMenuOpen = false;
 		showPanicReturnModal = true;
 		await tick();
 		panicReturnNoteInput?.focus();
@@ -311,6 +345,7 @@
 	}
 
 	function openAssistantDrawer() {
+		accountMenuOpen = false;
 		showAssistantDrawer = true;
 	}
 
@@ -326,6 +361,67 @@
 		showPanicReturnModal = false;
 		panicReturnNote = '';
 		panicReturnCharge = 5;
+	}
+
+	function toggleAccountMenu() {
+		accountMenuError = '';
+		accountMenuOpen = !accountMenuOpen;
+
+		if (accountMenuOpen) {
+			showAssistantDrawer = false;
+		}
+	}
+
+	function dispatchAccountRefresh() {
+		if (!browser) {
+			return;
+		}
+
+		window.dispatchEvent(
+			new CustomEvent(ASSISTANT_REFRESH_EVENT, {
+				detail: {
+					refresh: {
+						tasks: true,
+						stats: true,
+						panic: true
+					}
+				}
+			})
+		);
+	}
+
+	async function handleSwitchAccount(account) {
+		if (!account || switchingAccountToken !== null) {
+			return;
+		}
+
+		if (account.token === $session.token) {
+			accountMenuOpen = false;
+			return;
+		}
+
+		accountMenuError = '';
+		switchingAccountToken = account.token;
+
+		try {
+			await switchAccount(account.token);
+			dispatchAccountRefresh();
+			accountMenuOpen = false;
+		} catch (error) {
+			accountMenuError = error.message;
+		} finally {
+			switchingAccountToken = null;
+		}
+	}
+
+	async function handleAddAccount() {
+		accountMenuOpen = false;
+		await goto(`${resolve('/auth')}?addAccount=1`);
+	}
+
+	async function handleAccountSettings() {
+		accountMenuOpen = false;
+		await goto(resolve('/profile'));
 	}
 
 	async function handlePanicReturnSubmit(event) {
@@ -377,6 +473,11 @@
 
 				event.preventDefault();
 
+				if (accountMenuOpen) {
+					accountMenuOpen = false;
+					return;
+				}
+
 				if (showAssistantDrawer) {
 					closeAssistantDrawer();
 					return;
@@ -386,7 +487,12 @@
 				return;
 			}
 
-			if (showPanicReturnModal || showAssistantDrawer || isTypingTarget(event.target)) {
+			if (
+				showPanicReturnModal ||
+				showAssistantDrawer ||
+				accountMenuOpen ||
+				isTypingTarget(event.target)
+			) {
 				return;
 			}
 
@@ -443,17 +549,28 @@
 			void loadPanic();
 			void loadCurrentHourTrace();
 		};
+		const handleDocumentPointerDown = (event) => {
+			if (!accountMenuOpen || !accountMenuElement || !(event.target instanceof Node)) {
+				return;
+			}
+
+			if (!accountMenuElement.contains(event.target)) {
+				accountMenuOpen = false;
+			}
+		};
 
 		window.addEventListener('keydown', handleGlobalKeydown);
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+		window.addEventListener('pointerdown', handleDocumentPointerDown);
 
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+			window.removeEventListener('pointerdown', handleDocumentPointerDown);
 			window.clearInterval(intervalId);
 		};
 	});
@@ -509,15 +626,82 @@
 		</button>
 
 		{#if user}
-			<a
-				class="utility-button user-pill"
-				href={resolve('/profile')}
-				aria-current={isCurrent('/profile') ? 'page' : undefined}
-				aria-label={`Profile for ${user.username}`}
-				title={`Profile for ${user.username}`}
-			>
-				<UserRound size={20} strokeWidth={2.3} aria-hidden="true" />
-			</a>
+			<div class="account-switcher" bind:this={accountMenuElement}>
+				<button
+					class="utility-button user-pill account-trigger"
+					class:is-open={accountMenuOpen}
+					type="button"
+					aria-haspopup="menu"
+					aria-expanded={accountMenuOpen}
+					aria-label={`Switch account, currently ${user.username}`}
+					title={`Switch account, currently ${user.username}`}
+					onclick={toggleAccountMenu}
+				>
+					<span class="account-avatar" style={getAccountAvatarStyle(user)} aria-hidden="true">
+						{getAccountInitial(user.username)}
+					</span>
+				</button>
+
+				{#if accountMenuOpen}
+					<div class="account-menu" role="menu" aria-label="Account switcher">
+						<div class="account-menu__accounts">
+							{#each accountMenuAccounts as account (account.token)}
+								<button
+									class="account-menu__item"
+									class:is-current={account.token === $session.token}
+									type="button"
+									role="menuitemradio"
+									aria-checked={account.token === $session.token}
+									disabled={switchingAccountToken !== null}
+									onclick={() => handleSwitchAccount(account)}
+								>
+									<span
+										class="account-avatar account-avatar--menu"
+										style={getAccountAvatarStyle(account.user)}
+										aria-hidden="true"
+									>
+										{getAccountInitial(account.user.username)}
+									</span>
+									<span class="account-menu__name">{formatAccountName(account.user.username)}</span>
+									{#if account.token === $session.token}
+										<Check size={16} strokeWidth={2.6} aria-hidden="true" />
+									{/if}
+								</button>
+							{/each}
+						</div>
+
+						<button
+							class="account-menu__item account-menu__command"
+							type="button"
+							role="menuitem"
+							onclick={handleAddAccount}
+						>
+							<span class="account-command-icon" aria-hidden="true">
+								<Plus size={15} strokeWidth={2.6} />
+							</span>
+							<span>Add account</span>
+						</button>
+
+						<div class="account-menu__separator"></div>
+
+						<button
+							class="account-menu__item account-menu__command"
+							type="button"
+							role="menuitem"
+							onclick={handleAccountSettings}
+						>
+							<span class="account-command-icon" aria-hidden="true">
+								<Settings size={15} strokeWidth={2.45} />
+							</span>
+							<span>Settings for {formatAccountName(user.username)}</span>
+						</button>
+
+						{#if accountMenuError}
+							<p class="account-menu__error">{accountMenuError}</p>
+						{/if}
+					</div>
+				{/if}
+			</div>
 		{/if}
 	</nav>
 
@@ -631,6 +815,7 @@
 <style>
 	header {
 		position: relative;
+		z-index: 80;
 		display: grid;
 		grid-template-columns: auto 1fr auto;
 		align-items: center;
@@ -651,6 +836,7 @@
 		right: 0;
 		bottom: 0;
 		left: 0;
+		z-index: 0;
 		display: grid;
 		grid-template-columns: repeat(60, minmax(0, 1fr));
 		gap: 1px;
@@ -692,6 +878,8 @@
 	}
 
 	.corner {
+		position: relative;
+		z-index: 1;
 		display: flex;
 		align-items: center;
 	}
@@ -718,6 +906,8 @@
 	}
 
 	.header-actions {
+		position: relative;
+		z-index: 1;
 		justify-self: center;
 		display: flex;
 		justify-content: center;
@@ -778,6 +968,8 @@
 	}
 
 	.header-utilities {
+		position: relative;
+		z-index: 1;
 		justify-self: end;
 		display: flex;
 		align-items: center;
@@ -904,10 +1096,160 @@
 		background: var(--surface-1);
 	}
 
-	.user-pill[aria-current='page'] {
+	.user-pill.is-open {
 		background: color-mix(in srgb, var(--color-accent) 16%, var(--surface-2));
 		color: var(--color-accent);
 		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 18%, transparent);
+	}
+
+	.account-switcher {
+		position: relative;
+		z-index: 3;
+		display: inline-flex;
+	}
+
+	.account-trigger {
+		overflow: hidden;
+	}
+
+	.account-trigger .account-avatar {
+		width: 100%;
+		height: 100%;
+		font-size: 0.98rem;
+	}
+
+	.account-avatar {
+		width: 1.82rem;
+		height: 1.82rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		border-radius: 999px;
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--account-swatch-0) 86%, var(--account-swatch-1)),
+			var(--account-swatch-2)
+		);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.42),
+			0 8px 18px color-mix(in srgb, var(--account-swatch-2) 28%, transparent);
+		color: var(--account-avatar-text);
+		font-size: 0.82rem;
+		font-weight: 900;
+		line-height: 1;
+		text-transform: uppercase;
+	}
+
+	.account-menu {
+		position: absolute;
+		top: calc(100% + 0.55rem);
+		right: 0;
+		z-index: 1000;
+		width: min(18rem, calc(100vw - 1.5rem));
+		display: grid;
+		gap: 0.28rem;
+		padding: 0.45rem;
+		border: 1px solid color-mix(in srgb, var(--surface-border) 88%, transparent);
+		border-radius: 18px;
+		background: color-mix(in srgb, var(--surface-2) 96%, transparent);
+		box-shadow: var(--surface-shadow-strong), var(--surface-inset);
+		backdrop-filter: blur(22px);
+	}
+
+	.account-menu__accounts {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.account-menu__item {
+		width: 100%;
+		min-width: 0;
+		min-height: 2.95rem;
+		padding: 0.52rem 0.6rem;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.58rem;
+		border: 0;
+		border-radius: 14px;
+		background: transparent;
+		color: var(--color-muted);
+		font: inherit;
+		font-size: 0.86rem;
+		font-weight: 800;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			background-color 0.16s ease,
+			color 0.16s ease,
+			transform 0.16s ease;
+	}
+
+	.account-menu__item:hover {
+		transform: translateY(-1px);
+		background: color-mix(in srgb, var(--color-accent) 10%, var(--surface-1));
+		color: var(--color-heading);
+	}
+
+	.account-menu__item:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 3px var(--focus-ring);
+	}
+
+	.account-menu__item:disabled {
+		cursor: wait;
+		opacity: 0.72;
+		transform: none;
+	}
+
+	.account-menu__item.is-current {
+		background: color-mix(in srgb, var(--color-accent) 14%, var(--surface-1));
+		color: var(--color-heading);
+	}
+
+	.account-avatar--menu {
+		width: 2rem;
+		height: 2rem;
+		font-size: 0.86rem;
+	}
+
+	.account-menu__name,
+	.account-menu__command span:last-child {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.account-menu__command {
+		grid-template-columns: auto minmax(0, 1fr);
+		color: var(--color-muted);
+	}
+
+	.account-command-icon {
+		width: 2rem;
+		height: 2rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		background: var(--surface-muted);
+		color: var(--color-accent);
+	}
+
+	.account-menu__separator {
+		height: 1px;
+		margin: 0.18rem 0.2rem;
+		background: var(--surface-border-strong);
+	}
+
+	.account-menu__error {
+		margin: 0.2rem 0.25rem 0.1rem;
+		color: var(--color-danger);
+		font-size: 0.76rem;
+		font-weight: 700;
+		line-height: 1.25;
 	}
 
 	.panic-error {
@@ -1100,7 +1442,7 @@
 		header {
 			position: sticky;
 			top: 0;
-			z-index: 65;
+			z-index: 80;
 			grid-template-columns: auto 1fr auto;
 			gap: 0.55rem;
 			padding: 0.68rem 0.85rem;
