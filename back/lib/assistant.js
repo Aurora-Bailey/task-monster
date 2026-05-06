@@ -25,6 +25,10 @@ const DEFAULT_LIST_LIMIT = 12;
 const MAX_LIST_LIMIT = 20;
 const DEFAULT_DAY_SUMMARY_LIMIT = 5;
 const MAX_BULK_EDIT_MATCHES = 100;
+const MAX_CREATE_TASKS_BATCH = 80;
+const CREATE_TASKS_PREVIEW_LIMIT = 20;
+const MAX_EDIT_TASKS_BATCH = 100;
+const EDIT_TASKS_PREVIEW_LIMIT = 20;
 const CREATE_TASK_GUARD_MIN_SCORE = 620;
 const CREATE_TASK_GUARD_MAX_MATCHES = 3;
 
@@ -885,13 +889,20 @@ function buildAssistantSystemPrompt({ username, localDay, currentPath, timezoneO
 		'- Use get_board_snapshot for broad board reads like "what can you see", "what is on my board", or "what is active right now". The snapshot task lists are previews, not exhaustive sections.',
 		'- Never claim that all tasks in a status are clean, missing, or changed based only on a board snapshot preview.',
 		'- Use filter_tasks for full-set checks like "show every daymap-locked task" or "which inactive tasks are due this week?".',
-		'- Use bulk_edit_tasks when the user says all, every, entire, or cleanup across a matching set. Do not loop edit_task for large set edits.',
+		'- Use bulk_edit_tasks only when every matched task gets the exact same change set. Do not use it when tasks need different colors, modes, names, notes, due dates, or other per-task values.',
+		'- Use edit_tasks for targeted multi-task edits where each named task may get different metadata, especially mappings like "Task A -> blue, Task B -> red" or classification passes by task meaning.',
+		'- For requests to recolor or classify all tasks by meaning, first read the full matching set with filter_tasks, then call edit_tasks with the per-task target colorKey values. Never collapse classification rules into one blanket color.',
+		'- Do not loop edit_task for large set edits.',
 		'- Use search_tasks for task lookup instead of trying to paginate broad task lists yourself.',
+		'- Use create_tasks for pasted checklists, TODO imports, bullet lists, or requests like "turn these into individual tasks". Do not loop create_task for large lists.',
+		'- For imported checklists, make one task per checklist or bullet item. Preserve quantities like "x2" in the task name unless the user explicitly asks to split quantities into separate tasks.',
+		'- When an imported checklist has headings like Buy, Install, Build, Move, or Remove, fold the heading into each child task name so the tasks stay distinct and actionable.',
+		'- For house, home, repair, move, remodel, or shopping TODO imports, default to colorKey=gold, mode=one-time, trackingType=time, and startState=inactive unless the user says otherwise.',
 		'- Use complete_task_run when the user says a task was finished or done and especially when they mention a corrected finish time.',
 		'- If a task is not active but the user gives an explicit historical start and end time, still use complete_task_run with both startedAt and completedAt.',
 		'- Use control_task for activate, move to daymap, move to inactive, queue, unqueue, or archive actions.',
 		'- If the user request is ambiguous, especially around task identity or whether "end" means pause vs done, ask a short clarification question instead of acting.',
-		'- For metadata edits like name, category, mode, tracking type, next due, tally target, task note, or active started time, prefer the edit_task tool.',
+		'- For single-task metadata edits like name, category, mode, tracking type, next due, tally target, task note, or active started time, prefer the edit_task tool.',
 		'- If the user asks to correct when a run started or ended, pass the corrected time in the tool arguments. Do not treat a timing correction as a note.',
 		'- For startedAt and completedAt tool arguments, use the user local timezone offset above. Do not send UTC Z times for ordinary local user requests.',
 		'- Never change startedAt as a substitute for a requested completedAt unless the user explicitly asked to change the start time.',
@@ -1577,6 +1588,143 @@ async function executeCreateTaskTool(app, request, args, timezoneOffsetMinutes) 
 	};
 }
 
+async function executeCreateTasksTool(app, request, args, timezoneOffsetMinutes) {
+	const tasks = Array.isArray(args.tasks) ? args.tasks.slice(0, MAX_CREATE_TASKS_BATCH) : [];
+	const requestedDefaults =
+		args.defaults && typeof args.defaults === 'object' && !Array.isArray(args.defaults)
+			? args.defaults
+			: {};
+	const defaults = {
+		colorKey: 'gold',
+		mode: 'one-time',
+		trackingType: 'time',
+		startState: 'inactive',
+		...requestedDefaults
+	};
+	const allowDuplicates = args.allowDuplicates === true;
+	const createdTasks = [];
+	const skippedDuplicates = [];
+	const failedTasks = [];
+
+	if (tasks.length === 0) {
+		return {
+			output: {
+				ok: false,
+				message: 'create_tasks needs at least one task.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	for (const taskArgs of tasks) {
+		if (!taskArgs || typeof taskArgs !== 'object' || Array.isArray(taskArgs)) {
+			failedTasks.push({
+				name: 'Unknown task',
+				message: 'Task entry must be an object.'
+			});
+			continue;
+		}
+
+		const name = typeof taskArgs.name === 'string' ? taskArgs.name.trim() : '';
+
+		if (!name) {
+			failedTasks.push({
+				name: 'Untitled task',
+				message: 'Task name is required.'
+			});
+			continue;
+		}
+
+		const createResult = await executeCreateTaskTool(
+			app,
+			request,
+			{
+				...defaults,
+				...taskArgs,
+				name,
+				allowDuplicate: allowDuplicates || taskArgs.allowDuplicate === true
+			},
+			timezoneOffsetMinutes
+		);
+
+		if (createResult.output?.requiresChoice === true) {
+			skippedDuplicates.push({
+				name,
+				message: createResult.output.message || 'A close existing task was found.',
+				closestTask: createResult.output.closestTask ?? null,
+				otherCloseTasks: createResult.output.otherCloseTasks ?? []
+			});
+			continue;
+		}
+
+		if (createResult.output?.ok === true && createResult.output.task) {
+			createdTasks.push(createResult.output.task);
+			continue;
+		}
+
+		failedTasks.push({
+			name,
+			message: createResult.output?.message || 'Unable to create the task.'
+		});
+	}
+
+	const createdCount = createdTasks.length;
+	const skippedDuplicateCount = skippedDuplicates.length;
+	const failedCount = failedTasks.length;
+	const summaryParts = [];
+
+	if (createdCount > 0) {
+		summaryParts.push(`Created ${createdCount} task${createdCount === 1 ? '' : 's'}`);
+	}
+
+	if (skippedDuplicateCount > 0) {
+		summaryParts.push(
+			`skipped ${skippedDuplicateCount} close duplicate${skippedDuplicateCount === 1 ? '' : 's'}`
+		);
+	}
+
+	if (failedCount > 0) {
+		summaryParts.push(`failed ${failedCount}`);
+	}
+
+	return {
+		output: {
+			ok: failedCount === 0,
+			message: summaryParts.length > 0 ? `${summaryParts.join(', ')}.` : 'No tasks were created.',
+			createdCount,
+			skippedDuplicateCount,
+			failedCount,
+			createdTasks: createdTasks
+				.slice(0, CREATE_TASKS_PREVIEW_LIMIT)
+				.map((taskSummary) => buildTaskSummaryOutput(taskSummary)),
+			createdPreviewOnly: createdTasks.length > CREATE_TASKS_PREVIEW_LIMIT,
+			skippedDuplicates: skippedDuplicates.slice(0, CREATE_TASKS_PREVIEW_LIMIT),
+			failedTasks: failedTasks.slice(0, CREATE_TASKS_PREVIEW_LIMIT)
+		},
+		actions:
+			createdCount > 0
+				? [
+						{
+							type: 'create_tasks',
+							label: `Created ${createdCount} task${createdCount === 1 ? '' : 's'}.`,
+							taskId: null,
+							taskName: null
+						}
+					]
+				: [],
+		refresh: {
+			tasks: createdCount > 0,
+			stats: createdCount > 0,
+			panic: false
+		}
+	};
+}
+
 async function executeEditTaskTool(app, request, args, timezoneOffsetMinutes) {
 	const resolvedTask = await resolveTaskForQuery(app.mongo.db, {
 		userId: request.auth.userId,
@@ -1653,6 +1801,137 @@ async function executeEditTaskTool(app, request, args, timezoneOffsetMinutes) {
 		refresh: {
 			tasks: true,
 			stats: true,
+			panic: false
+		}
+	};
+}
+
+async function executeEditTasksTool(app, request, args, timezoneOffsetMinutes) {
+	const edits = Array.isArray(args.edits) ? args.edits.slice(0, MAX_EDIT_TASKS_BATCH) : [];
+	const changedTasks = [];
+	const unchangedTasks = [];
+	const failedTasks = [];
+	const changesByTask = [];
+
+	if (edits.length === 0) {
+		return {
+			output: {
+				ok: false,
+				message: 'edit_tasks needs at least one edit.'
+			},
+			actions: [],
+			refresh: {
+				tasks: false,
+				stats: false,
+				panic: false
+			}
+		};
+	}
+
+	for (const editArgs of edits) {
+		const taskQuery = typeof editArgs?.taskQuery === 'string' ? editArgs.taskQuery.trim() : '';
+
+		if (!taskQuery) {
+			failedTasks.push({
+				taskQuery: 'Unknown task',
+				message: 'Each edit needs a taskQuery.'
+			});
+			continue;
+		}
+
+		const editResult = await executeEditTaskTool(
+			app,
+			request,
+			{
+				...editArgs,
+				taskQuery
+			},
+			timezoneOffsetMinutes
+		);
+
+		if (editResult.output?.ok !== true) {
+			failedTasks.push({
+				taskQuery,
+				message: editResult.output?.message || 'Unable to edit the task.',
+				candidates: editResult.output?.candidates ?? []
+			});
+			continue;
+		}
+
+		const taskSummary = editResult.output.task;
+		const changes = Array.isArray(editResult.output.changes) ? editResult.output.changes : [];
+		changesByTask.push(changes);
+
+		if (changes.length > 0) {
+			changedTasks.push({
+				task: taskSummary?.name || taskQuery,
+				taskId: taskSummary?.id ?? null,
+				changes
+			});
+		} else {
+			unchangedTasks.push({
+				task: taskSummary?.name || taskQuery,
+				taskId: taskSummary?.id ?? null
+			});
+		}
+	}
+
+	const changedCount = changedTasks.length;
+	const unchangedCount = unchangedTasks.length;
+	const failedCount = failedTasks.length;
+	const actions = [];
+
+	if (changedCount > 0) {
+		actions.push(
+			buildTaskAction(
+				'edit_tasks',
+				`Changed ${changedCount} ${changedCount === 1 ? 'task' : 'tasks'}.`,
+				null
+			)
+		);
+	}
+
+	for (const change of collectBulkChangeSummaries(changesByTask).slice(0, 5)) {
+		actions.push(buildTaskAction('change', `Changed: ${change.field} - ${change.value}`, null));
+	}
+
+	if (unchangedCount > 0) {
+		actions.push(
+			buildTaskAction(
+				'edit_tasks',
+				`${unchangedCount} ${unchangedCount === 1 ? 'task was' : 'tasks were'} already in that state.`,
+				null
+			)
+		);
+	}
+
+	if (failedCount > 0) {
+		actions.push(
+			buildTaskAction(
+				'edit_tasks',
+				`${failedCount} ${failedCount === 1 ? 'task failed' : 'tasks failed'}.`,
+				null
+			)
+		);
+	}
+
+	return {
+		output: {
+			ok: failedCount === 0,
+			changedCount,
+			unchangedCount,
+			failedCount,
+			changedTasks: changedTasks.slice(0, EDIT_TASKS_PREVIEW_LIMIT),
+			changedPreviewOnly: changedTasks.length > EDIT_TASKS_PREVIEW_LIMIT,
+			unchangedTasks: unchangedTasks.slice(0, EDIT_TASKS_PREVIEW_LIMIT),
+			unchangedPreviewOnly: unchangedTasks.length > EDIT_TASKS_PREVIEW_LIMIT,
+			failedTasks: failedTasks.slice(0, EDIT_TASKS_PREVIEW_LIMIT),
+			failedPreviewOnly: failedTasks.length > EDIT_TASKS_PREVIEW_LIMIT
+		},
+		actions,
+		refresh: {
+			tasks: changedCount > 0 || failedCount > 0,
+			stats: changedCount > 0,
 			panic: false
 		}
 	};
@@ -3183,6 +3462,119 @@ const ASSISTANT_TOOLS = [
 	{
 		type: 'function',
 		function: {
+			name: 'create_tasks',
+			description:
+				'Create many tasks in one tool call. Use this for pasted checklists, TODO imports, markdown checkbox lists, bullet lists, or any request to turn a list into individual tasks. Prefer defaults so each item only needs a name unless it needs different metadata.',
+			parameters: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['tasks'],
+				properties: {
+					defaults: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							colorKey: {
+								type: 'string',
+								enum: [...TASK_COLOR_KEYS]
+							},
+							mode: {
+								type: 'string',
+								enum: [...TASK_MODE_VALUES]
+							},
+							trackingType: {
+								type: 'string',
+								enum: [...TASK_TRACKING_TYPE_VALUES]
+							},
+							startState: {
+								type: 'string',
+								enum: [...TASK_START_STATE_VALUES]
+							},
+							queued: {
+								type: 'boolean'
+							},
+							daymapLocked: {
+								type: 'boolean'
+							},
+							note: {
+								type: 'string',
+								maxLength: 2000
+							}
+						}
+					},
+					tasks: {
+						type: 'array',
+						minItems: 1,
+						maxItems: MAX_CREATE_TASKS_BATCH,
+						items: {
+							type: 'object',
+							additionalProperties: false,
+							required: ['name'],
+							properties: {
+								name: {
+									type: 'string',
+									minLength: 1,
+									maxLength: 120
+								},
+								colorKey: {
+									type: 'string',
+									enum: [...TASK_COLOR_KEYS]
+								},
+								mode: {
+									type: 'string',
+									enum: [...TASK_MODE_VALUES]
+								},
+								trackingType: {
+									type: 'string',
+									enum: [...TASK_TRACKING_TYPE_VALUES]
+								},
+								tallyUnit: {
+									type: 'string',
+									maxLength: 60
+								},
+								tallyTarget: {
+									type: 'integer',
+									minimum: 1,
+									maximum: 100000
+								},
+								note: {
+									type: 'string',
+									maxLength: 2000
+								},
+								nextDueAt: {
+									type: ['string', 'null'],
+									format: 'date-time'
+								},
+								startState: {
+									type: 'string',
+									enum: [...TASK_START_STATE_VALUES]
+								},
+								queued: {
+									type: 'boolean'
+								},
+								daymapLocked: {
+									type: 'boolean'
+								},
+								allowDuplicate: {
+									type: 'boolean',
+									description:
+										'Only set this true for a single item if the user explicitly chose to create it despite a duplicate warning.'
+								}
+							}
+						}
+					},
+					allowDuplicates: {
+						type: 'boolean',
+						description:
+							'Only set this true if the user explicitly says to create duplicate-looking tasks anyway for the whole batch.'
+					}
+				}
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
 			name: 'edit_task',
 			description:
 				'Edit task metadata or active runtime details. Use this for name, category, mode, tracking type, next due, tally settings, daymap lock, task note, or active started time changes.',
@@ -3241,6 +3633,84 @@ const ASSISTANT_TOOLS = [
 					startedAt: {
 						type: 'string',
 						format: 'date-time'
+					}
+				}
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
+			name: 'edit_tasks',
+			description:
+				'Apply targeted edits to many named tasks in one tool call. Use this when each task may need a different color, mode, name, note, due date, daymap lock, or other metadata. This is the right tool for "Task A -> blue, Task B -> red" mappings and meaning-based classification passes.',
+			parameters: {
+				type: 'object',
+				required: ['edits'],
+				additionalProperties: false,
+				properties: {
+					edits: {
+						type: 'array',
+						minItems: 1,
+						maxItems: MAX_EDIT_TASKS_BATCH,
+						items: {
+							type: 'object',
+							required: ['taskQuery'],
+							additionalProperties: false,
+							properties: {
+								taskQuery: {
+									type: 'string',
+									minLength: 1,
+									maxLength: 120
+								},
+								name: {
+									type: 'string',
+									minLength: 1,
+									maxLength: 120
+								},
+								colorKey: {
+									type: 'string',
+									enum: [...TASK_COLOR_KEYS]
+								},
+								mode: {
+									type: 'string',
+									enum: [...TASK_MODE_VALUES]
+								},
+								trackingType: {
+									type: 'string',
+									enum: [...TASK_TRACKING_TYPE_VALUES]
+								},
+								note: {
+									type: ['string', 'null'],
+									maxLength: 2000
+								},
+								nextDueAt: {
+									type: ['string', 'null'],
+									format: 'date-time'
+								},
+								tallyUnit: {
+									type: ['string', 'null'],
+									maxLength: 60
+								},
+								tallyTarget: {
+									type: ['integer', 'null'],
+									minimum: 1,
+									maximum: 100000
+								},
+								activeTallyCount: {
+									type: 'integer',
+									minimum: 0,
+									maximum: 1000000
+								},
+								daymapLocked: {
+									type: 'boolean'
+								},
+								startedAt: {
+									type: 'string',
+									format: 'date-time'
+								}
+							}
+						}
 					}
 				}
 			}
@@ -3511,8 +3981,12 @@ async function executeAssistantTool(app, request, toolCall, timezoneOffsetMinute
 			return executeDaySummaryTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'create_task':
 			return executeCreateTaskTool(app, request, parsedArguments, timezoneOffsetMinutes);
+		case 'create_tasks':
+			return executeCreateTasksTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'edit_task':
 			return executeEditTaskTool(app, request, parsedArguments, timezoneOffsetMinutes);
+		case 'edit_tasks':
+			return executeEditTasksTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'bulk_edit_tasks':
 			return executeBulkEditTasksTool(app, request, parsedArguments, timezoneOffsetMinutes);
 		case 'complete_task_run':

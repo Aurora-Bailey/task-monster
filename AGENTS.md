@@ -440,8 +440,13 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
     - real local-day stats read
   - `create_task`
     - still guarded against close duplicates in `inactive` and `daymap`
+  - `create_tasks`
+    - batch task creation for pasted checklists/TODO imports so the assistant does not loop single-task tool calls until it hits the tool-use limit
+    - close duplicate matches are skipped and reported in the batch result unless duplicates were explicitly allowed
   - `edit_task`
     - metadata, note, next due, tally settings, daymap lock, and active `startedAt`
+  - `edit_tasks`
+    - targeted batch edits for many named tasks where each task may need a different color, mode, name, note, due date, or other metadata
   - `bulk_edit_tasks`
     - shared metadata cleanup across a matched task set
   - `complete_task_run`
@@ -458,7 +463,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - for broad reads it should call `get_board_snapshot` with `{"scope":"board"}`
   - board snapshot task arrays are previews only and must not be treated as exhaustive sections
   - for full-set checks like “all inactive tasks due this week” it should call `filter_tasks`
-  - for cleanup across a matched set it should call `bulk_edit_tasks` instead of paging or looping single edits
+  - for pasted checklists, TODO imports, markdown checkbox lists, bullet lists, or “turn these into individual tasks” requests it should call `create_tasks` once instead of looping `create_task`
+  - imported checklist items default to one-time inactive time tasks, with house/home/remodel/shopping lists defaulting to Home/gold unless the user says otherwise
+  - imported checklist section headings such as Buy/Install/Build/Move/Remove should be folded into child task names so similar items remain distinct
+  - for cleanup across a matched set where every task gets the exact same change set it should call `bulk_edit_tasks`
+  - for targeted multi-task mappings like `Task A -> blue, Task B -> red`, or classification passes where each task can get a different target value, it should call `edit_tasks` instead of `bulk_edit_tasks` or repeated `edit_task`
+  - for recolor/classification requests across all tasks, it should first call `filter_tasks` to read the full matching set, then call `edit_tasks` with the per-task target colors
   - `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
