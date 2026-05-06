@@ -11,7 +11,7 @@ Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concre
 
 It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
 
-Authenticated app pages expose icon-only top-nav controls for AI, panic, and profile; logout lives on the profile page. The AI drawer talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, create task, single-task edit, bulk task edit, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
+Authenticated app pages expose icon-only top-nav controls for AI, panic, and the account switcher; logout lives on the profile page. The account switcher stores multiple local session tokens for fast account switching, renders each saved account with that user's saved theme, and applies the switched user's theme automatically. The AI drawer talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, single and batch task creation, single and targeted batch task edits, shared bulk task edits, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
 
 ## Current app status
 
@@ -35,7 +35,7 @@ Authenticated app pages expose icon-only top-nav controls for AI, panic, and pro
 - There is no automated test suite yet
 - Account creation is gated by the prerelease alpha code and a required legal-acceptance checkbox
 - Production PWA caching is handled by `front/static/sw.js`; dev builds unregister Task Monster service workers and clear local PWA caches
-- Theme selection is browser-local through `front/src/lib/theme.js` and the profile page picker, grouped by light and dark themes
+- Theme selection is account-backed through `users.theme`, with a boot-time local cache to avoid a default-theme flash
 - `sms-bridge/` is still planning-only, not an implemented runtime service
 
 ## Repo layout
@@ -144,9 +144,10 @@ Assistant route:
     - board snapshot reads with exhaustive counts and preview-only task lists
     - full-board filtered reads for exact set checks
     - full-board task search with backend-side ranking
-    - create tasks
+    - create one task or batch-create pasted checklist/TODO imports
     - edit a single task’s metadata, notes, next due, tally settings, and active started time
-    - bulk-edit matching task sets for shared metadata cleanup
+    - targeted batch-edit named tasks when each task needs different metadata
+    - bulk-edit matching task sets only for shared metadata cleanup
     - complete an active run or a historical daymap/inactive run with optional corrected `startedAt` / `completedAt`
     - activate, daymap, backlog, queue, unqueue, and archive control actions
     - adjust active tally counts
@@ -159,7 +160,8 @@ Assistant route:
   - board-read guard behavior:
     - `get_board_snapshot` counts are exhaustive, but its task lists are previews only
     - for “all inactive tasks”, “every daymap-locked task”, or similar full-set claims, the assistant should use `filter_tasks`
-    - for status-wide cleanup, the assistant should use `bulk_edit_tasks` instead of looping many single-task edits
+    - for status-wide cleanup where every task gets the same change, the assistant should use `bulk_edit_tasks`
+    - for per-task mappings like recoloring/classifying tasks by meaning, the assistant should use `edit_tasks`
   - assistant time behavior:
     - `startedAt` / `completedAt` tool arguments are local user times, not UTC wall-clock guesses
     - the prompt includes the current local timezone offset, and backend normalization corrects accidental `Z` timestamps from the model

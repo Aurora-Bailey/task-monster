@@ -81,13 +81,13 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `src/lib/TaskCard.svelte`
   - shared card UI for inactive, daymap, active, and done variants
 - `src/lib/theme.js`
-  - browser-local theme definitions, theme grouping metadata, and localStorage persistence
+  - theme definitions, theme grouping metadata, account-cache helpers, and DOM theme application
 - `src/app.html`
-  - applies the saved theme before Svelte boots to avoid a flash of the default skin
+  - applies the cached active account theme before Svelte boots to avoid a flash of the default skin
 - `src/routes/layout.css`
   - root theme tokens and shared themed surfaces
 - `src/routes/Header.svelte`
-  - top nav, AI drawer trigger, panic control, profile link, and arrow-key page navigation
+  - top nav, AI drawer trigger, panic control, theme-colored account switcher, and arrow-key page navigation
 - `static/sw.js`
   - production PWA service worker; dev hosts clear Task Monster caches and unregister instead of serving cached app files
 - `static/manifest.webmanifest`
@@ -102,7 +102,12 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - password confirmation
   - checking agreement to the Privacy Policy and Terms & Conditions
 - The profile page exposes the theme engine grouped into Light and Dark sections
-  - the selected theme is stored only in this browser under `task_monster_theme`
+  - the selected theme is saved to the backend user record through `PATCH /users/theme`
+  - `task_monster_theme` and stored account metadata are only local boot caches for fast pre-Svelte rendering
+- The header account switcher stores multiple local account sessions under `task_monster_session_accounts`
+  - each saved account row renders with that account's cached theme
+  - switching accounts verifies the stored token, applies that user's theme, and refreshes account-backed board data
+  - `Add account` opens `/auth?addAccount=1` without logging out the active account
 - Logout is available from the profile page instead of the global header controls
 - Task notes autosave with a debounce in `TaskCard.svelte`
 - Active-task instance notes also autosave with a debounce
@@ -166,7 +171,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - The backend assistant surface is now higher-level and more domain-shaped
   - broad reads should come back through board snapshots, but those snapshot task arrays are preview-only
   - exact full-set checks should come back through backend-owned filtered reads
-  - status-wide cleanup should come back through backend-owned bulk edit actions rather than long chains of single edits
+  - pasted checklist/TODO imports should use batch task creation instead of long chains of single task creates
+  - status-wide cleanup where every task gets the same change should come back through backend-owned bulk edit actions
+  - per-task mappings such as recoloring/classifying tasks by meaning should come back through targeted batch edits
   - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
   - metadata edits still flow through the broad task edit route
   - `next due` is mostly AI-managed, but the active done modal can now set it for repeatable tasks directly

@@ -79,6 +79,12 @@ Indexes are created on startup in `lib/mongo.js`.
 - Session/profile route:
   - `GET /login-attempts`
   - returns recent login-event history for the profile page
+- User preference route:
+  - `PATCH /users/theme`
+  - stores the selected theme on `users.theme`
+- Session verification:
+  - `GET /whoami`
+  - returns `id`, `username`, and `theme`
 - Passwords are hashed with salted `scrypt`
 - Session tokens are not stored raw
   - only SHA-256 token hashes are stored
@@ -233,8 +239,9 @@ The current in-app assistant can:
 - inspect exact full-board task sets through backend-owned filters
 - search tasks across the full board with backend-owned ranking
 - summarize a selected local day from real stats
-- create tasks
+- create one task or batch-create pasted checklist/TODO imports
 - edit task metadata, note fields, next due, tally settings, daymap lock, and active started time
+- targeted batch-edit named tasks when each task may need different metadata
 - bulk-edit shared metadata across a matched task set
 - complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt`, optional `instanceNote`, and optional `nextDueAt`
 - control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
@@ -263,7 +270,9 @@ Assistant prompt policy:
 - the task arrays in `get_board_snapshot` are previews only; its counts are exhaustive
 - full-set checks should use `filter_tasks`
 - `filter_tasks` can now narrow by whether a next due exists and by due-before / due-after timestamps
-- status-wide cleanup should use `bulk_edit_tasks` instead of manual pagination or long single-task edit loops
+- pasted checklist/TODO imports should use `create_tasks` instead of long single-task create loops
+- status-wide cleanup where every task gets the same change should use `bulk_edit_tasks`
+- targeted mappings where each task may get different metadata should use `edit_tasks`
 - `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
 - broad task lookup should use `search_tasks` instead of pagination loops
 - timing corrections should be passed as tool arguments, not approximated with notes
