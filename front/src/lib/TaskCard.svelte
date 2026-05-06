@@ -97,7 +97,7 @@
 	const showsTimingLastDone = $derived(!showsScheduleLastDone);
 	const canEditNote = $derived(Boolean(editableTaskId && onSaveNote));
 	const canEditInstanceNote = $derived(
-		variant === 'active' && Boolean(editableTaskId && onSaveInstanceNote)
+		(variant === 'active' || isBoardActiveCard) && Boolean(editableTaskId && onSaveInstanceNote)
 	);
 	const canEditNextDue = $derived(showNextDueTiming && Boolean(editableTaskId && onSaveNextDue));
 	const showsNextDueTiming = $derived(
@@ -106,7 +106,7 @@
 	const showsTimingRow = $derived(showsTimingLastDone || showsNextDueTiming);
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
-	const showsTaskPanicLog = $derived(taskPanicLog.length > 0);
+	const showsTaskPanicLog = $derived(!isBoardActiveCard && taskPanicLog.length > 0);
 	const tallyUnitLabel = $derived(task.tallyUnit || 'units');
 	const activeTallyCountValue = $derived(
 		Number.isInteger(task.activeTallyCount) ? task.activeTallyCount : 0

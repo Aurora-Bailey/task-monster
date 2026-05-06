@@ -25,6 +25,7 @@
 		unmapTask,
 		updateTaskDaymapLock,
 		updateTaskDaymapWeekdays,
+		updateTaskInstanceNote,
 		updateTaskNote
 	} from '$lib/tasks-client';
 
@@ -383,6 +384,12 @@
 		return updatedTask;
 	}
 
+	async function handleSaveInstanceNote(taskId, instanceNote) {
+		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
+		replaceTask(taskId, updatedTask);
+		return updatedTask;
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('tasks', DAYMAP_TASK_SORT_OPTIONS);
 		void loadTasks();
@@ -504,6 +511,7 @@
 								busyAction={busyTasks[task.id] || null}
 								onDone={handleDone}
 								onScheduleChange={handleScheduleChange}
+								onSaveInstanceNote={handleSaveInstanceNote}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}
