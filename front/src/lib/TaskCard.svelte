@@ -2237,7 +2237,38 @@
 
 	@media (max-width: 640px) {
 		.task-card__header {
-			flex-direction: column;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: start;
+			gap: 0.7rem;
+		}
+
+		.task-card__header-main {
+			min-width: 0;
+		}
+
+		.task-card__header-actions,
+		.task-card.is-compact .task-card__header-actions {
+			justify-self: end;
+			align-self: start;
+			justify-content: flex-end;
+			gap: 0.42rem;
+			margin-left: auto;
+		}
+
+		.task-card__icon-action,
+		.task-card.is-compact .task-card__icon-action {
+			width: 2.65rem;
+			height: 2.65rem;
+		}
+
+		.task-card__icon-action svg {
+			width: 1.25rem;
+			height: 1.25rem;
+		}
+
+		.queue-button span {
+			font-size: 1.08rem;
 		}
 
 		.task-card__runtime,
