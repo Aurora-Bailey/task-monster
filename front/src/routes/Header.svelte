@@ -105,6 +105,10 @@
 	let accountMenuError = $state('');
 	let switchingAccountToken = $state(null);
 	let accountMenuElement = $state(null);
+	let desktopRouteListElement = $state(null);
+	let mobileRouteListElement = $state(null);
+	let desktopNavIndicatorStyle = $state('');
+	let mobileNavIndicatorStyle = $state('');
 
 	const navLinks = [
 		{ href: '/add', label: 'Add', icon: Plus },
@@ -115,6 +119,7 @@
 	];
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
+	const activeNavIndex = $derived(getCurrentNavIndex(currentPath));
 	const accountMenuAccounts = $derived(
 		$accountSessions.length > 0
 			? $accountSessions
@@ -131,6 +136,32 @@
 		return navLinks.findIndex(
 			(link) => pathname === link.href || pathname.startsWith(`${link.href}/`)
 		);
+	}
+
+	function getNavIndicatorStyle(routeListElement) {
+		const activeLink = routeListElement?.querySelector('a[aria-current="page"]');
+
+		if (!(activeLink instanceof HTMLElement)) {
+			return '';
+		}
+
+		const routeListRect = routeListElement.getBoundingClientRect();
+		const activeLinkRect = activeLink.getBoundingClientRect();
+		const activeLeft = activeLinkRect.left - routeListRect.left + routeListElement.scrollLeft;
+		const activeTop = activeLinkRect.top - routeListRect.top + routeListElement.scrollTop;
+
+		return [
+			`--active-nav-left: ${activeLeft}px`,
+			`--active-nav-top: ${activeTop}px`,
+			`--active-nav-width: ${activeLinkRect.width}px`,
+			`--active-nav-height: ${activeLinkRect.height}px`
+		].join('; ');
+	}
+
+	async function updateNavIndicators() {
+		await tick();
+		desktopNavIndicatorStyle = getNavIndicatorStyle(desktopRouteListElement);
+		mobileNavIndicatorStyle = getNavIndicatorStyle(mobileRouteListElement);
 	}
 
 	function isTypingTarget(target) {
@@ -195,6 +226,14 @@
 			? `Switch to digital clock, current time ${clockDigitalLabel}, ${clockDayLabel}`
 			: `Switch to analog clock, current time ${clockDigitalLabel}, ${clockDayLabel}`
 	);
+
+	$effect(() => {
+		currentPath;
+
+		if (browser) {
+			void updateNavIndicators();
+		}
+	});
 
 	function padDateTimePart(value) {
 		return String(value).padStart(2, '0');
@@ -617,6 +656,9 @@
 			void loadPanic();
 			void loadCurrentHourTrace();
 		};
+		const handleWindowResize = () => {
+			void updateNavIndicators();
+		};
 		const handleDocumentPointerDown = (event) => {
 			if (!accountMenuOpen || !accountMenuElement || !(event.target instanceof Node)) {
 				return;
@@ -631,14 +673,36 @@
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+		window.addEventListener('resize', handleWindowResize);
 		window.addEventListener('pointerdown', handleDocumentPointerDown);
+
+		const navResizeObserver =
+			'ResizeObserver' in window
+				? new ResizeObserver(() => {
+						void updateNavIndicators();
+					})
+				: null;
+
+		if (navResizeObserver) {
+			if (desktopRouteListElement) {
+				navResizeObserver.observe(desktopRouteListElement);
+			}
+
+			if (mobileRouteListElement) {
+				navResizeObserver.observe(mobileRouteListElement);
+			}
+		}
+
+		void updateNavIndicators();
 
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+			window.removeEventListener('resize', handleWindowResize);
 			window.removeEventListener('pointerdown', handleDocumentPointerDown);
+			navResizeObserver?.disconnect();
 			window.clearInterval(intervalId);
 		};
 	});
@@ -654,7 +718,12 @@
 
 	<nav class="header-actions" aria-label="Primary navigation">
 		<div class="nav-tools">
-			<ul class="desktop-route-list" aria-label="Primary">
+			<ul
+				bind:this={desktopRouteListElement}
+				class={`desktop-route-list ${activeNavIndex >= 0 ? 'has-active-route' : ''}`}
+				style={desktopNavIndicatorStyle}
+				aria-label="Primary"
+			>
 				{#each navLinks as link}
 					{@const NavIcon = link.icon}
 					<li>
@@ -838,7 +907,11 @@
 </header>
 
 <nav class="mobile-bottom-nav" aria-label="Primary">
-	<ul class="mobile-bottom-nav__list">
+	<ul
+		bind:this={mobileRouteListElement}
+		class={`mobile-bottom-nav__list ${activeNavIndex >= 0 ? 'has-active-route' : ''}`}
+		style={mobileNavIndicatorStyle}
+	>
 		{#each navLinks as link}
 			{@const NavIcon = link.icon}
 			<li>
@@ -1043,23 +1116,65 @@
 	}
 
 	.desktop-route-list {
+		position: relative;
+		isolation: isolate;
 		padding: 0.28rem;
 		margin: 0;
 		display: flex;
 		align-items: stretch;
 		gap: 0.16rem;
 		list-style: none;
+		overflow: hidden;
 		background: var(--surface-1);
 		border: 1px solid var(--surface-border);
 		border-radius: 999px;
 		box-shadow: var(--surface-shadow), var(--surface-inset);
 	}
 
+	.desktop-route-list::before,
+	.mobile-bottom-nav__list::before {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 0;
+		width: var(--active-nav-width, 0);
+		height: var(--active-nav-height, 0);
+		border-radius: 999px;
+		background: var(--accent-gradient);
+		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 32%, transparent);
+		pointer-events: none;
+		content: '';
+		opacity: 0;
+		transform: translate3d(var(--active-nav-left, 0), var(--active-nav-top, 0), 0);
+		transition:
+			transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+			width 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+			height 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+			opacity 0.16s ease,
+			box-shadow 0.2s ease;
+	}
+
+	.desktop-route-list.has-active-route::before,
+	.mobile-bottom-nav__list.has-active-route::before {
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.desktop-route-list::before,
+		.mobile-bottom-nav__list::before {
+			transition: none;
+		}
+	}
+
 	.desktop-route-list li {
+		position: relative;
+		z-index: 1;
 		min-width: 0;
 	}
 
 	.desktop-route-list a {
+		position: relative;
+		z-index: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -1103,9 +1218,7 @@
 	}
 
 	.desktop-route-list a[aria-current='page'] {
-		background: var(--accent-gradient);
 		color: var(--color-accent-contrast);
-		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-accent) 32%, transparent);
 	}
 
 	.header-utilities {
@@ -1913,6 +2026,8 @@
 		}
 
 		.mobile-bottom-nav__list {
+			position: relative;
+			isolation: isolate;
 			width: min(100%, 44rem);
 			min-height: 4.6rem;
 			margin: 0 auto;
@@ -1925,15 +2040,19 @@
 			border-radius: 999px;
 			box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 			backdrop-filter: blur(22px);
+			overflow: hidden;
 			pointer-events: auto;
 		}
 
 		.mobile-bottom-nav li {
+			position: relative;
+			z-index: 1;
 			min-width: 0;
 		}
 
 		.mobile-bottom-nav__item {
 			position: relative;
+			z-index: 1;
 			height: 100%;
 			min-height: 3.45rem;
 			display: flex;
@@ -1958,9 +2077,7 @@
 		}
 
 		.mobile-bottom-nav__item[aria-current='page'] {
-			background: var(--accent-gradient);
 			color: var(--color-accent-contrast);
-			box-shadow: 0 12px 24px color-mix(in srgb, var(--color-accent) 28%, transparent);
 		}
 
 		.mobile-bottom-nav__item span {

@@ -14,6 +14,45 @@
 	let { children } = $props();
 	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
 	const DEVELOPMENT_SW_RELOAD_KEY = 'task-monster-dev-sw-reload';
+	const ROUTE_ANIMATION_ORDER = [
+		'/',
+		'/demo-board',
+		'/auth',
+		'/add',
+		'/tasks',
+		'/active',
+		'/done',
+		'/stats',
+		'/profile',
+		'/privacy',
+		'/terms'
+	];
+
+	let previousTransitionPath = $state('');
+	let pageAnimationDirection = $state('right');
+
+	function getRouteAnimationIndex(pathname) {
+		const exactIndex = ROUTE_ANIMATION_ORDER.indexOf(pathname);
+
+		if (exactIndex !== -1) {
+			return exactIndex;
+		}
+
+		return ROUTE_ANIMATION_ORDER.findIndex(
+			(routePath) => routePath !== '/' && pathname.startsWith(`${routePath}/`)
+		);
+	}
+
+	function getPageAnimationDirection(previousPath, nextPath) {
+		const previousIndex = getRouteAnimationIndex(previousPath);
+		const nextIndex = getRouteAnimationIndex(nextPath);
+
+		if (previousIndex === -1 || nextIndex === -1 || previousIndex === nextIndex) {
+			return 'right';
+		}
+
+		return nextIndex < previousIndex ? 'left' : 'right';
+	}
 
 	function clearDevelopmentServiceWorkers() {
 		if (!('serviceWorker' in navigator)) {
@@ -102,6 +141,18 @@
 	);
 	const shouldShowBoot = $derived(!allowsGuest && !isSessionReady);
 
+	$effect.pre(() => {
+		if (!previousTransitionPath) {
+			previousTransitionPath = currentPath;
+			return;
+		}
+
+		if (currentPath !== previousTransitionPath) {
+			pageAnimationDirection = getPageAnimationDirection(previousTransitionPath, currentPath);
+			previousTransitionPath = currentPath;
+		}
+	});
+
 	$effect(() => {
 		if (isSessionReady && $session.status === 'guest' && !allowsGuest) {
 			goto(resolve('/auth'), { replaceState: true });
@@ -123,10 +174,30 @@
 		<span class="page-spinner" aria-hidden="true"></span>
 	</div>
 {:else if isAuthRoute}
-	<main class="auth-main">{@render children()}</main>
+	<main class="auth-main">
+		{#key currentPath}
+			<div
+				class:page-transition-frame--from-left={pageAnimationDirection === 'left'}
+				class:page-transition-frame--from-right={pageAnimationDirection === 'right'}
+				class="page-transition-frame"
+			>
+				{@render children()}
+			</div>
+		{/key}
+	</main>
 {:else if isLegalRoute || isMarketingRoute}
 	<div class="public-page">
-		<main class:marketing-main={isMarketingRoute} class="public-main">{@render children()}</main>
+		<main class:marketing-main={isMarketingRoute} class="public-main">
+			{#key currentPath}
+				<div
+					class:page-transition-frame--from-left={pageAnimationDirection === 'left'}
+					class:page-transition-frame--from-right={pageAnimationDirection === 'right'}
+					class="page-transition-frame"
+				>
+					{@render children()}
+				</div>
+			{/key}
+		</main>
 
 		<footer class="site-footer">
 			<p>task monster</p>
@@ -140,7 +211,17 @@
 {:else}
 	<div class="app">
 		<Header user={$session.user} />
-		<main>{@render children()}</main>
+		<main>
+			{#key currentPath}
+				<div
+					class:page-transition-frame--from-left={pageAnimationDirection === 'left'}
+					class:page-transition-frame--from-right={pageAnimationDirection === 'right'}
+					class="page-transition-frame"
+				>
+					{@render children()}
+				</div>
+			{/key}
+		</main>
 
 		<footer class="site-footer">
 			<p>task monster</p>
@@ -175,6 +256,21 @@
 		max-width: 76rem;
 		margin: 0 auto;
 		box-sizing: border-box;
+	}
+
+	.page-transition-frame {
+		width: 100%;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.page-transition-frame--from-right {
+		animation: page-slide-in-from-right 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	}
+
+	.page-transition-frame--from-left {
+		animation: page-slide-in-from-left 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 	}
 
 	.auth-main,
@@ -230,6 +326,37 @@
 	@media (min-width: 480px) {
 		.site-footer {
 			padding: 12px 0;
+		}
+	}
+
+	@keyframes page-slide-in-from-right {
+		from {
+			opacity: 0;
+			transform: translateX(1.35rem);
+		}
+
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	@keyframes page-slide-in-from-left {
+		from {
+			opacity: 0;
+			transform: translateX(-1.35rem);
+		}
+
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.page-transition-frame--from-left,
+		.page-transition-frame--from-right {
+			animation: none;
 		}
 	}
 </style>

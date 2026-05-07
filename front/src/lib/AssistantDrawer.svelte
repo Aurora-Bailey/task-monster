@@ -174,11 +174,11 @@
 			return;
 		}
 
-		const previousOverflow = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
+		const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+		document.body.style.overscrollBehavior = 'contain';
 
 		return () => {
-			document.body.style.overflow = previousOverflow;
+			document.body.style.overscrollBehavior = previousOverscrollBehavior;
 		};
 	});
 </script>
@@ -272,6 +272,8 @@
 		justify-content: flex-end;
 		background: color-mix(in srgb, var(--app-bg-color) 48%, transparent);
 		backdrop-filter: blur(14px);
+		overscroll-behavior: contain;
+		animation: assistant-backdrop-in 0.18s ease both;
 	}
 
 	.assistant-drawer {
@@ -299,6 +301,7 @@
 		border-left: 1px solid var(--surface-border);
 		box-shadow: -28px 0 64px color-mix(in srgb, var(--color-heading) 22%, transparent);
 		color: var(--color-text);
+		animation: assistant-drawer-slide-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 	}
 
 	.assistant-close {
@@ -675,6 +678,35 @@
 
 		.assistant-composer button {
 			min-width: 5.2rem;
+		}
+	}
+
+	@keyframes assistant-backdrop-in {
+		from {
+			opacity: 0;
+		}
+
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes assistant-drawer-slide-in {
+		from {
+			opacity: 0.92;
+			transform: translateX(2.4rem);
+		}
+
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.assistant-backdrop,
+		.assistant-drawer {
+			animation: none;
 		}
 	}
 </style>

@@ -20,6 +20,8 @@
 		doneTask,
 		inactivateTask,
 		loadActiveTasks,
+		loadDaymapTasks,
+		loadInactiveTasks,
 		updateTaskInstanceNote,
 		updateTaskNextDue,
 		updateTaskTally,
@@ -35,6 +37,7 @@
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
 	let searchQuery = $state('');
 	let panic = $state(null);
+	let hasAnyBoardTasks = $state(true);
 	let showDoneModal = $state(false);
 	let doneModalTaskId = $state(null);
 	let doneModalStartedAtValue = $state('');
@@ -84,12 +87,24 @@
 		return formatDateTimeLocalValue(new Date(completedAt.getTime() + ONE_DAY_MS));
 	}
 
+	async function loadActiveBoardState() {
+		const [nextActiveTasks, nextDaymapTasks, nextInactiveTasks] = await Promise.all([
+			loadActiveTasks(),
+			loadDaymapTasks(),
+			loadInactiveTasks()
+		]);
+
+		tasks = nextActiveTasks;
+		hasAnyBoardTasks =
+			nextActiveTasks.length + nextDaymapTasks.length + nextInactiveTasks.length > 0;
+	}
+
 	async function loadTasks() {
 		isLoading = true;
 		loadError = '';
 
 		try {
-			tasks = await loadActiveTasks();
+			await loadActiveBoardState();
 		} catch (error) {
 			loadError = error.message;
 		} finally {
@@ -426,7 +441,7 @@
 
 				try {
 					panic = await loadPanicStatus();
-					tasks = await loadActiveTasks();
+					await loadActiveBoardState();
 				} catch (error) {
 					loadError = error.message;
 				}
@@ -434,7 +449,7 @@
 			const handlePanicUpdated = async (event) => {
 				try {
 					panic = event.detail ?? null;
-					tasks = await loadActiveTasks();
+					await loadActiveBoardState();
 				} catch (error) {
 					loadError = error.message;
 				}
@@ -586,10 +601,15 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
-		<div class="message-card">
-			<strong>No active tasks</strong>
-			<p>Nothing is on the table right now. Start something from tasks when you are ready.</p>
-		</div>
+		<p class="machine-inscription">
+			<span>
+				{#if hasAnyBoardTasks}
+					No active tasks on deck. <a href={resolve('/tasks')}>Choose one from tasks</a>.
+				{:else}
+					No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
+				{/if}
+			</span>
+		</p>
 	{:else}
 		<TaskSortBar
 			value={sortMode}

@@ -957,9 +957,18 @@
 	color-scheme: light;
 }
 
+html {
+	min-height: 100%;
+	overflow-x: clip;
+	overflow-y: scroll;
+	scrollbar-gutter: stable;
+}
+
 body {
 	min-height: 100vh;
 	margin: 0;
+	overflow-x: clip;
+	touch-action: pan-y;
 	background-attachment: fixed;
 	background-color: var(--app-bg-color);
 	background-size: 100vw 100vh;
@@ -1024,6 +1033,59 @@ pre {
 	gap: 1rem;
 	align-content: start;
 	padding: 1.1rem 0 2.6rem;
+}
+
+.machine-inscription {
+	width: min(100%, 42rem);
+	margin: clamp(2rem, 8vh, 5rem) auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.7rem;
+	color: color-mix(in srgb, var(--color-soft) 88%, transparent);
+	font-size: clamp(0.72rem, 2.5vw, 0.82rem);
+	font-weight: 900;
+	letter-spacing: 0.16em;
+	line-height: 1.45;
+	text-align: center;
+	text-transform: uppercase;
+}
+
+.machine-inscription::before,
+.machine-inscription::after {
+	width: clamp(1.4rem, 8vw, 4rem);
+	height: 1px;
+	flex: 0 1 auto;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-soft) 34%, transparent)
+	);
+	content: '';
+}
+
+.machine-inscription::after {
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--color-soft) 34%, transparent),
+		transparent
+	);
+}
+
+.machine-inscription span {
+	min-width: 0;
+}
+
+.machine-inscription a {
+	color: color-mix(in srgb, var(--color-theme-2) 74%, var(--color-muted));
+	text-decoration: none;
+	text-underline-offset: 0.28em;
+}
+
+.machine-inscription a:hover {
+	color: var(--color-theme-2);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
 }
 
 .section-divider {

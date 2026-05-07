@@ -1,4 +1,5 @@
 <script>
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -12,7 +13,14 @@
 		sortTasks,
 		storeTaskSort
 	} from '$lib/task-sort';
-	import { loadDoneFeed, updateTaskNextDue, updateTaskNote } from '$lib/tasks-client';
+	import {
+		loadActiveTasks,
+		loadDaymapTasks,
+		loadDoneFeed,
+		loadInactiveTasks,
+		updateTaskNextDue,
+		updateTaskNote
+	} from '$lib/tasks-client';
 
 	const DONE_BATCH_SIZE = 10;
 	const DONE_DEFAULT_SORT_MODE = 'date';
@@ -34,6 +42,7 @@
 	let sortMode = $state(DONE_DEFAULT_SORT_MODE);
 	let searchQuery = $state('');
 	let sentinel = $state(null);
+	let hasAnyBoardTasks = $state(true);
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -59,6 +68,21 @@
 		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
 	}
 
+	async function loadBoardPresence() {
+		try {
+			const [activeTasks, daymapTasks, inactiveTasks] = await Promise.all([
+				loadActiveTasks(),
+				loadDaymapTasks(),
+				loadInactiveTasks()
+			]);
+
+			return activeTasks.length + daymapTasks.length + inactiveTasks.length > 0;
+		} catch (error) {
+			console.error(error);
+			return true;
+		}
+	}
+
 	async function loadNextBatch({ reset = false } = {}) {
 		if (isLoadingMore || (isLoadingInitial && !reset) || (!reset && !hasMore)) {
 			return;
@@ -72,15 +96,21 @@
 		}
 
 		try {
-			const history = await loadDoneFeed({
+			const historyPromise = loadDoneFeed({
 				limit: DONE_BATCH_SIZE,
 				cursor: reset ? null : nextCursor,
 				tzOffsetMinutes: timezoneOffsetMinutes
 			});
+			const boardPresencePromise = reset ? loadBoardPresence() : Promise.resolve(hasAnyBoardTasks);
+			const [history, nextHasAnyBoardTasks] = await Promise.all([
+				historyPromise,
+				boardPresencePromise
+			]);
 
 			tasks = reset ? history.tasks : [...tasks, ...history.tasks];
 			nextCursor = history.nextCursor;
 			hasMore = history.hasMore;
+			hasAnyBoardTasks = nextHasAnyBoardTasks;
 		} catch (error) {
 			loadError = error.message;
 		} finally {
@@ -197,10 +227,15 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
-		<div class="message-card">
-			<strong>No completed tasks yet</strong>
-			<p>Finished task runs will land here once you start closing things out.</p>
-		</div>
+		<p class="machine-inscription">
+			<span>
+				{#if hasAnyBoardTasks}
+					No completed runs etched yet. <a href={resolve('/tasks')}>Stage a task</a>.
+				{:else}
+					No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
+				{/if}
+			</span>
+		</p>
 	{:else}
 		<TaskSortBar
 			value={sortMode}

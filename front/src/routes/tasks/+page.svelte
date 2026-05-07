@@ -1,4 +1,5 @@
 <script>
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
@@ -473,10 +474,9 @@
 		</div>
 
 		{#if !hasAnyTasks}
-			<div class="message-card">
-				<strong>No task backlog</strong>
-				<p>Add a task when you want something ready to stage, start, or save for later.</p>
-			</div>
+			<p class="machine-inscription">
+				<span>No task backlog installed. <a href={resolve('/add')}>Add the first task</a>.</span>
+			</p>
 		{:else if !hasAnyMatches}
 			<div class="message-card">
 				<strong>No matching tasks</strong>
