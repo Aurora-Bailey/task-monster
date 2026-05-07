@@ -37,6 +37,22 @@
 
 	const MINUTES_PER_HOUR = 60;
 	const MINUTE_MS = 60 * 1000;
+	const CLOCK_MODE_STORAGE_KEY = 'task_monster_clock_mode';
+	const CLOCK_HOUR_MARKS = Array.from({ length: 12 }, (_, index) => index);
+	const CLOCK_WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+	const DIGITAL_CLOCK_SEGMENTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+	const DIGITAL_CLOCK_SEGMENT_MAP = Object.freeze({
+		0: ['a', 'b', 'c', 'd', 'e', 'f'],
+		1: ['b', 'c'],
+		2: ['a', 'b', 'd', 'e', 'g'],
+		3: ['a', 'b', 'c', 'd', 'g'],
+		4: ['b', 'c', 'f', 'g'],
+		5: ['a', 'c', 'd', 'f', 'g'],
+		6: ['a', 'c', 'd', 'e', 'f', 'g'],
+		7: ['a', 'b', 'c'],
+		8: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+		9: ['a', 'b', 'c', 'd', 'f', 'g']
+	});
 	const EMPTY_TRACE_MINUTE = Object.freeze({
 		active: false,
 		fill: '',
@@ -44,6 +60,32 @@
 		label: '',
 		panicking: false
 	});
+
+	function getStoredClockMode() {
+		if (!browser) {
+			return 'analog';
+		}
+
+		try {
+			return window.localStorage.getItem(CLOCK_MODE_STORAGE_KEY) === 'digital'
+				? 'digital'
+				: 'analog';
+		} catch {
+			return 'analog';
+		}
+	}
+
+	function storeClockMode(nextMode) {
+		if (!browser) {
+			return;
+		}
+
+		try {
+			window.localStorage.setItem(CLOCK_MODE_STORAGE_KEY, nextMode);
+		} catch {
+			// Clock mode is a convenience preference; ignore blocked storage.
+		}
+	}
 
 	let { user = null } = $props();
 	let panic = $state(null);
@@ -58,6 +100,7 @@
 	let panicReturnCharge = $state(5);
 	let panicReturnNoteInput = $state(null);
 	let showAssistantDrawer = $state(false);
+	let clockMode = $state(getStoredClockMode());
 	let accountMenuOpen = $state(false);
 	let accountMenuError = $state('');
 	let switchingAccountToken = $state(null);
@@ -134,6 +177,23 @@
 	);
 	const assistantButtonTitle = $derived(
 		showAssistantDrawer ? 'Close the AI assistant' : 'Open the AI assistant'
+	);
+	const clockDate = $derived(new Date(nowMs));
+	const clockHours = $derived(clockDate.getHours());
+	const clockMinutes = $derived(clockDate.getMinutes());
+	const clockSeconds = $derived(clockDate.getSeconds());
+	const clockDigitalLabel = $derived(
+		`${String(clockHours % 12 || 12)}:${String(clockMinutes).padStart(2, '0')}`
+	);
+	const clockDigitalCharacters = $derived(clockDigitalLabel.split(''));
+	const clockDayLabel = $derived(`${CLOCK_WEEKDAYS[clockDate.getDay()]} ${clockDate.getDate()}`);
+	const analogClockStyle = $derived(
+		`--hour-rotation: ${((clockHours % 12) + clockMinutes / 60) * 30}deg; --minute-rotation: ${(clockMinutes + clockSeconds / 60) * 6}deg;`
+	);
+	const clockButtonTitle = $derived(
+		clockMode === 'analog'
+			? `Switch to digital clock, current time ${clockDigitalLabel}, ${clockDayLabel}`
+			: `Switch to analog clock, current time ${clockDigitalLabel}, ${clockDayLabel}`
 	);
 
 	function padDateTimePart(value) {
@@ -351,6 +411,14 @@
 
 	function closeAssistantDrawer() {
 		showAssistantDrawer = false;
+	}
+
+	function toggleClockMode() {
+		accountMenuOpen = false;
+		const nextMode = clockMode === 'analog' ? 'digital' : 'analog';
+
+		clockMode = nextMode;
+		storeClockMode(nextMode);
 	}
 
 	function closePanicReturnModal() {
@@ -606,6 +674,49 @@
 	</nav>
 
 	<nav class="header-utilities" aria-label="Utility controls">
+		<button
+			class="utility-button clock-button"
+			class:is-digital={clockMode === 'digital'}
+			type="button"
+			title={clockButtonTitle}
+			aria-label={clockButtonTitle}
+			onclick={toggleClockMode}
+		>
+			{#if clockMode === 'analog'}
+				<span class="clock-analog" style={analogClockStyle} aria-hidden="true">
+					{#each CLOCK_HOUR_MARKS as mark}
+						<span class="clock-analog__mark" style={`--clock-mark-angle: ${mark * 30}deg;`}></span>
+					{/each}
+					<span class="clock-analog__hand clock-analog__hand-hour"></span>
+					<span class="clock-analog__hand clock-analog__hand-minute"></span>
+					<span class="clock-analog__pin"></span>
+				</span>
+			{:else}
+				<span class="clock-digital" aria-hidden="true">
+					<span class="clock-digital__time">
+						{#each clockDigitalCharacters as char}
+							{#if char === ':'}
+								<span class="clock-digital__colon">
+									<span></span>
+									<span></span>
+								</span>
+							{:else}
+								<span class="clock-digit">
+									{#each DIGITAL_CLOCK_SEGMENTS as segment}
+										<span
+											class={`clock-digit__segment ${DIGITAL_CLOCK_SEGMENT_MAP[char]?.includes(segment) ? 'is-on' : ''}`}
+											data-segment={segment}
+										></span>
+									{/each}
+								</span>
+							{/if}
+						{/each}
+					</span>
+					<span class="clock-digital__day">{clockDayLabel}</span>
+				</span>
+			{/if}
+		</button>
+
 		<button
 			class="utility-button assistant-button"
 			class:is-open={showAssistantDrawer}
@@ -968,7 +1079,7 @@
 			box-shadow 0.2s ease;
 	}
 
-	.desktop-route-list a svg {
+	.desktop-route-list a :global(svg) {
 		width: 1.08rem;
 		height: 1.08rem;
 		flex: 0 0 auto;
@@ -1064,15 +1175,252 @@
 		transform: none;
 	}
 
-	.panic-button {
-		border: 0;
-		background: linear-gradient(
-			135deg,
-			var(--color-warning),
-			color-mix(in srgb, var(--color-warning) 72%, var(--color-danger))
+	.clock-button {
+		--clock-digital-colon-shadow: 0 0 6px color-mix(in srgb, var(--color-theme-2) 58%, transparent);
+		--clock-digital-day-shadow: 0 0 5px color-mix(in srgb, var(--color-theme-2) 38%, transparent);
+		--clock-digital-segment-shadow:
+			0 0 5px color-mix(in srgb, var(--color-theme-2) 52%, transparent),
+			0 0 9px color-mix(in srgb, var(--color-theme-1) 26%, transparent);
+		--clock-digital-time-filter: drop-shadow(
+			0 0 5px color-mix(in srgb, var(--color-theme-2) 42%, transparent)
 		);
-		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-warning) 28%, transparent);
-		color: var(--color-accent-contrast);
+
+		overflow: hidden;
+		background:
+			radial-gradient(
+				circle at 28% 18%,
+				color-mix(in srgb, var(--color-theme-1) 18%, transparent),
+				transparent 48%
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--surface-3) 94%, transparent),
+				color-mix(in srgb, var(--surface-2) 98%, transparent)
+			);
+		border: 1px solid color-mix(in srgb, var(--color-theme-2) 24%, var(--surface-border));
+		box-shadow: var(--surface-shadow);
+		color: var(--color-heading);
+	}
+
+	.clock-button.is-digital {
+		width: 3.72rem;
+		min-width: 3.72rem;
+		padding: 0 0.42rem;
+	}
+
+	.clock-analog {
+		--clock-hour-length: 0.62rem;
+		--clock-mark-radius: 1.02rem;
+		--clock-minute-length: 0.9rem;
+
+		position: relative;
+		width: calc(100% - 0.1rem);
+		height: calc(100% - 0.1rem);
+		display: block;
+		border-radius: 999px;
+		background: radial-gradient(
+			circle at 50% 38%,
+			color-mix(in srgb, var(--surface-1) 92%, var(--color-theme-1) 8%),
+			color-mix(in srgb, var(--surface-2) 96%, var(--color-theme-2) 4%) 66%
+		);
+		border: 1px solid color-mix(in srgb, var(--color-theme-2) 34%, var(--surface-border));
+		box-shadow:
+			inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 34%, transparent),
+			inset 0 -8px 16px color-mix(in srgb, var(--color-theme-2) 10%, transparent);
+	}
+
+	.clock-analog__mark {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 0.17rem;
+		height: 0.17rem;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--color-muted) 58%, var(--color-theme-2));
+		transform: translate(-50%, -50%) rotate(var(--clock-mark-angle))
+			translateY(calc(var(--clock-mark-radius) * -1));
+	}
+
+	.clock-analog__hand {
+		position: absolute;
+		left: 50%;
+		bottom: 50%;
+		border-radius: 999px;
+		transform-origin: 50% 100%;
+		box-shadow: 0 4px 9px color-mix(in srgb, var(--color-heading) 14%, transparent);
+	}
+
+	.clock-analog__hand-hour {
+		width: 0.18rem;
+		height: var(--clock-hour-length);
+		background: var(--color-theme-1);
+		transform: translateX(-50%) rotate(var(--hour-rotation));
+	}
+
+	.clock-analog__hand-minute {
+		width: 0.13rem;
+		height: var(--clock-minute-length);
+		background: var(--color-theme-2);
+		transform: translateX(-50%) rotate(var(--minute-rotation));
+	}
+
+	.clock-analog__pin {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 0.33rem;
+		height: 0.33rem;
+		border: 2px solid color-mix(in srgb, var(--surface-1) 72%, transparent);
+		border-radius: 999px;
+		background: var(--color-accent);
+		box-shadow: 0 5px 10px color-mix(in srgb, var(--color-accent) 22%, transparent);
+		transform: translate(-50%, -50%);
+	}
+
+	.clock-digital {
+		--clock-digital-font:
+			'DS-Digital', 'DSEG7 Classic', 'Digital-7', 'OCR A Std', ui-monospace, SFMono-Regular, Menlo,
+			Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+		width: 100%;
+		max-width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.12rem;
+		font-family: var(--clock-digital-font);
+		font-weight: 900;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0;
+		line-height: 1;
+	}
+
+	.clock-digital__time {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.055rem;
+		filter: var(--clock-digital-time-filter);
+	}
+
+	.clock-digit {
+		position: relative;
+		width: 0.43rem;
+		height: 0.9rem;
+		flex: 0 0 0.43rem;
+	}
+
+	.clock-digit__segment {
+		position: absolute;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+		opacity: 0.45;
+		transition:
+			background-color 0.18s ease,
+			box-shadow 0.18s ease,
+			opacity 0.18s ease;
+	}
+
+	.clock-digit__segment.is-on {
+		background: linear-gradient(90deg, var(--color-theme-1), var(--color-theme-2));
+		box-shadow: var(--clock-digital-segment-shadow);
+		opacity: 1;
+	}
+
+	.clock-digit__segment[data-segment='a'],
+	.clock-digit__segment[data-segment='d'],
+	.clock-digit__segment[data-segment='g'] {
+		left: 0.1rem;
+		right: 0.1rem;
+		height: 0.08rem;
+	}
+
+	.clock-digit__segment[data-segment='a'] {
+		top: 0;
+	}
+
+	.clock-digit__segment[data-segment='d'] {
+		bottom: 0;
+	}
+
+	.clock-digit__segment[data-segment='g'] {
+		top: calc(50% - 0.04rem);
+	}
+
+	.clock-digit__segment[data-segment='b'],
+	.clock-digit__segment[data-segment='c'],
+	.clock-digit__segment[data-segment='e'],
+	.clock-digit__segment[data-segment='f'] {
+		width: 0.08rem;
+		height: 0.36rem;
+	}
+
+	.clock-digit__segment[data-segment='b'] {
+		top: 0.07rem;
+		right: 0;
+	}
+
+	.clock-digit__segment[data-segment='c'] {
+		right: 0;
+		bottom: 0.07rem;
+	}
+
+	.clock-digit__segment[data-segment='e'] {
+		bottom: 0.07rem;
+		left: 0;
+	}
+
+	.clock-digit__segment[data-segment='f'] {
+		top: 0.07rem;
+		left: 0;
+	}
+
+	.clock-digital__colon {
+		width: 0.12rem;
+		height: 0.9rem;
+		display: grid;
+		place-items: center;
+		gap: 0.18rem;
+		flex: 0 0 0.12rem;
+	}
+
+	.clock-digital__colon span {
+		width: 0.08rem;
+		height: 0.08rem;
+		border-radius: 999px;
+		background: var(--color-theme-2);
+		box-shadow: var(--clock-digital-colon-shadow);
+	}
+
+	.clock-digital__day {
+		max-width: 100%;
+		overflow: hidden;
+		color: color-mix(in srgb, var(--color-theme-2) 78%, var(--color-muted));
+		font-family: var(--clock-digital-font);
+		font-size: 0.47rem;
+		font-weight: 900;
+		letter-spacing: 0.04em;
+		line-height: 1;
+		text-shadow: var(--clock-digital-day-shadow);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.panic-button {
+		--panic-active-end: color-mix(in srgb, var(--color-danger) 74%, var(--color-warning));
+		--panic-active-shadow: color-mix(in srgb, var(--color-danger) 32%, transparent);
+		--panic-active-start: var(--color-danger);
+		--panic-button-end: color-mix(in srgb, var(--color-warning) 72%, var(--color-danger));
+		--panic-button-shadow: color-mix(in srgb, var(--color-warning) 28%, transparent);
+		--panic-button-start: var(--color-warning);
+		--panic-button-text: var(--color-accent-contrast);
+
+		border: 0;
+		background: linear-gradient(135deg, var(--panic-button-start), var(--panic-button-end));
+		box-shadow: 0 14px 28px var(--panic-button-shadow);
+		color: var(--panic-button-text);
 	}
 
 	.assistant-button {
@@ -1093,13 +1441,42 @@
 	}
 
 	.panic-button.is-active {
-		background: linear-gradient(
-			135deg,
-			var(--color-danger),
-			color-mix(in srgb, var(--color-danger) 74%, var(--color-warning))
-		);
-		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-danger) 32%, transparent);
+		background: linear-gradient(135deg, var(--panic-active-start), var(--panic-active-end));
+		box-shadow: 0 14px 28px var(--panic-active-shadow);
 		animation: panic-flash 0.9s ease-in-out infinite alternate;
+	}
+
+	:global(:root[data-theme='light']) .clock-button,
+	:global(:root[data-theme='magica-pink']) .clock-button,
+	:global(:root[data-theme='candy-apple-green']) .clock-button,
+	:global(:root[data-theme='candy-cloud']) .clock-button,
+	:global(:root[data-theme='kawaii']) .clock-button,
+	:global(:root[data-theme='ancient-book']) .clock-button,
+	:global(:root[data-theme='tea-and-leaves']) .clock-button,
+	:global(:root[data-theme='lain']) .clock-button,
+	:global(:root[data-theme='ultra-white']) .clock-button {
+		--clock-digital-colon-shadow: none;
+		--clock-digital-day-shadow: none;
+		--clock-digital-segment-shadow: none;
+		--clock-digital-time-filter: none;
+	}
+
+	:global(:root[data-theme='light']) .panic-button,
+	:global(:root[data-theme='magica-pink']) .panic-button,
+	:global(:root[data-theme='candy-apple-green']) .panic-button,
+	:global(:root[data-theme='candy-cloud']) .panic-button,
+	:global(:root[data-theme='kawaii']) .panic-button,
+	:global(:root[data-theme='ancient-book']) .panic-button,
+	:global(:root[data-theme='tea-and-leaves']) .panic-button,
+	:global(:root[data-theme='lain']) .panic-button,
+	:global(:root[data-theme='ultra-white']) .panic-button {
+		--panic-active-end: #ff7a1a;
+		--panic-active-shadow: rgba(255, 110, 24, 0.34);
+		--panic-active-start: #ff3f1f;
+		--panic-button-end: #ff6a00;
+		--panic-button-shadow: rgba(255, 132, 22, 0.32);
+		--panic-button-start: #ffae1f;
+		--panic-button-text: #ffffff;
 	}
 
 	.panic-status-dot {
@@ -1506,6 +1883,22 @@
 			min-height: 2.58rem;
 		}
 
+		.clock-button.is-digital {
+			width: 3.5rem;
+			min-width: 3.5rem;
+			padding-inline: 0.4rem;
+		}
+
+		.clock-analog {
+			--clock-hour-length: 0.59rem;
+			--clock-mark-radius: 0.95rem;
+			--clock-minute-length: 0.84rem;
+		}
+
+		.clock-digital__day {
+			font-size: 0.45rem;
+		}
+
 		.mobile-bottom-nav {
 			position: fixed;
 			left: 0.75rem;
@@ -1616,6 +2009,22 @@
 			min-width: 2.52rem;
 			height: 2.52rem;
 			min-height: 2.52rem;
+		}
+
+		.clock-button.is-digital {
+			width: 3.35rem;
+			min-width: 3.35rem;
+			padding-inline: 0.34rem;
+		}
+
+		.clock-analog {
+			--clock-hour-length: 0.58rem;
+			--clock-mark-radius: 0.93rem;
+			--clock-minute-length: 0.82rem;
+		}
+
+		.clock-digital__day {
+			font-size: 0.43rem;
 		}
 
 		.mobile-bottom-nav {
