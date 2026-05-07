@@ -58,6 +58,7 @@
 		onScheduleChange = null,
 		showDaymapToggle = false,
 		showActivateButton = false,
+		showCancelButton = false,
 		showDoneButton = false,
 		showScheduleControls = false,
 		showArchiveButton = false,
@@ -85,6 +86,7 @@
 	const showsActions = $derived(variant === 'active');
 	const showsHeaderDaymapToggle = $derived(showDaymapToggle && (isInactiveCard || isDaymapCard));
 	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
+	const showsHeaderCancel = $derived(showCancelButton && isBoardActiveCard);
 	const showsHeaderDone = $derived(showDoneButton && isBoardActiveCard);
 	const isScheduledOnlyDaymapTask = $derived(
 		isDaymapCard && task.scheduledToday === true && task.mappedToday !== true
@@ -319,6 +321,16 @@
 		}
 
 		onDone(task.id);
+	}
+
+	function handleHeaderCancelClick(event) {
+		event.stopPropagation();
+
+		if (!showsHeaderCancel || busyAction !== null) {
+			return;
+		}
+
+		onInactivate(task.id);
 	}
 
 	function handleTallyClick(event, delta) {
@@ -762,6 +774,37 @@
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path
 								d="M8 5v14l11-7L8 5Z"
+								fill="currentColor"
+								stroke="currentColor"
+								stroke-linejoin="round"
+								stroke-width="1.4"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+
+			{#if showsHeaderCancel}
+				<button
+					class="task-card__icon-action cancel-icon-button"
+					type="button"
+					aria-label={`Cancel ${task.name} and return it to daymap`}
+					title="Cancel active task"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleHeaderCancelClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'cancel'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect
+								x="7"
+								y="7"
+								width="10"
+								height="10"
+								rx="1.7"
 								fill="currentColor"
 								stroke="currentColor"
 								stroke-linejoin="round"
@@ -1528,6 +1571,15 @@
 			0 0 0 1px color-mix(in srgb, var(--color-theme-2) 13%, transparent);
 	}
 
+	.cancel-icon-button {
+		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-danger) 28%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-danger) 82%, var(--color-heading));
+		box-shadow:
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-danger) 8%, transparent);
+	}
+
 	.daymap-lock-button.is-locked {
 		background: color-mix(in srgb, var(--color-warning) 15%, var(--surface-2));
 		border-color: color-mix(in srgb, var(--color-warning) 35%, var(--surface-border));
@@ -1545,6 +1597,7 @@
 	.queue-button:hover,
 	.daymap-toggle-button:hover,
 	.activate-icon-button:hover,
+	.cancel-icon-button:hover,
 	.done-icon-button:hover {
 		transform: translateY(-1px);
 		box-shadow: var(--surface-shadow-strong);
@@ -1554,6 +1607,7 @@
 	.queue-button:disabled,
 	.daymap-toggle-button:disabled,
 	.activate-icon-button:disabled,
+	.cancel-icon-button:disabled,
 	.done-icon-button:disabled {
 		cursor: wait;
 		opacity: 0.72;

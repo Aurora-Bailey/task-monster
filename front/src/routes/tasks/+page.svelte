@@ -17,6 +17,7 @@
 	import {
 		activateTask,
 		archiveTask,
+		cancelActiveTask,
 		doneTask,
 		loadActiveTasks,
 		loadDaymapTasks,
@@ -300,6 +301,32 @@
 		}
 	}
 
+	async function handleCancelActive(taskId) {
+		actionError = '';
+		setBusy(taskId, 'cancel');
+
+		try {
+			const updatedTask = await cancelActiveTask(taskId);
+
+			if (updatedTask) {
+				applyTaskBoardMembership(updatedTask);
+				return;
+			}
+
+			const [nextActiveTasks, nextDaymapTasks] = await Promise.all([
+				loadActiveTasks(),
+				loadDaymapTasks()
+			]);
+
+			activeTasks = nextActiveTasks;
+			daymapTasks = nextDaymapTasks;
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(taskId);
+		}
+	}
+
 	async function handleArchive(taskId) {
 		if (
 			typeof window !== 'undefined' &&
@@ -506,11 +533,13 @@
 									variant="board-active"
 									editableTaskId={task.id}
 									compact={true}
+									showCancelButton={true}
 									showDoneButton={true}
 									showScheduleControls={true}
 									showNextDueTiming={false}
 									lastDonePlacement="schedule"
 									busyAction={busyTasks[task.id] || null}
+									onInactivate={handleCancelActive}
 									onDone={handleDone}
 									onScheduleChange={handleScheduleChange}
 									onSaveInstanceNote={handleSaveInstanceNote}
