@@ -588,9 +588,16 @@
 		<div class="nav-tools">
 			<ul class="desktop-route-list" aria-label="Primary">
 				{#each navLinks as link}
+					{@const NavIcon = link.icon}
 					<li>
-						<a href={resolve(link.href)} aria-current={isCurrent(link.href) ? 'page' : undefined}>
-							{link.label}
+						<a
+							href={resolve(link.href)}
+							aria-current={isCurrent(link.href) ? 'page' : undefined}
+							aria-label={link.label}
+							title={link.label}
+						>
+							<NavIcon size={20} strokeWidth={2.35} aria-hidden="true" />
+							<span>{link.label}</span>
 						</a>
 					</li>
 				{/each}
@@ -925,11 +932,11 @@
 	}
 
 	.desktop-route-list {
-		padding: 0.32rem;
+		padding: 0.28rem;
 		margin: 0;
 		display: flex;
 		align-items: stretch;
-		gap: 0.2rem;
+		gap: 0.16rem;
 		list-style: none;
 		background: var(--surface-1);
 		border: 1px solid var(--surface-border);
@@ -937,23 +944,46 @@
 		box-shadow: var(--surface-shadow), var(--surface-inset);
 	}
 
+	.desktop-route-list li {
+		min-width: 0;
+	}
+
 	.desktop-route-list a {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 0.72rem 1rem;
+		gap: 0.15rem;
+		width: clamp(4.1rem, 5.2vw, 5.35rem);
+		min-height: 2.72rem;
+		padding: 0.34rem 0.58rem 0.3rem;
 		border-radius: 999px;
 		color: var(--color-muted);
 		font-weight: 800;
-		font-size: 0.78rem;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
 		text-decoration: none;
 		transition:
 			color 0.2s ease,
 			background-color 0.2s ease,
 			transform 0.2s ease,
 			box-shadow 0.2s ease;
+	}
+
+	.desktop-route-list a svg {
+		width: 1.08rem;
+		height: 1.08rem;
+		flex: 0 0 auto;
+	}
+
+	.desktop-route-list a span {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.56rem;
+		font-weight: 900;
+		line-height: 1;
+		letter-spacing: 0;
+		text-transform: none;
 	}
 
 	.desktop-route-list a:hover {
