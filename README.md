@@ -1,17 +1,16 @@
 # task-monster
 
-Task Monster is a SvelteKit + Fastify + MongoDB task board built around a concrete daily flow:
+Task Monster is a SvelteKit + Fastify + MongoDB productivity app built around a narrow task flow: choose work for today, run it in Active, finish it into Done, and review the result in Stats. The board is split into `inactive`, `daymap`, `active`, `done`, and `stats` so planning, execution, and history stay separate.
 
-- `inactive`: backlog tasks not selected for today yet
-- `daymap`: tasks chosen for today but not active yet
-- `tasks`: combined daymap and inactive board, with each section kept separate under one search/sort control
-- `active`: tasks currently on the table
-- `done`: completed run history
-- `stats`: minute-map heatmaps and daily summaries derived from task/run history
+The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, panic tracking, and an authenticated AI drawer that can create, edit, complete, and summarize tasks through backend tools.
 
-It also supports timed tasks, tally tasks, session management, and a `panic` overlay that records off-the-rails time and subtracts it from effective task time.
+## Screenshots
 
-Authenticated app pages expose icon-only top-nav controls for AI, panic, and the account switcher; logout lives on the profile page. The account switcher stores multiple local session tokens for fast account switching, renders each saved account with that user's saved theme, and applies the switched user's theme automatically. The AI drawer talks to the backend with the current user session and now uses a smaller, higher-level tool surface: board snapshot previews, full-board filtered reads, task search, single and batch task creation, single and targeted batch task edits, shared bulk task edits, complete a run with corrected timing, control task state, adjust active tally counts, control panic mode, and summarize the day from real stats data. New task creation still has a duplicate guard against close matches already sitting in `inactive` or `daymap`, and the assistant is expected to present a `1 / 2 / 3` choice instead of silently creating a duplicate. Tasks also support optional `nextDueAt` and `lastCompletedAt` timing metadata; task cards show a compact last-done-to-next-due strip, and next due can be edited inline anywhere a task card provides editing.
+The current UI is easiest to recognize by the stats heatmap and compact task cards:
+
+![Task Monster stats view](docs/screenshots/task-monster-stats-dark.png)
+
+![Task Monster task card](docs/screenshots/task-monster-cleaning-card.png)
 
 ## Current app status
 
