@@ -260,6 +260,10 @@ export function inactivateTask(taskId) {
 	return runTaskAction(taskId, 'inactivate');
 }
 
+export function cancelActiveTask(taskId) {
+	return runTaskAction(taskId, 'cancel-active');
+}
+
 export function queueTask(taskId) {
 	return runTaskAction(taskId, 'queue');
 }

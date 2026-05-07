@@ -146,6 +146,9 @@ Notes:
 - Inactivate:
   - `POST /tasks/:taskId/inactivate`
   - closes the open run as `inactive`
+- Cancel active:
+  - `POST /tasks/:taskId/cancel-active`
+  - deletes the open run and returns the task to daymap without writing inactive history
 - Done:
   - `POST /tasks/:taskId/done`
   - closes the open run as `done`
@@ -167,6 +170,7 @@ Queue semantics:
 - queue order uses `queuePosition`
 - queueing a scheduled-only Day Map task materializes it with `mappedToday: true` before assigning queue order
 - when the last active task is removed by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
+- canceling an active task is treated as an undo and does not auto-activate the next queued task
 
 ## Active runtime behavior
 
@@ -261,6 +265,7 @@ Assistant request model:
 - route: `GET /assistant/history`
   - returns the most recent persisted messages for the authenticated user in chronological order
 - the backend currently uses the Chat Completions API shape, not the Responses API
+
 Assistant prompt policy:
 
 - use tools for all task-specific facts and all mutations

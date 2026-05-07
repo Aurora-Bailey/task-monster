@@ -18,8 +18,8 @@
 		storeTaskSort
 	} from '$lib/task-sort';
 	import {
+		cancelActiveTask,
 		doneTask,
-		inactivateTask,
 		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
@@ -314,12 +314,12 @@
 		}
 	}
 
-	async function handleInactivate(taskId) {
+	async function handleCancelActive(taskId) {
 		actionError = '';
-		setBusy(taskId, 'inactivate');
+		setBusy(taskId, 'cancel');
 
 		try {
-			await inactivateTask(taskId);
+			await cancelActiveTask(taskId);
 			const nextTasks = await loadActiveTasks();
 
 			if (nextTasks.length > 0) {
@@ -651,7 +651,7 @@
 							onSaveInstanceNote={handleSaveInstanceNote}
 							busyAction={getBusyAction(task.id)}
 							onDone={handleDone}
-							onInactivate={handleInactivate}
+							onInactivate={handleCancelActive}
 							onSaveNote={handleSaveNote}
 							onSaveNextDue={handleSaveNextDue}
 							onTally={handleTally}

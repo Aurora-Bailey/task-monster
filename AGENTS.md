@@ -182,6 +182,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Inactivate:
   - `POST /tasks/:taskId/inactivate`
   - closes the open run with `endingReason: 'inactive'`
+- Cancel active:
+  - `POST /tasks/:taskId/cancel-active`
+  - deletes the open run, restores the task to Daymap, and does not create started/abandoned history
 - Done:
   - `POST /tasks/:taskId/done`
   - closes the open run with `endingReason: 'done'`
@@ -211,6 +214,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Queue order uses `queuePosition`
 - Queueing a scheduled-only Daymap task sets `mappedToday: true` before assigning `queuePosition`
 - When the last active task is removed from the table by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
+- Canceling an active task is treated as an undo and does not auto-activate the next queued task
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`
 - Daymap lock is mainly meaningful for repeatable tasks because it controls whether `done` loops them back to the daymap
@@ -392,6 +396,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - clicking the visible `Next due` value opens an inline local datetime editor on tasks, active, and done pages
 - Active page includes:
   - tally increment and decrement controls
+  - cancel control that unstages an active task back to Daymap without logging an inactive run
   - done modal with direct local start and finish datetime editors
   - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input

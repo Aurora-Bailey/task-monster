@@ -79,6 +79,34 @@ async function closeOpenTaskRun(
 	);
 }
 
+async function deleteOpenTaskRun(db, { userId, taskId }) {
+	const openTaskRun = await db
+		.collection('task_runs')
+		.find({
+			userId: toObjectId(userId),
+			taskId: toObjectId(taskId),
+			endedAt: null
+		})
+		.sort({
+			startedAt: -1
+		})
+		.limit(1)
+		.next();
+
+	if (!openTaskRun) {
+		return null;
+	}
+
+	await db.collection('task_runs').deleteOne({
+		_id: openTaskRun._id,
+		userId: openTaskRun.userId,
+		taskId: openTaskRun.taskId,
+		endedAt: null
+	});
+
+	return openTaskRun;
+}
+
 async function createCompletedTaskRun(
 	db,
 	{
@@ -168,6 +196,7 @@ async function updateOpenTaskRunFields(
 module.exports = {
 	closeOpenTaskRun,
 	createCompletedTaskRun,
+	deleteOpenTaskRun,
 	openTaskRun,
 	updateOpenTaskRunFields,
 	updateOpenTaskRunInstanceNote,

@@ -1192,7 +1192,7 @@
 					disabled={busyAction !== null}
 					onclick={() => onInactivate(task.id)}
 				>
-					{busyAction === 'inactivate' ? 'Moving...' : 'Daymap'}
+					{busyAction === 'cancel' ? 'Canceling...' : 'Cancel'}
 				</button>
 				<button
 					class="action-button success-button"
