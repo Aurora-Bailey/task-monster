@@ -1111,6 +1111,7 @@
 	.header-utilities {
 		position: relative;
 		z-index: 1;
+		isolation: isolate;
 		justify-self: end;
 		display: flex;
 		align-items: center;
@@ -1131,6 +1132,9 @@
 	}
 
 	.utility-button {
+		--utility-hover-ring: color-mix(in srgb, var(--color-accent) 16%, transparent);
+		--utility-hover-shadow: color-mix(in srgb, var(--color-accent) 14%, transparent);
+
 		position: relative;
 		width: 2.74rem;
 		min-width: 2.74rem;
@@ -1147,19 +1151,28 @@
 		font: inherit;
 		text-decoration: none;
 		cursor: pointer;
+		transform-origin: center;
 		transition:
 			color 0.18s ease,
 			background-color 0.18s ease,
 			border-color 0.18s ease,
 			box-shadow 0.18s ease,
-			filter 0.18s ease,
-			transform 0.18s ease;
+			transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+		will-change: transform;
 	}
 
 	.utility-button:hover {
-		transform: translateY(-1px);
+		z-index: 2;
+		transform: scale(1.065);
 		color: var(--color-heading);
-		filter: brightness(1.04);
+		box-shadow:
+			0 0 0 1px var(--utility-hover-ring),
+			0 16px 32px var(--utility-hover-shadow),
+			var(--surface-shadow);
+	}
+
+	.utility-button:active {
+		transform: scale(0.975);
 	}
 
 	.utility-button:focus-visible {
@@ -1176,6 +1189,7 @@
 	}
 
 	.clock-button {
+		--clock-digital-color: var(--color-theme-2);
 		--clock-digital-colon-shadow: 0 0 6px color-mix(in srgb, var(--color-theme-2) 58%, transparent);
 		--clock-digital-day-shadow: 0 0 5px color-mix(in srgb, var(--color-theme-2) 38%, transparent);
 		--clock-digital-segment-shadow:
@@ -1206,6 +1220,7 @@
 		width: 3.72rem;
 		min-width: 3.72rem;
 		padding: 0 0.42rem;
+		background: color-mix(in srgb, var(--surface-3) 94%, var(--color-theme-2) 6%);
 	}
 
 	.clock-analog {
@@ -1324,7 +1339,7 @@
 	}
 
 	.clock-digit__segment.is-on {
-		background: linear-gradient(90deg, var(--color-theme-1), var(--color-theme-2));
+		background: var(--clock-digital-color);
 		box-shadow: var(--clock-digital-segment-shadow);
 		opacity: 1;
 	}
@@ -1390,14 +1405,14 @@
 		width: 0.08rem;
 		height: 0.08rem;
 		border-radius: 999px;
-		background: var(--color-theme-2);
+		background: var(--clock-digital-color);
 		box-shadow: var(--clock-digital-colon-shadow);
 	}
 
 	.clock-digital__day {
 		max-width: 100%;
 		overflow: hidden;
-		color: color-mix(in srgb, var(--color-theme-2) 78%, var(--color-muted));
+		color: color-mix(in srgb, var(--clock-digital-color) 78%, var(--color-muted));
 		font-family: var(--clock-digital-font);
 		font-size: 0.47rem;
 		font-weight: 900;
@@ -1416,6 +1431,8 @@
 		--panic-button-shadow: color-mix(in srgb, var(--color-warning) 28%, transparent);
 		--panic-button-start: var(--color-warning);
 		--panic-button-text: var(--color-accent-contrast);
+		--utility-hover-ring: color-mix(in srgb, var(--panic-button-start) 28%, transparent);
+		--utility-hover-shadow: var(--panic-button-shadow);
 
 		border: 0;
 		background: linear-gradient(135deg, var(--panic-button-start), var(--panic-button-end));
@@ -1443,7 +1460,6 @@
 	.panic-button.is-active {
 		background: linear-gradient(135deg, var(--panic-active-start), var(--panic-active-end));
 		box-shadow: 0 14px 28px var(--panic-active-shadow);
-		animation: panic-flash 0.9s ease-in-out infinite alternate;
 	}
 
 	:global(:root[data-theme='light']) .clock-button,
@@ -1830,19 +1846,6 @@
 		);
 		box-shadow: 0 14px 28px color-mix(in srgb, var(--color-danger) 26%, transparent);
 		color: var(--color-accent-contrast);
-	}
-
-	@keyframes panic-flash {
-		from {
-			filter: saturate(1) brightness(1);
-		}
-
-		to {
-			filter: saturate(1.18) brightness(1.18);
-			box-shadow:
-				0 0 0 3px color-mix(in srgb, var(--color-danger) 15%, transparent),
-				0 16px 30px color-mix(in srgb, var(--color-danger) 38%, transparent);
-		}
 	}
 
 	@media (max-width: 1024px) {
