@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { loadStatsHeatmap } from '$lib/stats-client';
@@ -339,50 +340,54 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if !hasDays}
-		<div class="message-card">
-			<strong>No day data</strong>
-			<p>No heatmap days came back from the server.</p>
-		</div>
+		<PageContentReveal>
+			<div class="message-card">
+				<strong>No day data</strong>
+				<p>No heatmap days came back from the server.</p>
+			</div>
+		</PageContentReveal>
 	{:else}
-		<div class="heatmap-stack">
-			{#each days as day}
-				<article class="day-card">
-					<header class="day-card__header">
-						<div>
-							<h2>{formatDayLabel(day.day)}</h2>
-							<p>{day.day}</p>
+		<PageContentReveal className="page-content-stack">
+			<div class="heatmap-stack">
+				{#each days as day}
+					<article class="day-card">
+						<header class="day-card__header">
+							<div>
+								<h2>{formatDayLabel(day.day)}</h2>
+								<p>{day.day}</p>
+							</div>
+							<strong>{getDaySummary(day)}</strong>
+						</header>
+
+						<div
+							class="minute-grid"
+							role="img"
+							aria-label={`${formatDayLabel(day.day)} minute activity map. ${getDaySummary(day)}.`}
+						>
+							{#each day.minutes as minute}
+								<span
+									class:minute-active={minute.active}
+									class="minute-cell"
+									style={minute.fill
+										? `--minute-fill: ${minute.fill}; --minute-glow: ${minute.glow};`
+										: ''}
+									title={minute.label}
+									aria-hidden="true"
+								></span>
+							{/each}
 						</div>
-						<strong>{getDaySummary(day)}</strong>
-					</header>
+					</article>
+				{/each}
+			</div>
 
-					<div
-						class="minute-grid"
-						role="img"
-						aria-label={`${formatDayLabel(day.day)} minute activity map. ${getDaySummary(day)}.`}
-					>
-						{#each day.minutes as minute}
-							<span
-								class:minute-active={minute.active}
-								class="minute-cell"
-								style={minute.fill
-									? `--minute-fill: ${minute.fill}; --minute-glow: ${minute.glow};`
-									: ''}
-								title={minute.label}
-								aria-hidden="true"
-							></span>
-						{/each}
-					</div>
-				</article>
-			{/each}
-		</div>
-
-		<div class="load-sentinel" bind:this={sentinel}>
-			{#if isLoadingMore}
-				<span class="page-spinner page-spinner--small" aria-label="Loading older days"></span>
-			{:else}
-				<span>Scroll for older days</span>
-			{/if}
-		</div>
+			<div class="load-sentinel" bind:this={sentinel}>
+				{#if isLoadingMore}
+					<span class="page-spinner page-spinner--small" aria-label="Loading older days"></span>
+				{:else}
+					<span>Scroll for older days</span>
+				{/if}
+			</div>
+		</PageContentReveal>
 	{/if}
 </section>
 

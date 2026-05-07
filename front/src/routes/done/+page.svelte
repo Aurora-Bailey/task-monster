@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -227,67 +228,72 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
-		<p class="machine-inscription">
-			<span>
-				{#if hasAnyBoardTasks}
-					No completed runs etched yet. <a href={resolve('/tasks')}>Stage a task</a>.
-				{:else}
-					No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
-				{/if}
-			</span>
-		</p>
+		<PageContentReveal>
+			<p class="machine-inscription">
+				<span>
+					{#if hasAnyBoardTasks}
+						No completed runs etched yet. <a href={resolve('/tasks')}>Stage a task</a>.
+					{:else}
+						No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
+					{/if}
+				</span>
+			</p>
+		</PageContentReveal>
 	{:else}
-		<TaskSortBar
-			value={sortMode}
-			onChange={(nextSortMode) => {
-				sortMode = nextSortMode;
-				storeTaskSort('done-feed', nextSortMode);
-			}}
-			searchValue={searchQuery}
-			onSearchChange={(nextSearchQuery) => {
-				searchQuery = nextSearchQuery;
-			}}
-		/>
+		<PageContentReveal className="page-content-stack">
+			<TaskSortBar
+				value={sortMode}
+				onChange={(nextSortMode) => {
+					sortMode = nextSortMode;
+					storeTaskSort('done-feed', nextSortMode);
+				}}
+				searchValue={searchQuery}
+				onSearchChange={(nextSearchQuery) => {
+					searchQuery = nextSearchQuery;
+				}}
+			/>
 
-		<div class="section-divider section-divider--primary">
-			<span></span>
-			<h1>Done</h1>
-			<span></span>
-		</div>
-
-		{#if sortedTasks.length === 0}
-			<div class="message-card">
-				<strong>No matching tasks</strong>
-				<p>Clear search to show the loaded done history.</p>
+			<div class="section-divider section-divider--primary">
+				<span></span>
+				<h1>Done</h1>
+				<span></span>
 			</div>
-		{:else}
-			<div class="task-grid">
-				{#each sortedTasks as task (task.id)}
-					<TaskCard
-						{task}
-						variant="done"
-						editableTaskId={task.taskId}
-						doneDurationLabel={formatDoneMeasure(task)}
-						doneTallyCount={task.tallyCount}
-						panicDurationLabel={formatPanicDuration(task)}
-						effectiveDurationLabel={formatEffectiveDuration(task)}
-						completedAtLabel={formatCompletedAt(task.completedAt)}
-						onSaveNote={handleSaveNote}
-						onSaveNextDue={handleSaveNextDue}
-					/>
-				{/each}
-			</div>
-		{/if}
 
-		<div class="load-sentinel" bind:this={sentinel}>
-			{#if isLoadingMore}
-				<span class="page-spinner page-spinner--small" aria-label="Loading older done tasks"></span>
-			{:else if hasMore}
-				<span>Scroll for older done tasks</span>
+			{#if sortedTasks.length === 0}
+				<div class="message-card">
+					<strong>No matching tasks</strong>
+					<p>Clear search to show the loaded done history.</p>
+				</div>
 			{:else}
-				<span>End of done history</span>
+				<div class="task-grid">
+					{#each sortedTasks as task (task.id)}
+						<TaskCard
+							{task}
+							variant="done"
+							editableTaskId={task.taskId}
+							doneDurationLabel={formatDoneMeasure(task)}
+							doneTallyCount={task.tallyCount}
+							panicDurationLabel={formatPanicDuration(task)}
+							effectiveDurationLabel={formatEffectiveDuration(task)}
+							completedAtLabel={formatCompletedAt(task.completedAt)}
+							onSaveNote={handleSaveNote}
+							onSaveNextDue={handleSaveNextDue}
+						/>
+					{/each}
+				</div>
 			{/if}
-		</div>
+
+			<div class="load-sentinel" bind:this={sentinel}>
+				{#if isLoadingMore}
+					<span class="page-spinner page-spinner--small" aria-label="Loading older done tasks"
+					></span>
+				{:else if hasMore}
+					<span>Scroll for older done tasks</span>
+				{:else}
+					<span>End of done history</span>
+				{/if}
+			</div>
+		</PageContentReveal>
 	{/if}
 </section>
 

@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 
+	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { readApiBody, readApiError } from '$lib/api';
 	import {
 		authorizedRequest,
@@ -270,130 +271,132 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else}
-		{#if loadError}
-			<div class="status-card error-card">
-				<strong>Could not load the profile</strong>
-				<p>{loadError}</p>
-			</div>
-		{/if}
-
-		{#if revokeError}
-			<div class="status-card error-card">
-				<strong>Could not void that session</strong>
-				<p>{revokeError}</p>
-			</div>
-		{/if}
-
-		<div class="section-grid">
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Sessions</p>
-						<h2>Active tokens</h2>
-					</div>
-					<span class="pill">{activeSessions.length} live</span>
+		<PageContentReveal className="page-content-stack">
+			{#if loadError}
+				<div class="status-card error-card">
+					<strong>Could not load the profile</strong>
+					<p>{loadError}</p>
 				</div>
+			{/if}
 
-				{#if activeSessions.length === 0}
-					<div class="empty-card">
-						<strong>No active sessions</strong>
-						<p>There are no non-revoked tokens attached to this account right now.</p>
-					</div>
-				{:else}
-					<div class="session-list">
-						{#each activeSessions as item}
-							<article class="session-card">
-								<div class="session-topline">
-									<div>
-										<h3>
-											{item.isCurrent ? 'This device' : `Session ending in ${item.tokenPreview}`}
-										</h3>
-										<p>{formatUserAgent(item.userAgent)}</p>
-									</div>
-									<span class:item-current={item.isCurrent} class="session-badge">
-										{item.isCurrent ? 'Current' : 'Active'}
-									</span>
-								</div>
-
-								<div class="session-meta">
-									<div>
-										<span>Created</span>
-										<strong>{formatDateTime(item.createdAt)}</strong>
-									</div>
-									<div>
-										<span>Last used</span>
-										<strong>{formatDateTime(item.lastUsedAt)}</strong>
-									</div>
-									<div>
-										<span>IP address</span>
-										<strong>{item.lastUsedIp || 'Unknown'}</strong>
-									</div>
-								</div>
-
-								<button
-									class="void-button"
-									type="button"
-									disabled={revokingSessionId === item.id}
-									onclick={() => handleRevoke(item.id)}
-								>
-									{#if revokingSessionId === item.id}
-										Voiding...
-									{:else if item.isCurrent}
-										Log out this device
-									{:else}
-										Void session
-									{/if}
-								</button>
-							</article>
-						{/each}
-					</div>
-				{/if}
-			</section>
-
-			<section class="panel">
-				<div class="panel-header">
-					<div>
-						<p class="section-label">Security</p>
-						<h2>Recent login attempts</h2>
-					</div>
-					<span class="pill muted-pill">{loginAttempts.length} recent</span>
+			{#if revokeError}
+				<div class="status-card error-card">
+					<strong>Could not void that session</strong>
+					<p>{revokeError}</p>
 				</div>
+			{/if}
 
-				{#if loginAttempts.length === 0}
-					<div class="empty-card">
-						<strong>No attempts recorded yet</strong>
-						<p>Once this account starts getting used, recent login traffic will show up here.</p>
+			<div class="section-grid">
+				<section class="panel">
+					<div class="panel-header">
+						<div>
+							<p class="section-label">Sessions</p>
+							<h2>Active tokens</h2>
+						</div>
+						<span class="pill">{activeSessions.length} live</span>
 					</div>
-				{:else}
-					<div class="attempt-list">
-						{#each loginAttempts as attempt}
-							<article class="attempt-card">
-								<div class="attempt-topline">
-									<div>
-										<h3>{formatDateTime(attempt.createdAt)}</h3>
-										<p>{formatUserAgent(attempt.userAgent)}</p>
-									</div>
-									<span class={`pill ${outcomeClass(attempt.outcome)}`}>
-										{describeOutcome(attempt.outcome)}
-									</span>
-								</div>
 
-								<div class="attempt-meta">
-									<div>
-										<span>IP address</span>
-										<strong>{attempt.ipAddress || 'Unknown'}</strong>
+					{#if activeSessions.length === 0}
+						<div class="empty-card">
+							<strong>No active sessions</strong>
+							<p>There are no non-revoked tokens attached to this account right now.</p>
+						</div>
+					{:else}
+						<div class="session-list">
+							{#each activeSessions as item}
+								<article class="session-card">
+									<div class="session-topline">
+										<div>
+											<h3>
+												{item.isCurrent ? 'This device' : `Session ending in ${item.tokenPreview}`}
+											</h3>
+											<p>{formatUserAgent(item.userAgent)}</p>
+										</div>
+										<span class:item-current={item.isCurrent} class="session-badge">
+											{item.isCurrent ? 'Current' : 'Active'}
+										</span>
 									</div>
-									<div>
-										<span>Outcome</span>
-										<strong>{describeOutcome(attempt.outcome)}</strong>
+
+									<div class="session-meta">
+										<div>
+											<span>Created</span>
+											<strong>{formatDateTime(item.createdAt)}</strong>
+										</div>
+										<div>
+											<span>Last used</span>
+											<strong>{formatDateTime(item.lastUsedAt)}</strong>
+										</div>
+										<div>
+											<span>IP address</span>
+											<strong>{item.lastUsedIp || 'Unknown'}</strong>
+										</div>
 									</div>
-								</div>
-							</article>
-						{/each}
+
+									<button
+										class="void-button"
+										type="button"
+										disabled={revokingSessionId === item.id}
+										onclick={() => handleRevoke(item.id)}
+									>
+										{#if revokingSessionId === item.id}
+											Voiding...
+										{:else if item.isCurrent}
+											Log out this device
+										{:else}
+											Void session
+										{/if}
+									</button>
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+
+				<section class="panel">
+					<div class="panel-header">
+						<div>
+							<p class="section-label">Security</p>
+							<h2>Recent login attempts</h2>
+						</div>
+						<span class="pill muted-pill">{loginAttempts.length} recent</span>
 					</div>
-				{/if}
-			</section>
-		</div>
+
+					{#if loginAttempts.length === 0}
+						<div class="empty-card">
+							<strong>No attempts recorded yet</strong>
+							<p>Once this account starts getting used, recent login traffic will show up here.</p>
+						</div>
+					{:else}
+						<div class="attempt-list">
+							{#each loginAttempts as attempt}
+								<article class="attempt-card">
+									<div class="attempt-topline">
+										<div>
+											<h3>{formatDateTime(attempt.createdAt)}</h3>
+											<p>{formatUserAgent(attempt.userAgent)}</p>
+										</div>
+										<span class={`pill ${outcomeClass(attempt.outcome)}`}>
+											{describeOutcome(attempt.outcome)}
+										</span>
+									</div>
+
+									<div class="attempt-meta">
+										<div>
+											<span>IP address</span>
+											<strong>{attempt.ipAddress || 'Unknown'}</strong>
+										</div>
+										<div>
+											<span>Outcome</span>
+											<strong>{describeOutcome(attempt.outcome)}</strong>
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			</div>
+		</PageContentReveal>
 	{/if}
 </section>
 

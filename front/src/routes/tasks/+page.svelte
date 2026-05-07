@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import {
@@ -457,141 +458,143 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else}
-		<div class="tasks-toolbar">
-			<TaskSortBar
-				value={sortMode}
-				options={DAYMAP_TASK_SORT_OPTIONS}
-				onChange={(nextSortMode) => {
-					sortMode = nextSortMode;
-					storeTaskSort('tasks', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
-				}}
-				searchValue={searchQuery}
-				searchPlaceholder="Search board"
-				onSearchChange={(nextSearchQuery) => {
-					searchQuery = nextSearchQuery;
-				}}
-			/>
-		</div>
-
-		{#if !hasAnyTasks}
-			<p class="machine-inscription">
-				<span>No task backlog installed. <a href={resolve('/add')}>Add the first task</a>.</span>
-			</p>
-		{:else if !hasAnyMatches}
-			<div class="message-card">
-				<strong>No matching tasks</strong>
-				<p>Clear search to show the full board.</p>
+		<PageContentReveal className="page-content-stack">
+			<div class="tasks-toolbar">
+				<TaskSortBar
+					value={sortMode}
+					options={DAYMAP_TASK_SORT_OPTIONS}
+					onChange={(nextSortMode) => {
+						sortMode = nextSortMode;
+						storeTaskSort('tasks', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
+					}}
+					searchValue={searchQuery}
+					searchPlaceholder="Search board"
+					onSearchChange={(nextSearchQuery) => {
+						searchQuery = nextSearchQuery;
+					}}
+				/>
 			</div>
-		{/if}
 
-		{#if activeTasks.length > 0}
-			<section class="task-section task-section-active" aria-labelledby="tasks-active-heading">
-				<div class="section-divider section-divider--primary">
+			{#if !hasAnyTasks}
+				<p class="machine-inscription">
+					<span>No task backlog installed. <a href={resolve('/add')}>Add the first task</a>.</span>
+				</p>
+			{:else if !hasAnyMatches}
+				<div class="message-card">
+					<strong>No matching tasks</strong>
+					<p>Clear search to show the full board.</p>
+				</div>
+			{/if}
+
+			{#if activeTasks.length > 0}
+				<section class="task-section task-section-active" aria-labelledby="tasks-active-heading">
+					<div class="section-divider section-divider--primary">
+						<span></span>
+						<h2 id="tasks-active-heading">Active</h2>
+						<span></span>
+					</div>
+
+					{#if sortedActiveTasks.length === 0}
+						<div class="section-empty">
+							<p>No active matches.</p>
+						</div>
+					{:else}
+						<div class="task-grid">
+							{#each sortedActiveTasks as task}
+								<TaskCard
+									{task}
+									variant="board-active"
+									editableTaskId={task.id}
+									compact={true}
+									showDoneButton={true}
+									showScheduleControls={true}
+									showNextDueTiming={false}
+									lastDonePlacement="schedule"
+									busyAction={busyTasks[task.id] || null}
+									onDone={handleDone}
+									onScheduleChange={handleScheduleChange}
+									onSaveInstanceNote={handleSaveInstanceNote}
+									onSaveNote={handleSaveNote}
+								/>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
+
+			<section class="task-section" aria-labelledby="tasks-daymap-heading">
+				<div class="section-divider">
 					<span></span>
-					<h2 id="tasks-active-heading">Active</h2>
+					<h2 id="tasks-daymap-heading">Day Map</h2>
 					<span></span>
 				</div>
 
-				{#if sortedActiveTasks.length === 0}
+				{#if sortedDaymapTasks.length === 0}
 					<div class="section-empty">
-						<p>No active matches.</p>
+						<p>{searchQuery ? 'No daymap matches.' : 'No tasks on the daymap yet.'}</p>
 					</div>
 				{:else}
 					<div class="task-grid">
-						{#each sortedActiveTasks as task}
+						{#each sortedDaymapTasks as task}
 							<TaskCard
 								{task}
-								variant="board-active"
+								variant="daymap"
 								editableTaskId={task.id}
 								compact={true}
-								showDoneButton={true}
+								showDaymapToggle={true}
+								showActivateButton={true}
 								showScheduleControls={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
-								onDone={handleDone}
+								onDaymapToggle={() => handleMoveToInactive(task.id)}
+								onActivate={() => handleActivate(task.id)}
+								onToggleDaymapLock={handleDaymapLockToggle}
+								onQueueToggle={handleQueueToggle}
 								onScheduleChange={handleScheduleChange}
-								onSaveInstanceNote={handleSaveInstanceNote}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}
 					</div>
 				{/if}
 			</section>
-		{/if}
 
-		<section class="task-section" aria-labelledby="tasks-daymap-heading">
-			<div class="section-divider">
-				<span></span>
-				<h2 id="tasks-daymap-heading">Day Map</h2>
-				<span></span>
-			</div>
+			<section class="task-section" aria-labelledby="tasks-inactive-heading">
+				<div class="section-divider">
+					<span></span>
+					<h2 id="tasks-inactive-heading">Inactive</h2>
+					<span></span>
+				</div>
 
-			{#if sortedDaymapTasks.length === 0}
-				<div class="section-empty">
-					<p>{searchQuery ? 'No daymap matches.' : 'No tasks on the daymap yet.'}</p>
-				</div>
-			{:else}
-				<div class="task-grid">
-					{#each sortedDaymapTasks as task}
-						<TaskCard
-							{task}
-							variant="daymap"
-							editableTaskId={task.id}
-							compact={true}
-							showDaymapToggle={true}
-							showActivateButton={true}
-							showScheduleControls={true}
-							showNextDueTiming={false}
-							lastDonePlacement="schedule"
-							busyAction={busyTasks[task.id] || null}
-							onDaymapToggle={() => handleMoveToInactive(task.id)}
-							onActivate={() => handleActivate(task.id)}
-							onToggleDaymapLock={handleDaymapLockToggle}
-							onQueueToggle={handleQueueToggle}
-							onScheduleChange={handleScheduleChange}
-							onSaveNote={handleSaveNote}
-						/>
-					{/each}
-				</div>
-			{/if}
-		</section>
-
-		<section class="task-section" aria-labelledby="tasks-inactive-heading">
-			<div class="section-divider">
-				<span></span>
-				<h2 id="tasks-inactive-heading">Inactive</h2>
-				<span></span>
-			</div>
-
-			{#if sortedInactiveTasks.length === 0}
-				<div class="section-empty">
-					<p>{searchQuery ? 'No inactive matches.' : 'No inactive tasks waiting in reserve.'}</p>
-				</div>
-			{:else}
-				<div class="task-grid">
-					{#each sortedInactiveTasks as task}
-						<TaskCard
-							{task}
-							editableTaskId={task.id}
-							compact={true}
-							showDaymapToggle={true}
-							showActivateButton={true}
-							showScheduleControls={true}
-							showNextDueTiming={false}
-							lastDonePlacement="schedule"
-							busyAction={busyTasks[task.id] || null}
-							showArchiveButton={true}
-							onDaymapToggle={() => handleMoveToDaymap(task.id)}
-							onActivate={() => handleActivate(task.id)}
-							onArchive={handleArchive}
-							onScheduleChange={handleScheduleChange}
-							onSaveNote={handleSaveNote}
-						/>
-					{/each}
-				</div>
-			{/if}
-		</section>
+				{#if sortedInactiveTasks.length === 0}
+					<div class="section-empty">
+						<p>{searchQuery ? 'No inactive matches.' : 'No inactive tasks waiting in reserve.'}</p>
+					</div>
+				{:else}
+					<div class="task-grid">
+						{#each sortedInactiveTasks as task}
+							<TaskCard
+								{task}
+								editableTaskId={task.id}
+								compact={true}
+								showDaymapToggle={true}
+								showActivateButton={true}
+								showScheduleControls={true}
+								showNextDueTiming={false}
+								lastDonePlacement="schedule"
+								busyAction={busyTasks[task.id] || null}
+								showArchiveButton={true}
+								onDaymapToggle={() => handleMoveToDaymap(task.id)}
+								onActivate={() => handleActivate(task.id)}
+								onArchive={handleArchive}
+								onScheduleChange={handleScheduleChange}
+								onSaveNote={handleSaveNote}
+							/>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		</PageContentReveal>
 	{/if}
 </section>
 

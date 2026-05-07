@@ -5,6 +5,7 @@
 	import { onMount, tick } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -601,60 +602,64 @@
 			<span class="page-spinner" aria-hidden="true"></span>
 		</div>
 	{:else if tasks.length === 0}
-		<p class="machine-inscription">
-			<span>
-				{#if hasAnyBoardTasks}
-					No active tasks on deck. <a href={resolve('/tasks')}>Choose one from tasks</a>.
-				{:else}
-					No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
-				{/if}
-			</span>
-		</p>
+		<PageContentReveal>
+			<p class="machine-inscription">
+				<span>
+					{#if hasAnyBoardTasks}
+						No active tasks on deck. <a href={resolve('/tasks')}>Choose one from tasks</a>.
+					{:else}
+						No tasks installed. <a href={resolve('/add')}>Add the first task</a>.
+					{/if}
+				</span>
+			</p>
+		</PageContentReveal>
 	{:else}
-		<TaskSortBar
-			value={sortMode}
-			onChange={(nextSortMode) => {
-				sortMode = nextSortMode;
-				storeTaskSort('active', nextSortMode);
-			}}
-			searchValue={searchQuery}
-			onSearchChange={(nextSearchQuery) => {
-				searchQuery = nextSearchQuery;
-			}}
-		/>
+		<PageContentReveal className="page-content-stack">
+			<TaskSortBar
+				value={sortMode}
+				onChange={(nextSortMode) => {
+					sortMode = nextSortMode;
+					storeTaskSort('active', nextSortMode);
+				}}
+				searchValue={searchQuery}
+				onSearchChange={(nextSearchQuery) => {
+					searchQuery = nextSearchQuery;
+				}}
+			/>
 
-		<div class="section-divider section-divider--primary">
-			<span></span>
-			<h1>Active</h1>
-			<span></span>
-		</div>
+			<div class="section-divider section-divider--primary">
+				<span></span>
+				<h1>Active</h1>
+				<span></span>
+			</div>
 
-		{#if sortedTasks.length === 0}
-			<div class="message-card">
-				<strong>No matching tasks</strong>
-				<p>Clear search to show all active tasks.</p>
-			</div>
-		{:else}
-			<div class="task-grid">
-				{#each sortedTasks as task}
-					<TaskCard
-						{task}
-						variant="active"
-						editableTaskId={task.id}
-						activeDurationLabel={getActiveDurationLabel(task)}
-						panicDurationLabel={getPanicDurationLabel(task)}
-						effectiveDurationLabel={getEffectiveDurationLabel(task)}
-						onSaveInstanceNote={handleSaveInstanceNote}
-						busyAction={getBusyAction(task.id)}
-						onDone={handleDone}
-						onInactivate={handleInactivate}
-						onSaveNote={handleSaveNote}
-						onSaveNextDue={handleSaveNextDue}
-						onTally={handleTally}
-					/>
-				{/each}
-			</div>
-		{/if}
+			{#if sortedTasks.length === 0}
+				<div class="message-card">
+					<strong>No matching tasks</strong>
+					<p>Clear search to show all active tasks.</p>
+				</div>
+			{:else}
+				<div class="task-grid">
+					{#each sortedTasks as task}
+						<TaskCard
+							{task}
+							variant="active"
+							editableTaskId={task.id}
+							activeDurationLabel={getActiveDurationLabel(task)}
+							panicDurationLabel={getPanicDurationLabel(task)}
+							effectiveDurationLabel={getEffectiveDurationLabel(task)}
+							onSaveInstanceNote={handleSaveInstanceNote}
+							busyAction={getBusyAction(task.id)}
+							onDone={handleDone}
+							onInactivate={handleInactivate}
+							onSaveNote={handleSaveNote}
+							onSaveNextDue={handleSaveNextDue}
+							onTally={handleTally}
+						/>
+					{/each}
+				</div>
+			{/if}
+		</PageContentReveal>
 	{/if}
 </section>
 
