@@ -51,7 +51,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - backend loads `../.env` at startup
   - frontend Vite config points `envDir` at the repo root
   - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
-- `/` is now a public marketing landing page
+- `/` is now a minimalist public marketing landing page that uses current product screenshots
 - `/demo-board` is also public and currently acts as a product-screen tour without requiring auth
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
@@ -295,6 +295,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - protected routes still wait for session initialization before redirecting guests
 - Marketing visuals used by the public landing/product-tour pages live in:
   - `front/static/images/marketing/`
+  - named `hero-*`, `add-*`, `mobile-*`, `home-*`, and `demo-*` PNG screenshots are the current marketing-page source images
 - Session storage and authorized fetch helpers:
   - `front/src/lib/session.js`
   - stores the active token under `task_monster_session_token`
@@ -329,9 +330,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 ## Main frontend routes
 
 - `/`
-  - public landing page with marketing copy and signup/login CTA
+  - minimalist public landing page with marketing copy, signup/login CTA, and real product screenshots
 - `/demo-board`
-  - public product-tour page using marketing visuals and product-screen references
+  - public product-tour page using current Daymap, Active, Add, Stats, and Profile screenshots
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -359,8 +360,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 ## Current UI behavior worth knowing
 
-- `/` is a public landing page, not a redirect anymore
-- `/demo-board` now holds the product-screen tour that replaced the old simulated board demo
+- `/` is a minimalist public landing page, not a redirect anymore
+- `/demo-board` now holds the screenshot-based product tour that replaced the old simulated board demo
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes

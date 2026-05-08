@@ -6,17 +6,21 @@ The app also supports timed tasks, tally tasks, multiple local account sessions,
 
 ## Screenshots
 
-The current UI is easiest to recognize by the stats heatmap and compact task cards:
+The current UI is easiest to recognize by the task board, active sessions, and stats heatmap:
 
-![Task Monster stats view](docs/screenshots/task-monster-stats-dark.png)
+![Task Monster tasks board](docs/screenshots/task-monster-tasks-light.png)
 
-![Task Monster task card](docs/screenshots/task-monster-cleaning-card.png)
+![Task Monster active sessions](docs/screenshots/task-monster-active-light.png)
+
+![Task Monster stats view](docs/screenshots/task-monster-stats-light.png)
 
 ## Current app status
 
 - Public frontend routes:
   - `/`
+    - minimalist public homepage using current product screenshots
   - `/demo-board`
+    - public product tour using the same marketing screenshot set
   - `/auth`
   - `/privacy`
   - `/terms`
@@ -112,8 +116,9 @@ Public routes:
 Public frontend routes:
 
 - `/`
+  - minimalist public homepage with product positioning, CTA, and real screenshots from `front/static/images/marketing/`
 - `/demo-board`
-  - public product tour page using marketing visuals and product-screen references
+  - public product tour page using current Daymap, Active, Add, Stats, and Profile screenshots
 - `/auth`
 - `/privacy`
 - `/terms`

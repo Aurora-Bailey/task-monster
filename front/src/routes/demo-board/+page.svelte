@@ -5,177 +5,272 @@
 
 	const primaryHref = $derived($session.status === 'authenticated' ? '/active' : '/auth');
 	const primaryLabel = $derived(
-		$session.status === 'authenticated' ? 'Open your table' : 'Create account'
+		$session.status === 'authenticated' ? 'Open Task Monster' : 'Create account'
 	);
 
 	const marketingImages = {
-		daymap: resolve('/images/marketing/daymap-board.png'),
-		active: resolve('/images/marketing/active-run.svg'),
-		add: resolve('/images/marketing/add-task-builder.svg'),
-		notes: resolve('/images/marketing/task-note-surface.png')
+		tasks: resolve('/images/marketing/demo-tasks.png'),
+		active: resolve('/images/marketing/demo-active.png'),
+		add: resolve('/images/marketing/demo-add.png'),
+		stats: resolve('/images/marketing/demo-stats.png'),
+		profile: resolve('/images/marketing/home-profile.png')
 	};
+
+	const tourSections = [
+		{
+			kicker: 'Daymap',
+			title: 'Separate what belongs today from everything else.',
+			copy: 'The Tasks board keeps Active work and Daymap work visible without collapsing the backlog into the same mental bucket.',
+			image: marketingImages.tasks,
+			alt: 'Task Monster tasks page with active tasks above daymap task cards.'
+		},
+		{
+			kicker: 'Active',
+			title: 'Run sessions with notes, timers, and completion controls in reach.',
+			copy: 'Active cards keep task notes and instance notes apart, then record exact runtime when the work is done.',
+			image: marketingImages.active,
+			alt: 'Task Monster active page showing two running tasks with notes and timer data.'
+		},
+		{
+			kicker: 'Build',
+			title: 'Create the task with its behavior already attached.',
+			copy: 'Choose mode, tracking type, color, automatic Daymap weekdays, tally settings, and persistent notes before the task enters the board.',
+			image: marketingImages.add,
+			alt: 'Task Monster add page showing task setup controls.'
+		},
+		{
+			kicker: 'Review',
+			title: 'The stats page turns sessions into a readable day record.',
+			copy: 'Minute-map heatmaps make long days scannable and show overlaps by category instead of hiding the evidence in a simple completion count.',
+			image: marketingImages.stats,
+			alt: 'Task Monster dark stats page showing a colored minute-map heatmap.'
+		}
+	];
 </script>
 
 <svelte:head>
 	<title>Task Monster Product Tour</title>
 	<meta
 		name="description"
-		content="Public product tour of Task Monster, including daymap, active runtime, task building, and note surfaces."
+		content="A public product tour of Task Monster's Daymap, Active, task creation, stats, and account theme surfaces."
 	/>
 </svelte:head>
 
-<section class="demo-shell">
-	<div class="demo-hero">
-		<p class="eyebrow">Public product tour</p>
-		<h1>See the actual surfaces that make the system work.</h1>
-		<p class="lede">
-			This page is a quick visual walkthrough of the core product: daymapping, active runtime, task
-			setup, and note structure through current product-screen references.
-		</p>
+<section class="tour-shell">
+	<nav class="tour-nav" aria-label="Primary">
+		<a class="brand" href={resolve('/')}>Task Monster</a>
+
+		<div class="nav-links">
+			<a href={resolve('/')}>Home</a>
+			<a href="#tour">Tour</a>
+			<a href="#account">Account</a>
+			<a class="nav-login" href={resolve('/auth')}>Log in</a>
+		</div>
+	</nav>
+
+	<header class="tour-hero">
+		<div class="hero-copy">
+			<p class="eyebrow">Product tour</p>
+			<h1>See the board before you sign in.</h1>
+			<p>
+				Task Monster is built around a few durable surfaces: Daymap, Active, Done, Stats, and
+				account-backed theme controls.
+			</p>
+
+			<div class="hero-actions">
+				<a class="primary-action" href={resolve(primaryHref)}>{primaryLabel}</a>
+				<a class="secondary-action" href={resolve('/')}>Back to home</a>
+			</div>
+		</div>
+
+		<figure class="hero-shot">
+			<img
+				src={marketingImages.tasks}
+				alt="Task Monster overview showing active and daymap task cards."
+			/>
+		</figure>
+	</header>
+
+	<div class="tour-list" id="tour">
+		{#each tourSections as section, index}
+			<section class:reverse={index % 2 === 1} class="tour-section">
+				<div class="section-copy">
+					<p class="eyebrow">{section.kicker}</p>
+					<h2>{section.title}</h2>
+					<p>{section.copy}</p>
+				</div>
+
+				<figure class="product-shot">
+					<img src={section.image} alt={section.alt} loading="lazy" />
+				</figure>
+			</section>
+		{/each}
+	</div>
+
+	<section class="account-section" id="account">
+		<div class="section-copy">
+			<p class="eyebrow">Account</p>
+			<h2>The theme follows the account, not just the browser.</h2>
+			<p>
+				Profile keeps live sessions, recent login activity, and the account theme picker in one
+				place. Stored local accounts can switch without losing their saved skin.
+			</p>
+		</div>
+
+		<figure class="product-shot">
+			<img
+				src={marketingImages.profile}
+				alt="Task Monster profile page showing account session and theme controls."
+				loading="lazy"
+			/>
+		</figure>
+	</section>
+
+	<section class="tour-cta">
+		<p class="eyebrow">Next</p>
+		<h2>Use the app or return to the homepage.</h2>
 
 		<div class="hero-actions">
 			<a class="primary-action" href={resolve(primaryHref)}>{primaryLabel}</a>
-			<a class="secondary-action" href={resolve('/')}>Back to home</a>
+			<a class="secondary-action" href={resolve('/')}>Home</a>
 		</div>
-	</div>
-
-	<figure class="shot-frame hero-shot">
-		<img
-			src={marketingImages.daymap}
-			alt="Task Monster daymap screen showing staged task cards and sort controls."
-		/>
-	</figure>
-
-	<div class="tour-grid">
-		<article class="tour-card wide">
-			<div class="tour-copy">
-				<p class="card-index">I</p>
-				<h2>Daymap is the staging layer between backlog and action.</h2>
-				<p>
-					Instead of activating directly from an endless list, Task Monster gives today its own
-					surface. That keeps planning visible without pretending every captured task is already
-					live.
-				</p>
-			</div>
-		</article>
-
-		<article class="tour-card">
-			<figure class="shot-frame">
-				<img
-					src={marketingImages.active}
-					alt="Task Monster active task screen showing timer, notes, panic time, and done controls."
-					loading="lazy"
-				/>
-			</figure>
-			<div class="tour-copy">
-				<p class="card-index">II</p>
-				<h2>Active runtime keeps the session honest.</h2>
-				<p>
-					Elapsed time, panic overlap, effective time, and run notes all stay attached to the live
-					task instead of being scattered into separate utilities.
-				</p>
-			</div>
-		</article>
-
-		<article class="tour-card">
-			<figure class="shot-frame">
-				<img
-					src={marketingImages.add}
-					alt="Task Monster add-task builder showing color selection, task type, and tracking mode."
-					loading="lazy"
-				/>
-			</figure>
-			<div class="tour-copy">
-				<p class="card-index">III</p>
-				<h2>Tasks are configured for the workflow they belong to.</h2>
-				<p>
-					You can define type, color, tracking mode, and notes up front so the system behaves
-					differently for different categories of work.
-				</p>
-			</div>
-		</article>
-
-		<article class="tour-card">
-			<figure class="shot-frame">
-				<img
-					src={marketingImages.notes}
-					alt="Task Monster task note surface showing a persistent note area."
-					loading="lazy"
-				/>
-			</figure>
-			<div class="tour-copy">
-				<p class="card-index">IV</p>
-				<h2>Notes live where they make sense later.</h2>
-				<p>
-					Persistent task context belongs on the task itself, while session detail can live on the
-					run. The distinction sounds small, but it makes history much easier to trust.
-				</p>
-			</div>
-		</article>
-	</div>
+	</section>
 </section>
 
 <style>
-	.demo-shell {
-		display: grid;
-		gap: 1.4rem;
-		padding: 1rem 0 2.6rem;
-		--marketing-display: 'Avenir Next', 'Helvetica Neue', 'Segoe UI', sans-serif;
+	:global(body) {
+		background-color: var(--app-bg-color);
+		background-image: var(--app-bg-image);
 	}
 
-	.demo-hero {
-		display: grid;
-		gap: 0.8rem;
-		max-width: 48rem;
+	:global(.marketing-main) {
+		max-width: none;
+		padding-right: 0;
+		padding-left: 0;
 	}
 
-	.eyebrow,
-	.card-index {
+	.tour-shell {
+		--ink: var(--color-heading);
+		--muted: var(--color-muted);
+		--line: var(--surface-border-strong);
+		--marketing-panel: var(--surface-2);
+		--marketing-panel-strong: var(--surface-3);
+		width: 100%;
+		color: var(--color-text);
+		background: transparent;
+	}
+
+	.tour-nav {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		width: min(1120px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 1rem 0;
+	}
+
+	.brand,
+	.nav-links a,
+	.primary-action,
+	.secondary-action {
+		text-decoration: none;
+		font-weight: 750;
+	}
+
+	.brand {
+		color: var(--ink);
+		font-size: 1rem;
+		letter-spacing: 0.02em;
+	}
+
+	.nav-links {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.25rem;
+		flex-wrap: wrap;
+	}
+
+	.nav-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.4rem;
+		padding: 0 0.75rem;
+		border-radius: 999px;
+		color: var(--color-muted);
+	}
+
+	.nav-links a:hover {
+		background: var(--surface-muted);
+		color: var(--ink);
+	}
+
+	.nav-links .nav-login {
+		border: 1px solid var(--line);
+		background: var(--surface-2);
+		color: var(--ink);
+	}
+
+	.tour-hero {
+		display: grid;
+		grid-template-columns: minmax(22rem, 0.9fr) minmax(0, 1.1fr);
+		gap: 2rem;
+		align-items: center;
+		width: min(1120px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 4rem 0 5rem;
+		border-top: 1px solid var(--line);
+	}
+
+	.hero-copy,
+	.section-copy,
+	.tour-cta {
+		display: grid;
+		gap: 0.9rem;
+	}
+
+	.eyebrow {
 		margin: 0;
-		font-family: var(--font-mono);
-		font-size: 0.78rem;
-		font-weight: 700;
+		color: var(--color-accent);
+		font-size: 0.74rem;
+		font-weight: 850;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: rgba(88, 123, 154, 0.88);
 	}
 
 	h1,
-	h2 {
+	h2,
+	p,
+	figure {
 		margin: 0;
-		text-align: left;
-		font-family: var(--marketing-display);
-		letter-spacing: -0.05em;
-		color: rgba(8, 18, 28, 0.92);
 	}
 
 	h1 {
-		font-size: clamp(2.7rem, 6vw, 4.6rem);
-		line-height: 0.94;
-		max-width: 11ch;
+		max-width: 17ch;
+		font-size: 3.15rem;
+		line-height: 1.1;
+		letter-spacing: 0;
 	}
 
 	h2 {
-		font-size: 1.12rem;
-		line-height: 1.1;
+		font-size: 2.45rem;
+		line-height: 1.08;
+		letter-spacing: 0;
 	}
 
-	.lede {
-		margin: 0;
-		line-height: 1.65;
-		color: rgba(10, 20, 30, 0.68);
-	}
-
-	.lede {
-		max-width: 42rem;
-		font-size: 1.03rem;
+	.hero-copy p,
+	.section-copy p,
+	.tour-cta {
+		color: var(--muted);
+		line-height: 1.62;
 	}
 
 	.hero-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.8rem;
-		padding-top: 0.25rem;
+		gap: 0.75rem;
+		padding-top: 0.2rem;
 	}
 
 	.primary-action,
@@ -183,96 +278,157 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 2.9rem;
-		padding: 0.85rem 1.15rem;
+		min-height: 3rem;
+		padding: 0 1.2rem;
 		border-radius: 999px;
-		text-decoration: none;
-		font-weight: 800;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		transition:
+			transform 0.16s ease,
+			box-shadow 0.16s ease,
+			background 0.16s ease;
 	}
 
 	.primary-action {
-		background: linear-gradient(135deg, #3c6d9d, #8bc0f2);
-		color: rgba(247, 251, 255, 0.96);
-		box-shadow: 0 16px 32px rgba(58, 109, 159, 0.24);
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: var(--surface-shadow);
 	}
 
 	.secondary-action {
-		border: 1px solid rgba(64, 117, 166, 0.18);
-		background: rgba(255, 255, 255, 0.56);
-		color: rgba(8, 18, 28, 0.78);
+		border: 1px solid var(--line);
+		background: var(--marketing-panel);
+		color: var(--ink);
 	}
 
-	.shot-frame {
-		margin: 0;
+	.primary-action:hover,
+	.secondary-action:hover {
+		transform: translateY(-1px);
+	}
+
+	.hero-shot,
+	.product-shot {
 		overflow: hidden;
-		border-radius: 26px;
-		border: 1px solid rgba(177, 208, 232, 0.2);
-		background: rgba(255, 255, 255, 0.92);
-		box-shadow:
-			0 26px 56px rgba(43, 61, 80, 0.12),
-			inset 0 1px 0 rgba(255, 255, 255, 0.94);
+		border: 1px solid var(--surface-border);
+		border-radius: 8px;
+		background: var(--marketing-panel-strong);
+		box-shadow: var(--surface-shadow-strong);
 	}
 
-	.shot-frame img {
+	.hero-shot img,
+	.product-shot img {
 		display: block;
 		width: 100%;
 		height: auto;
 	}
 
-	.hero-shot {
-		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 247, 252, 0.9)),
-			radial-gradient(circle at top, rgba(96, 152, 206, 0.08), transparent 55%);
-	}
-
-	.tour-grid {
+	.tour-list {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 1rem;
+		gap: 0;
+		border-top: 1px solid var(--line);
 	}
 
-	.tour-card {
+	.tour-section,
+	.account-section {
 		display: grid;
-		gap: 0.7rem;
-		padding: 1.15rem;
-		border-radius: 18px;
-		border: 1px solid rgba(177, 208, 232, 0.18);
-		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(242, 247, 252, 0.78)),
-			radial-gradient(circle at top, rgba(96, 152, 206, 0.08), transparent 55%);
-		box-shadow:
-			0 20px 40px rgba(43, 61, 80, 0.08),
-			inset 0 1px 0 rgba(255, 255, 255, 0.92);
+		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+		gap: 2rem;
+		align-items: center;
+		width: min(1120px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 5.5rem 0;
+		border-bottom: 1px solid var(--line);
 	}
 
-	.tour-card.wide {
-		grid-column: 1 / -1;
+	.tour-section.reverse {
+		grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
 	}
 
-	.tour-copy {
-		display: grid;
-		gap: 0.7rem;
+	.tour-section.reverse .section-copy {
+		order: 2;
 	}
 
-	@media (max-width: 760px) {
-		h1 {
-			max-width: none;
+	.tour-section.reverse .product-shot {
+		order: 1;
+	}
+
+	.product-shot {
+		align-self: start;
+	}
+
+	.account-section {
+		border-top: 1px solid var(--line);
+	}
+
+	.tour-cta {
+		justify-items: center;
+		width: min(760px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 5.5rem 0;
+		text-align: center;
+	}
+
+	.tour-cta h2 {
+		color: var(--ink);
+	}
+
+	@media (max-width: 860px) {
+		.tour-nav {
+			align-items: flex-start;
 		}
 
-		.tour-grid {
+		.tour-hero,
+		.tour-section,
+		.tour-section.reverse,
+		.account-section {
 			grid-template-columns: 1fr;
 		}
 
-		.tour-card.wide {
-			grid-column: auto;
+		.tour-section.reverse .section-copy,
+		.tour-section.reverse .product-shot {
+			order: initial;
+		}
+
+		h1 {
+			font-size: 3rem;
+		}
+
+		h2 {
+			font-size: 2.25rem;
 		}
 	}
 
-	@media (max-width: 520px) {
+	@media (max-width: 560px) {
+		.tour-nav {
+			display: grid;
+		}
+
+		.nav-links {
+			justify-content: flex-start;
+		}
+
+		.nav-links a {
+			padding: 0 0.65rem;
+		}
+
+		.tour-hero {
+			padding: 3.2rem 0 4rem;
+		}
+
+		.tour-section,
+		.account-section,
+		.tour-cta {
+			padding: 4rem 0;
+		}
+
 		.hero-actions {
-			flex-direction: column;
+			width: 100%;
+		}
+
+		h1 {
+			font-size: 2.55rem;
+		}
+
+		h2 {
+			font-size: 2.05rem;
 		}
 
 		.primary-action,

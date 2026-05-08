@@ -2,539 +2,711 @@
 	import { resolve } from '$app/paths';
 
 	import { session } from '$lib/session';
+	import logo from '$lib/images/tm-logo-crop.png';
 
 	const heroPrimaryHref = $derived($session.status === 'authenticated' ? '/active' : '/auth');
 	const heroPrimaryLabel = $derived(
-		$session.status === 'authenticated' ? 'Open your table' : 'Create account'
+		$session.status === 'authenticated' ? 'Open Task Monster' : 'Start free'
 	);
 
 	const marketingImages = {
-		stats: resolve('/images/marketing/landing-stats.png'),
-		card: resolve('/images/marketing/landing-card.png'),
-		add: resolve('/images/marketing/add-task-builder.svg')
+		heroUnderlay: resolve('/images/marketing/hero-board-dark.png'),
+		addTask: resolve('/images/marketing/add-task-dark.png'),
+		todayMobile: resolve('/images/marketing/mobile-tasks-dark.png'),
+		tasks: resolve('/images/marketing/demo-tasks.png'),
+		card: resolve('/images/marketing/demo-card.png'),
+		stats: resolve('/images/marketing/demo-stats.png'),
+		statsLight: resolve('/images/marketing/home-stats.png')
 	};
+
+	const corePoints = ['Add task', 'Track today', 'View stats'];
 </script>
 
 <svelte:head>
 	<title>Task Monster</title>
 	<meta
 		name="description"
-		content="Task Monster is a task board for planning, active work, completion history, and real day-level stats."
+		content="Task Monster is a focused task system for adding tasks, tracking today's work, and reviewing real completion stats."
 	/>
 </svelte:head>
 
-<section class="landing-shell">
-	<section class="hero-band">
-		<div class="band-inner">
-			<header class="landing-nav">
-				<div class="brand-lockup">
-					<p class="brand-kicker">TASK MONSTER</p>
-					<p class="brand-name">A task system with a table, not a pile.</p>
-				</div>
+<section class="home-shell">
+	<nav class="site-nav" aria-label="Primary">
+		<a class="brand" href={resolve('/')} aria-label="Task Monster home">
+			<img src={logo} alt="" />
+			<span>Task Monster</span>
+		</a>
 
-				<nav aria-label="Primary">
-					<a href="#product">Product</a>
-					<a href="#screens">Screens</a>
-					<a href={resolve('/demo-board')}>Tour</a>
-					<a class="nav-cta" href={resolve('/auth')}>Sign up / Login</a>
-				</nav>
-			</header>
+		<div class="nav-links">
+			<a href="#adhd">ADHD</a>
+			<a href="#workflow">Workflow</a>
+			<a href="#stats">Stats</a>
+			<a href={resolve('/demo-board')}>Tour</a>
+			<a class="nav-login" href={resolve('/auth')}>Log in</a>
+		</div>
+	</nav>
 
-			<div class="hero-grid">
-				<div class="hero-copy">
-					<p class="section-kicker">Task flow</p>
-					<h1>Plan the day. Run the work. Review the record.</h1>
-					<p class="hero-lede">
-						Task Monster keeps the board narrow on purpose. Tasks live in Daymap, Active, Done, and
-						Stats so it is easy to see what belongs today, what is live right now, and what actually
-						happened.
-					</p>
+	<header class="hero">
+		<figure class="hero-media">
+			<img
+				src={marketingImages.heroUnderlay}
+				alt="Task Monster board in a dark theme showing active work, daymap tasks, and app navigation."
+			/>
+		</figure>
 
-					<div class="hero-actions">
-						<a class="primary-action" href={resolve(heroPrimaryHref)}>{heroPrimaryLabel}</a>
-						<a class="secondary-action" href={resolve('/demo-board')}>See the product tour</a>
-					</div>
+		<div class="hero-overlay" aria-hidden="true"></div>
 
-					<div class="hero-track" aria-label="Core task flow">
-						<span>Inactive</span>
-						<span class="track-divider" aria-hidden="true"></span>
-						<span>Daymap</span>
-						<span class="track-divider" aria-hidden="true"></span>
-						<span>Active</span>
-						<span class="track-divider" aria-hidden="true"></span>
-						<span>Done</span>
-						<span class="track-divider" aria-hidden="true"></span>
-						<span>Stats</span>
-					</div>
-				</div>
+		<div class="hero-content">
+			<img class="hero-logo" src={logo} alt="" />
+			<p class="eyebrow">Add. Track. Review.</p>
+			<h1>A task system for today's work.</h1>
+			<p class="hero-lede">
+				Task Monster keeps the loop small: add the task, choose what belongs today, track the active
+				work, then review the record when the day is done.
+			</p>
 
-				<div class="hero-visual">
-					<figure class="shot-panel hero-main-shot">
-						<img
-							src={marketingImages.stats}
-							alt="Task Monster stats view showing a heatmap of completed work across days."
-						/>
-					</figure>
+			<div class="hero-actions">
+				<a class="primary-action" href={resolve(heroPrimaryHref)}>{heroPrimaryLabel}</a>
+				<a class="secondary-action" href={resolve('/demo-board')}>See product tour</a>
+			</div>
 
-					<figure class="shot-panel hero-secondary-shot">
-						<img
-							src={marketingImages.card}
-							alt="Task Monster task card showing the compact action controls and note area."
-						/>
-					</figure>
-				</div>
+			<div class="workflow-strip" aria-label="Task Monster workflow">
+				{#each corePoints as item}
+					<span>{item}</span>
+				{/each}
 			</div>
 		</div>
+	</header>
+
+	<section class="section-band adhd-band" id="adhd">
+		<p class="eyebrow">ADHD and task systems</p>
+		<p class="adhd-copy">
+			<a href="https://www.nimh.nih.gov/health/publications/adhd-what-you-need-to-know">
+				NIMH describes adult ADHD
+			</a>
+			as involving difficulty staying on task, staying organized, managing time, and remembering daily
+			responsibilities, while
+			<a
+				href="https://chadd.org/adhd-news/adhd-news-adults/keeping-organized-goes-beyond-a-task-list/"
+			>
+				CHADD notes
+			</a>
+			that organization often takes more than a giant task list: systems need to stay simple, relevant,
+			and tied to daily planning. Task Monster follows that shape by turning capture, today's table, active
+			work, and history into separate surfaces so memory does not have to carry the whole day.
+		</p>
 	</section>
 
-	<section class="proof-band" id="product">
-		<div class="band-inner proof-inner">
-			<div class="section-heading">
-				<p class="section-kicker">What it is</p>
-				<h2>One board, four states, and real history underneath.</h2>
+	<section class="section-band workflow-band" id="workflow">
+		<div class="section-heading">
+			<p class="eyebrow">Three moves</p>
+			<h2>Add task. Track today. View stats.</h2>
+		</div>
+
+		<section class="point-section">
+			<div class="point-copy">
+				<p class="eyebrow">01 Add task</p>
+				<h3>Capture the thing before it becomes background noise.</h3>
 				<p>
-					Task Monster is built for people who want a small amount of structure with clear evidence.
-					The board separates planning from execution, records exact active runs, and keeps a stats
-					layer for day-by-day review.
+					Add the task with the parts that matter later: category color, repeat behavior, tracking
+					type, scheduled weekdays, and notes.
 				</p>
 			</div>
 
-			<div class="signal-grid">
-				<article class="signal-card">
-					<p class="card-index">01</p>
-					<h3>Daymap</h3>
-					<p>Choose what belongs today without mixing it into the rest of the backlog.</p>
-				</article>
-				<article class="signal-card">
-					<p class="card-index">02</p>
-					<h3>Active</h3>
-					<p>Track live work separately, including timing, tally changes, and instance notes.</p>
-				</article>
-				<article class="signal-card">
-					<p class="card-index">03</p>
-					<h3>Done</h3>
-					<p>Keep completion history around so the system shows evidence, not just memory.</p>
-				</article>
-			</div>
-		</div>
-	</section>
+			<figure class="shot-frame shot-frame--large">
+				<img
+					src={marketingImages.addTask}
+					alt="Task Monster add task page showing task name, color, mode, tracking, and daymap scheduling controls."
+					loading="lazy"
+				/>
+			</figure>
+		</section>
 
-	<section class="screens-band" id="screens">
-		<div class="band-inner">
-			<div class="section-heading compact">
-				<p class="section-kicker">Screens</p>
-				<h2>Built to be recognizable at a glance.</h2>
+		<section class="point-section point-section--reverse">
+			<div class="point-copy">
+				<p class="eyebrow">02 Track today</p>
+				<h3>Keep today's table separate from the backlog.</h3>
+				<p>
+					Daymap gives the day its own surface, active cards show what is actually running, and
+					compact task cards keep notes and controls close.
+				</p>
 			</div>
 
-			<div class="screen-grid">
-				<figure class="shot-panel wide-shot">
+			<div class="today-collage" aria-label="Task Monster today tracking screenshots">
+				<figure class="shot-frame today-collage__board">
+					<img
+						src={marketingImages.tasks}
+						alt="Task Monster tasks page with active tasks and daymap cards."
+						loading="lazy"
+					/>
+				</figure>
+
+				<figure class="shot-frame today-collage__mobile">
+					<img
+						src={marketingImages.todayMobile}
+						alt="Task Monster mobile task list in a dark theme."
+						loading="lazy"
+					/>
+				</figure>
+
+				<figure class="shot-frame today-collage__card">
+					<img
+						src={marketingImages.card}
+						alt="Task Monster compact task card with note and action controls."
+						loading="lazy"
+					/>
+				</figure>
+			</div>
+		</section>
+
+		<section class="point-section" id="stats">
+			<div class="point-copy">
+				<p class="eyebrow">03 View stats</p>
+				<h3>Review the work as a record, not a vibe.</h3>
+				<p>
+					Done history and heatmap stats turn active sessions into visible evidence, including what
+					happened today and how the day was divided.
+				</p>
+			</div>
+
+			<div class="stats-pair">
+				<figure class="shot-frame">
 					<img
 						src={marketingImages.stats}
-						alt="Task Monster stats page with stacked color bands and daily summaries."
+						alt="Task Monster dark stats view showing a minute-map heatmap."
+						loading="lazy"
 					/>
-					<figcaption>Stats turns the day into a readable heatmap.</figcaption>
 				</figure>
 
-				<figure class="shot-panel narrow-shot">
+				<figure class="shot-frame">
 					<img
-						src={marketingImages.add}
-						alt="Task Monster add-task builder showing the task creation form."
+						src={marketingImages.statsLight}
+						alt="Task Monster light stats view showing a minute-map heatmap."
+						loading="lazy"
 					/>
-					<figcaption>Add keeps task creation short and structured.</figcaption>
 				</figure>
 			</div>
-		</div>
+		</section>
 	</section>
 
-	<section class="cta-band">
-		<div class="band-inner cta-inner">
-			<div>
-				<p class="section-kicker">Get started</p>
-				<h2>Use the app, or tour the surface first.</h2>
-				<p>
-					The live app is available after sign in, and the public demo board gives a quick look at the
-					layout without committing to an account.
-				</p>
-			</div>
+	<section class="section-band closing-band">
+		<p class="eyebrow">Ready</p>
+		<h2>Start with one task. Let the table keep score.</h2>
 
-			<div class="cta-actions">
-				<a class="primary-action" href={resolve('/auth')}>Sign up / Login</a>
-				<a class="ghost-action" href={resolve('/demo-board')}>Open product tour</a>
-			</div>
+		<div class="closing-actions">
+			<a class="primary-action" href={resolve('/auth')}>Sign up / Login</a>
+			<a class="secondary-action" href={resolve('/demo-board')}>Open tour</a>
 		</div>
 	</section>
 </section>
 
 <style>
 	:global(body) {
-		background:
-			radial-gradient(circle at top left, rgba(255, 190, 223, 0.34), transparent 34%),
-			radial-gradient(circle at top right, rgba(186, 176, 255, 0.28), transparent 28%),
-			linear-gradient(180deg, #fff7fb 0%, #f8f4ff 52%, #f7f4ef 100%);
+		background-color: var(--app-bg-color);
+		background-image: var(--app-bg-image);
 	}
 
-	.landing-shell {
-		--ink: #33263f;
-		--muted: #665872;
-		--accent: #b651d5;
-		--frame: rgba(104, 69, 125, 0.18);
-		--panel: rgba(255, 255, 255, 0.72);
-		color: var(--ink);
+	:global(.marketing-main) {
+		max-width: none;
+		padding-right: 0;
+		padding-left: 0;
 	}
 
-	.hero-band,
-	.proof-band,
-	.screens-band,
-	.cta-band {
-		padding: 3.5rem 0;
+	.home-shell {
+		--ink: var(--color-heading);
+		--muted: var(--color-muted);
+		--line: var(--surface-border-strong);
+		--marketing-panel: var(--surface-2);
+		--marketing-panel-strong: var(--surface-3);
+		width: 100%;
+		color: var(--color-text);
+		background: transparent;
 	}
 
-	.band-inner {
-		width: min(1180px, calc(100vw - 2rem));
-		margin: 0 auto;
-	}
-
-	.landing-nav {
+	.site-nav {
+		position: relative;
+		z-index: 5;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
-		padding-bottom: 2.1rem;
+		width: min(1120px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 1rem 0;
 	}
 
-	.brand-lockup {
-		display: grid;
-		gap: 0.15rem;
+	.brand,
+	.nav-links a,
+	.primary-action,
+	.secondary-action {
+		text-decoration: none;
+		font-weight: 750;
 	}
 
-	.brand-kicker,
-	.section-kicker {
-		margin: 0;
-		font-size: 0.78rem;
-		font-weight: 800;
-		letter-spacing: 0.24em;
-		text-transform: uppercase;
-		color: rgba(134, 87, 156, 0.82);
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		color: var(--ink);
+		font-size: 1rem;
+		letter-spacing: 0.02em;
 	}
 
-	.brand-name {
-		margin: 0;
-		font-size: 1.05rem;
-		font-weight: 700;
+	.brand img {
+		width: 2.6rem;
+		height: 2.6rem;
+		object-fit: contain;
 	}
 
-	.landing-nav nav {
+	.brand span {
+		white-space: nowrap;
+	}
+
+	.nav-links {
 		display: flex;
 		align-items: center;
-		gap: 0.8rem;
-		flex-wrap: wrap;
 		justify-content: flex-end;
+		gap: 0.25rem;
+		flex-wrap: wrap;
 	}
 
-	.landing-nav a,
-	.primary-action,
-	.secondary-action,
-	.ghost-action {
+	.nav-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.4rem;
+		padding: 0 0.75rem;
 		border-radius: 999px;
-		text-decoration: none;
-		font-weight: 700;
-		transition:
-			transform 0.18s ease,
-			box-shadow 0.18s ease,
-			background 0.18s ease;
+		color: var(--color-muted);
 	}
 
-	.landing-nav a {
-		padding: 0.72rem 1rem;
+	.nav-links a:hover {
+		background: var(--surface-muted);
 		color: var(--ink);
 	}
 
-	.nav-cta,
-	.primary-action {
-		background: linear-gradient(135deg, #eb70c3, #8d67f1);
-		color: white;
-		box-shadow: 0 16px 32px rgba(152, 88, 186, 0.22);
+	.nav-links .nav-login {
+		border: 1px solid var(--line);
+		background: var(--surface-2);
+		color: var(--ink);
 	}
 
-	.hero-grid {
+	.hero {
+		position: relative;
 		display: grid;
-		grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-		gap: 2rem;
-		align-items: center;
+		place-items: center;
+		width: 100vw;
+		min-height: clamp(36rem, 86vh, 48rem);
+		margin-left: calc(50% - 50vw);
+		overflow: hidden;
+		border-top: 1px solid var(--line);
+		border-bottom: 1px solid var(--line);
+		background: #000;
+	}
+
+	.hero-media {
+		position: absolute;
+		inset: 0;
+		margin: 0;
+	}
+
+	.hero-media img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		object-position: center top;
+		filter: saturate(1.06) contrast(1.08) brightness(0.88);
+	}
+
+	.hero-overlay {
+		position: absolute;
+		inset: 0;
+		background:
+			linear-gradient(
+				180deg,
+				rgba(0, 0, 0, 0.82) 0%,
+				rgba(0, 0, 0, 0.54) 34%,
+				rgba(0, 0, 0, 0.8) 100%
+			),
+			linear-gradient(
+				90deg,
+				rgba(0, 0, 0, 0.8) 0%,
+				rgba(0, 0, 0, 0.34) 48%,
+				rgba(0, 0, 0, 0.72) 100%
+			);
+	}
+
+	.hero-content {
+		position: relative;
+		z-index: 1;
+		color: #fff;
+		display: grid;
+		justify-items: center;
+		gap: 1rem;
+		width: min(820px, calc(100vw - 2rem));
+		padding: 4.8rem 0 9rem;
+		text-align: center;
+	}
+
+	.hero-logo {
+		width: min(13rem, 48vw);
+		height: auto;
+		margin-bottom: 0.15rem;
+		filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.64));
+	}
+
+	.eyebrow {
+		margin: 0;
+		color: var(--color-accent);
+		font-size: 0.74rem;
+		font-weight: 850;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
 	}
 
 	h1,
 	h2,
 	h3,
-	p {
+	p,
+	figure {
 		margin: 0;
 	}
 
 	h1 {
-		max-width: 14ch;
-		font-size: clamp(2.7rem, 5vw, 4.9rem);
-		line-height: 0.94;
-		letter-spacing: -0.03em;
+		color: #fff;
+		font-size: 5.5rem;
+		line-height: 0.98;
+		letter-spacing: 0;
 	}
 
-	.hero-lede,
-	.section-heading p,
-	.signal-card p,
-	figcaption {
-		color: var(--muted);
-		line-height: 1.65;
+	h2 {
+		font-size: 3rem;
+		line-height: 1.05;
+		letter-spacing: 0;
+	}
+
+	h3 {
+		font-size: 2.35rem;
+		line-height: 1.08;
+		letter-spacing: 0;
 	}
 
 	.hero-lede {
-		max-width: 38rem;
-		font-size: 1.05rem;
-		padding-top: 1rem;
+		max-width: 44rem;
+		color: rgba(255, 255, 255, 0.82);
+		font-size: 1.24rem;
+		line-height: 1.6;
 	}
 
 	.hero-actions,
-	.cta-actions {
+	.closing-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.85rem;
-		padding-top: 1.2rem;
+		justify-content: center;
+		gap: 0.75rem;
+		padding-top: 0.35rem;
 	}
 
 	.primary-action,
-	.secondary-action,
-	.ghost-action {
+	.secondary-action {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		min-height: 3rem;
-		padding: 0.85rem 1.15rem;
+		padding: 0 1.2rem;
+		border-radius: 999px;
+		transition:
+			transform 0.16s ease,
+			box-shadow 0.16s ease,
+			background 0.16s ease;
 	}
 
-	.secondary-action,
-	.ghost-action {
-		border: 1px solid var(--frame);
-		background: rgba(255, 255, 255, 0.55);
+	.primary-action {
+		background: var(--accent-gradient);
+		color: var(--color-accent-contrast);
+		box-shadow: var(--surface-shadow);
+	}
+
+	.secondary-action {
+		border: 1px solid var(--line);
+		background: var(--marketing-panel);
 		color: var(--ink);
 	}
 
-	.hero-track {
+	.primary-action:hover,
+	.secondary-action:hover {
+		transform: translateY(-1px);
+	}
+
+	.workflow-strip {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.35rem;
+		padding-top: 0.55rem;
+	}
+
+	.workflow-strip span {
+		display: inline-flex;
 		align-items: center;
-		gap: 0.8rem;
-		padding-top: 1.2rem;
-		font-size: 0.76rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: rgba(94, 73, 110, 0.72);
+		min-height: 2rem;
+		padding: 0 0.72rem;
+		border: 1px solid var(--surface-border);
+		border-radius: 999px;
+		background: var(--surface-1);
+		color: var(--color-muted);
+		font-size: 0.82rem;
+		font-weight: 750;
 	}
 
-	.track-divider {
-		width: 2rem;
-		height: 1px;
-		background: linear-gradient(90deg, transparent, rgba(150, 103, 191, 0.9), transparent);
+	.section-band {
+		width: min(1120px, calc(100vw - 2rem));
+		margin: 0 auto;
+		padding: 5.5rem 0;
 	}
 
-	.hero-visual {
-		position: relative;
-		min-height: 35rem;
-	}
-
-	.shot-panel {
-		margin: 0;
-		padding: 0.45rem;
-		border-radius: 24px;
-		border: 1px solid var(--frame);
-		background: var(--panel);
-		box-shadow: 0 24px 50px rgba(103, 74, 125, 0.14);
-	}
-
-	.shot-panel img {
-		display: block;
-		width: 100%;
-		height: auto;
-		border-radius: 18px;
-	}
-
-	.hero-main-shot {
-		width: min(100%, 48rem);
-		margin-left: auto;
-		transform: perspective(1700px) rotateY(-10deg) rotateX(3deg);
-		transform-origin: right center;
-	}
-
-	.hero-secondary-shot {
-		position: absolute;
-		left: 0;
-		bottom: 2.2rem;
-		width: min(19rem, 37vw);
-	}
-
-	.proof-inner {
+	.adhd-band {
 		display: grid;
-		gap: 1.8rem;
+		gap: 0.9rem;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.adhd-copy {
+		max-width: 58rem;
+		color: var(--color-muted);
+		font-size: 1.18rem;
+		line-height: 1.72;
+	}
+
+	.adhd-copy a {
+		color: var(--color-link);
+		font-weight: 800;
+		text-decoration-thickness: 0.08em;
+		text-underline-offset: 0.18em;
+	}
+
+	.workflow-band {
+		display: grid;
+		gap: 5rem;
 	}
 
 	.section-heading {
-		max-width: 46rem;
-	}
-
-	.section-heading h2 {
-		padding-top: 0.4rem;
-		font-size: clamp(1.8rem, 3vw, 2.8rem);
-		line-height: 1.05;
-	}
-
-	.section-heading p {
-		padding-top: 0.8rem;
-		font-size: 1.02rem;
-	}
-
-	.signal-grid {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 1rem;
+		gap: 0.7rem;
+		max-width: 48rem;
 	}
 
-	.signal-card {
-		padding: 1.3rem;
-		border-radius: 22px;
-		background: rgba(255, 255, 255, 0.7);
-		border: 1px solid rgba(122, 90, 150, 0.14);
-		box-shadow: 0 18px 34px rgba(95, 67, 118, 0.08);
-	}
-
-	.card-index {
-		color: var(--accent);
-		font-size: 0.82rem;
-		font-weight: 900;
-		letter-spacing: 0.18em;
-	}
-
-	.signal-card h3 {
-		padding-top: 0.55rem;
-		font-size: 1.2rem;
-	}
-
-	.signal-card p {
-		padding-top: 0.6rem;
-	}
-
-	.screen-grid {
+	.point-section {
 		display: grid;
-		grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
-		gap: 1rem;
-		align-items: start;
-		padding-top: 1.2rem;
-	}
-
-	.wide-shot,
-	.narrow-shot {
-		display: grid;
-		gap: 0.75rem;
-	}
-
-	.wide-shot figcaption,
-	.narrow-shot figcaption {
-		padding: 0 0.35rem;
-		font-size: 0.92rem;
-	}
-
-	.cta-band {
-		padding-bottom: 4.8rem;
-	}
-
-	.cta-inner {
-		display: flex;
+		grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+		gap: 2rem;
 		align-items: center;
-		justify-content: space-between;
-		gap: 1.5rem;
-		padding: 1.4rem 1.5rem;
-		border-radius: 26px;
-		border: 1px solid rgba(122, 90, 150, 0.16);
-		background: rgba(255, 255, 255, 0.64);
-		box-shadow: 0 20px 40px rgba(94, 66, 114, 0.1);
+		padding-top: 1.2rem;
+		border-top: 1px solid var(--line);
 	}
 
-	.cta-inner h2 {
-		padding-top: 0.35rem;
+	.point-section--reverse {
+		grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
 	}
 
-	@media (max-width: 1040px) {
-		.hero-grid,
-		.screen-grid,
-		.cta-inner {
-			grid-template-columns: 1fr;
-		}
-
-		.cta-inner {
-			display: grid;
-		}
-
-		.signal-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.hero-visual {
-			min-height: auto;
-			padding-bottom: 7.5rem;
-		}
-
-		.hero-secondary-shot {
-			left: 1rem;
-			bottom: 3rem;
-			width: min(16rem, 45vw);
-		}
+	.point-section--reverse .point-copy {
+		order: 2;
 	}
 
-	@media (max-width: 760px) {
-		.hero-band,
-		.proof-band,
-		.screens-band,
-		.cta-band {
-			padding: 3rem 0;
+	.point-section--reverse .today-collage {
+		order: 1;
+	}
+
+	.point-copy {
+		display: grid;
+		gap: 0.85rem;
+	}
+
+	.point-copy p:not(.eyebrow),
+	.closing-band {
+		color: var(--muted);
+		line-height: 1.65;
+	}
+
+	.shot-frame {
+		overflow: hidden;
+		border: 1px solid var(--surface-border);
+		border-radius: 8px;
+		background: var(--marketing-panel-strong);
+		box-shadow: var(--surface-shadow-strong);
+	}
+
+	.shot-frame img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.shot-frame--large {
+		align-self: start;
+	}
+
+	.today-collage {
+		position: relative;
+		min-height: 31rem;
+	}
+
+	.today-collage__board {
+		width: 84%;
+		margin-left: auto;
+	}
+
+	.today-collage__mobile {
+		position: absolute;
+		left: 0;
+		top: 2.5rem;
+		width: 24%;
+		min-width: 8.5rem;
+	}
+
+	.today-collage__card {
+		position: absolute;
+		right: 2rem;
+		bottom: 0;
+		width: min(24rem, 52%);
+	}
+
+	.stats-pair {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.closing-band {
+		display: grid;
+		justify-items: center;
+		gap: 0.9rem;
+		max-width: 760px;
+		text-align: center;
+		border-top: 1px solid var(--line);
+	}
+
+	.closing-band h2 {
+		color: var(--ink);
+	}
+
+	@media (max-width: 920px) {
+		.site-nav {
+			align-items: flex-start;
 		}
 
-		.landing-nav {
-			flex-direction: column;
-			align-items: start;
+		.nav-links {
+			max-width: 26rem;
 		}
 
-		.landing-nav nav {
-			justify-content: flex-start;
+		.hero {
+			min-height: 42rem;
+		}
+
+		.hero-content {
+			padding: 4rem 0 8rem;
 		}
 
 		h1 {
-			max-width: none;
+			font-size: 4.6rem;
 		}
 
-		.hero-main-shot {
-			transform: none;
+		h2 {
+			font-size: 2.55rem;
 		}
 
-		.hero-secondary-shot {
-			position: relative;
-			left: auto;
-			bottom: auto;
-			width: 72%;
-			margin-top: -2rem;
+		h3 {
+			font-size: 2.05rem;
 		}
 
-		.hero-visual {
-			padding-bottom: 0;
+		.point-section,
+		.point-section--reverse,
+		.stats-pair {
+			grid-template-columns: 1fr;
+		}
+
+		.point-section--reverse .point-copy,
+		.point-section--reverse .today-collage {
+			order: initial;
 		}
 	}
 
 	@media (max-width: 560px) {
+		.site-nav {
+			display: grid;
+		}
+
+		.nav-links {
+			justify-content: flex-start;
+		}
+
+		.nav-links a {
+			padding: 0 0.65rem;
+		}
+
+		.hero {
+			place-items: start center;
+			min-height: 40rem;
+		}
+
+		.hero-content {
+			justify-items: start;
+			padding: 3.2rem 0 8rem;
+			text-align: left;
+		}
+
+		h1 {
+			font-size: 3.25rem;
+		}
+
+		h2 {
+			font-size: 2.05rem;
+		}
+
+		h3 {
+			font-size: 1.72rem;
+		}
+
+		.hero-lede,
+		.adhd-copy {
+			font-size: 1.04rem;
+		}
+
 		.hero-actions,
-		.cta-actions {
-			flex-direction: column;
+		.closing-actions {
+			width: 100%;
+			justify-content: stretch;
 		}
 
 		.primary-action,
-		.secondary-action,
-		.ghost-action {
+		.secondary-action {
 			width: 100%;
+		}
+
+		.workflow-strip {
+			justify-content: flex-start;
+		}
+
+		.section-band {
+			padding: 4rem 0;
+		}
+
+		.workflow-band {
+			gap: 3.5rem;
+		}
+
+		.today-collage {
+			display: grid;
+			gap: 0.85rem;
+			min-height: auto;
+		}
+
+		.today-collage__board,
+		.today-collage__mobile,
+		.today-collage__card {
+			position: static;
+			width: 100%;
+			min-width: 0;
+			margin: 0;
 		}
 	}
 </style>
