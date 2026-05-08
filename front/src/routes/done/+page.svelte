@@ -19,6 +19,7 @@
 		loadDaymapTasks,
 		loadDoneFeed,
 		loadInactiveTasks,
+		updateTaskIntensity,
 		updateTaskNextDue,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -153,6 +154,19 @@
 		return updatedTask;
 	}
 
+	async function handleIntensityChange(taskId, intensity) {
+		const updatedTask = await updateTaskIntensity(taskId, intensity);
+		tasks = tasks.map((task) =>
+			task.taskId === taskId
+				? {
+						...task,
+						intensity: updatedTask.intensity
+					}
+				: task
+		);
+		return updatedTask;
+	}
+
 	const sortedTasks = $derived(
 		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'done' })
 	);
@@ -276,6 +290,8 @@
 							panicDurationLabel={formatPanicDuration(task)}
 							effectiveDurationLabel={formatEffectiveDuration(task)}
 							completedAtLabel={formatCompletedAt(task.completedAt)}
+							showIntensityControl={true}
+							onIntensityChange={handleIntensityChange}
 							onSaveNote={handleSaveNote}
 							onSaveNextDue={handleSaveNextDue}
 						/>

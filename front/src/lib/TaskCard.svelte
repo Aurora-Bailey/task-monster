@@ -56,11 +56,13 @@
 		onSaveInstanceNote = null,
 		onSaveNextDue = null,
 		onScheduleChange = null,
+		onIntensityChange = null,
 		showDaymapToggle = false,
 		showActivateButton = false,
 		showCancelButton = false,
 		showDoneButton = false,
 		showScheduleControls = false,
+		showIntensityControl = false,
 		showArchiveButton = false,
 		onActivate = () => {},
 		onDaymapToggle = () => {},
@@ -72,6 +74,11 @@
 		onInactivate = () => {},
 		onDone = () => {}
 	} = $props();
+
+	let draftIntensity = $state(50);
+	let lastCommittedIntensity = $state(50);
+	let intensitySaveStatus = $state('idle');
+	let intensitySaveError = $state('');
 
 	const isTallyTask = $derived(task.trackingType === 'tally');
 	const isInactiveCard = $derived(variant === 'inactive');
@@ -102,9 +109,13 @@
 		(variant === 'active' || isBoardActiveCard) && Boolean(editableTaskId && onSaveInstanceNote)
 	);
 	const canEditNextDue = $derived(showNextDueTiming && Boolean(editableTaskId && onSaveNextDue));
+	const canEditIntensity = $derived(
+		showIntensityControl && Boolean(editableTaskId && onIntensityChange)
+	);
 	const showsNextDueTiming = $derived(
 		showNextDueTiming && (canEditNextDue || Boolean(task.nextDueAt))
 	);
+	const intensityControlValue = $derived(normalizeTaskIntensity(draftIntensity));
 	const showsTimingRow = $derived(showsTimingLastDone || showsNextDueTiming);
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
@@ -196,6 +207,16 @@
 
 	function stopEventPropagation(event) {
 		event.stopPropagation();
+	}
+
+	function normalizeTaskIntensity(value) {
+		const parsedIntensity = Number.parseInt(String(value), 10);
+
+		if (!Number.isInteger(parsedIntensity)) {
+			return 50;
+		}
+
+		return Math.min(100, Math.max(1, parsedIntensity));
 	}
 
 	function padDateTimePart(value) {
@@ -341,6 +362,65 @@
 		}
 
 		onTally(task.id, delta);
+	}
+
+	function handleIntensityInput(event) {
+		draftIntensity = normalizeTaskIntensity(event.currentTarget.value);
+
+		if (intensitySaveStatus === 'error') {
+			intensitySaveStatus = 'idle';
+			intensitySaveError = '';
+		}
+	}
+
+	async function commitIntensityChange(event) {
+		event?.stopPropagation();
+
+		if (!canEditIntensity || intensitySaveStatus === 'saving') {
+			return;
+		}
+
+		const nextIntensity = normalizeTaskIntensity(event?.currentTarget?.value ?? draftIntensity);
+		draftIntensity = nextIntensity;
+
+		if (nextIntensity === lastCommittedIntensity) {
+			return;
+		}
+
+		intensitySaveStatus = 'saving';
+		intensitySaveError = '';
+
+		try {
+			const updatedTask = await onIntensityChange(editableTaskId, nextIntensity);
+			const committedIntensity = normalizeTaskIntensity(updatedTask?.intensity ?? nextIntensity);
+
+			lastCommittedIntensity = committedIntensity;
+			draftIntensity = committedIntensity;
+			intensitySaveStatus = 'saved';
+		} catch (error) {
+			draftIntensity = lastCommittedIntensity;
+			intensitySaveStatus = 'error';
+			intensitySaveError = error.message;
+		}
+	}
+
+	function handleIntensityKeyup(event) {
+		event.stopPropagation();
+
+		if (
+			[
+				'ArrowUp',
+				'ArrowDown',
+				'ArrowLeft',
+				'ArrowRight',
+				'Home',
+				'End',
+				'PageUp',
+				'PageDown'
+			].includes(event.key)
+		) {
+			void commitIntensityChange(event);
+		}
 	}
 
 	function scheduleNoteSave() {
@@ -623,6 +703,20 @@
 		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
 	});
 
+	$effect(() => {
+		const incomingIntensity = normalizeTaskIntensity(task.intensity);
+
+		if (incomingIntensity === lastCommittedIntensity) {
+			return;
+		}
+
+		lastCommittedIntensity = incomingIntensity;
+
+		if (intensitySaveStatus !== 'saving') {
+			draftIntensity = incomingIntensity;
+		}
+	});
+
 	onDestroy(() => {
 		clearPendingNoteSave();
 		clearPendingInstanceNoteSave();
@@ -638,6 +732,7 @@
 	class:is-compact={compact}
 	class:is-board-active={isBoardActiveCard}
 	class:is-started-today={task.startedToday === true && variant !== 'active' && !isBoardActiveCard}
+	class:has-intensity-control={canEditIntensity}
 	class:uses-card-click={usesInactiveCardClick}
 	style={`--task-accent: ${task.color};`}
 	role={usesInactiveCardClick ? 'button' : undefined}
@@ -647,6 +742,39 @@
 	onclick={usesInactiveCardClick ? handleInactiveActivate : undefined}
 	onkeydown={usesInactiveCardClick ? handleInactiveKeydown : undefined}
 >
+	{#if canEditIntensity}
+		<label
+			class="task-card__intensity-control task-card__interactive"
+			class:has-save-error={intensitySaveStatus === 'error'}
+			style={`--intensity-y: ${100 - intensityControlValue}%; --intensity-gold-mix: ${intensityControlValue}%; --intensity-glow-alpha: ${Math.min(0.72, 0.16 + intensityControlValue / 155).toFixed(2)};`}
+			title={`Intensity ${intensityControlValue}/100`}
+		>
+			<span class="visually-hidden">Intensity for {task.name}: {intensityControlValue}/100</span>
+			<input
+				class="task-card__intensity-input"
+				type="range"
+				min="1"
+				max="100"
+				step="1"
+				value={draftIntensity}
+				aria-label={`Intensity for ${task.name}`}
+				aria-valuetext={`${intensityControlValue} out of 100`}
+				disabled={intensitySaveStatus === 'saving'}
+				onpointerdown={stopEventPropagation}
+				onclick={stopEventPropagation}
+				onkeydown={stopEventPropagation}
+				onkeyup={handleIntensityKeyup}
+				oninput={handleIntensityInput}
+				onchange={commitIntensityChange}
+				onblur={commitIntensityChange}
+			/>
+			<span class="task-card__intensity-star" aria-hidden="true"></span>
+			{#if intensitySaveStatus === 'error' && intensitySaveError}
+				<span class="visually-hidden" aria-live="polite">{intensitySaveError}</span>
+			{/if}
+		</label>
+	{/if}
+
 	<div class="task-card__header">
 		<div class="task-card__header-main">
 			<div class="task-card__title-block">
@@ -1255,6 +1383,8 @@
 
 <style>
 	.task-card {
+		--task-accent-strong: color-mix(in oklch, var(--task-accent) 88%, white 12%);
+		--task-accent-pastel: color-mix(in oklch, var(--task-accent) 34%, var(--surface-1));
 		display: grid;
 		gap: 1rem;
 		padding: 1.2rem;
@@ -1274,6 +1404,124 @@
 		box-shadow: var(--surface-shadow), var(--surface-inset);
 		position: relative;
 		overflow: hidden;
+	}
+
+	.task-card.has-intensity-control {
+		overflow: visible;
+		padding-left: 2.24rem;
+	}
+
+	.task-card__intensity-control {
+		position: absolute;
+		top: 0.32rem;
+		bottom: 0.66rem;
+		left: -0.1rem;
+		z-index: 5;
+		width: 1.5rem;
+		cursor: ns-resize;
+	}
+
+	.task-card.is-compact.has-intensity-control {
+		padding-left: 1.9rem;
+	}
+
+	.task-card.is-compact .task-card__intensity-control {
+		top: 0.24rem;
+		bottom: 0.52rem;
+		left: -0.08rem;
+		width: 1.2rem;
+	}
+
+	.task-card__intensity-input {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		opacity: 0;
+		cursor: ns-resize;
+		writing-mode: vertical-lr;
+		direction: rtl;
+	}
+
+	.task-card__intensity-input:disabled {
+		cursor: wait;
+	}
+
+	.task-card__intensity-star {
+		--intensity-coin-color: color-mix(in oklch, #f6c84c var(--intensity-gold-mix), #c8ced8);
+		position: absolute;
+		top: var(--intensity-y);
+		left: 0;
+		display: block;
+		width: 1.48rem;
+		height: 1.48rem;
+		border-radius: 999px;
+		background:
+			radial-gradient(
+				circle at 34% 28%,
+				color-mix(in oklch, white 56%, var(--intensity-coin-color)) 0 18%,
+				transparent 40%
+			),
+			linear-gradient(
+				145deg,
+				color-mix(in oklch, white 24%, var(--intensity-coin-color)),
+				var(--intensity-coin-color) 54%,
+				color-mix(in oklch, #8f6500 32%, var(--intensity-coin-color))
+			);
+		box-shadow:
+			inset 0 1px 0 color-mix(in srgb, white 62%, transparent),
+			inset 0 -1px 1px color-mix(in srgb, #4f3600 22%, transparent),
+			0 0 0.24rem rgb(246 200 76 / var(--intensity-glow-alpha)),
+			0 0.1rem 0.18rem color-mix(in srgb, #8f6500 32%, transparent);
+		pointer-events: none;
+		transform: translateY(-50%);
+		transition:
+			background-color 0.16s ease,
+			box-shadow 0.16s ease,
+			opacity 0.16s ease;
+	}
+
+	.task-card__intensity-star::after {
+		content: '';
+		position: absolute;
+		inset: 0.31rem;
+		background: color-mix(in oklch, var(--surface-1) 74%, white 26%);
+		clip-path: polygon(
+			50% 0,
+			61% 34%,
+			98% 34%,
+			68% 55%,
+			79% 91%,
+			50% 69%,
+			21% 91%,
+			32% 55%,
+			2% 34%,
+			39% 34%
+		);
+		filter: drop-shadow(0 1px 0 color-mix(in srgb, #4f3600 24%, transparent));
+	}
+
+	.task-card.is-compact .task-card__intensity-star {
+		width: 1.18rem;
+		height: 1.18rem;
+	}
+
+	.task-card.is-compact .task-card__intensity-star::after {
+		inset: 0.25rem;
+	}
+
+	.task-card__intensity-input:focus-visible + .task-card__intensity-star {
+		box-shadow:
+			inset 0 1px 0 color-mix(in srgb, white 62%, transparent),
+			inset 0 -1px 1px color-mix(in srgb, #4f3600 22%, transparent),
+			0 0 0 3px color-mix(in srgb, var(--focus-ring) 82%, transparent),
+			0 0 0.26rem rgb(246 200 76 / var(--intensity-glow-alpha)),
+			0 0.1rem 0.18rem color-mix(in srgb, #8f6500 32%, transparent);
+	}
+
+	.task-card__intensity-input:disabled + .task-card__intensity-star {
+		opacity: 0.62;
 	}
 
 	.task-card.is-inactive {
@@ -1351,18 +1599,21 @@
 	}
 
 	.task-card.is-compact::before {
-		width: 0.28rem;
+		width: 1.24rem;
+		border-radius: 16px 0 0 16px;
 	}
 
 	.task-card::before {
 		content: '';
 		position: absolute;
 		inset: 0 auto 0 0;
-		width: 0.38rem;
+		width: 1.52rem;
+		border-radius: 20px 0 0 20px;
 		background: linear-gradient(
 			180deg,
-			var(--task-accent),
-			color-mix(in srgb, var(--task-accent) 55%, var(--surface-3))
+			var(--task-accent-strong),
+			color-mix(in oklch, var(--task-accent) 72%, var(--task-accent-pastel)) 42%,
+			var(--task-accent-pastel)
 		);
 	}
 

@@ -78,11 +78,15 @@
 	let tallyTarget = $state('10');
 	let daymapWeekdays = $state([]);
 	let note = $state('');
+	let intensity = $state(50);
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
 	const selectedColorMeta = $derived(
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
+	);
+	const intensityValue = $derived(
+		Math.min(100, Math.max(1, Number.parseInt(String(intensity), 10) || 50))
 	);
 
 	function resetForm() {
@@ -94,6 +98,7 @@
 		tallyTarget = '10';
 		daymapWeekdays = [];
 		note = '';
+		intensity = 50;
 	}
 
 	function toggleWeekday(weekday) {
@@ -125,7 +130,8 @@
 					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
 					tallyTarget: trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
 					daymapWeekdays: taskMode === 'repeatable' ? daymapWeekdays : [],
-					note: note.trim() ? note : null
+					note: note.trim() ? note : null,
+					intensity: intensityValue
 				}
 			});
 
@@ -306,6 +312,24 @@
 					maxlength="2000"
 					placeholder="Extra context, reminders, or anything that makes this task easier to land."
 				></textarea>
+			</div>
+
+			<div class="intensity-section">
+				<label class="field-label" for="task-intensity">Intensity</label>
+				<input
+					id="task-intensity"
+					bind:value={intensity}
+					class="intensity-slider"
+					type="range"
+					name="intensity"
+					min="1"
+					max="100"
+					step="1"
+					aria-valuetext={`${intensityValue} out of 100`}
+				/>
+				<p class="intensity-readout">
+					Intensity <strong>{intensityValue}</strong>/100
+				</p>
 			</div>
 
 			{#if errorMessage}
@@ -620,6 +644,39 @@
 	.notes-section {
 		display: grid;
 		gap: 0.55rem;
+	}
+
+	.intensity-section {
+		display: grid;
+		gap: 0.55rem;
+		padding: 0.95rem 1rem;
+		border-radius: 14px;
+		background: var(--surface-2);
+		border: 1px solid var(--surface-border);
+		box-shadow: var(--surface-inset);
+	}
+
+	.intensity-slider {
+		width: 100%;
+		accent-color: var(--color-theme-2);
+		cursor: pointer;
+	}
+
+	.intensity-slider:focus-visible {
+		outline: 3px solid var(--focus-ring);
+		outline-offset: 4px;
+		border-radius: 999px;
+	}
+
+	.intensity-readout {
+		margin: 0;
+		font-size: 0.9rem;
+		font-weight: 700;
+		color: var(--color-muted);
+	}
+
+	.intensity-readout strong {
+		color: var(--color-heading);
 	}
 
 	.tally-fields {

@@ -28,6 +28,7 @@
 		unmapTask,
 		updateTaskDaymapLock,
 		updateTaskDaymapWeekdays,
+		updateTaskIntensity,
 		updateTaskInstanceNote,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -419,6 +420,19 @@
 		return updatedTask;
 	}
 
+	async function handleIntensityChange(taskId, intensity) {
+		actionError = '';
+
+		try {
+			const updatedTask = await updateTaskIntensity(taskId, intensity);
+			replaceTask(taskId, updatedTask);
+			return updatedTask;
+		} catch (error) {
+			actionError = error.message;
+			throw error;
+		}
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('tasks', DAYMAP_TASK_SORT_OPTIONS);
 		void loadTasks();
@@ -536,12 +550,14 @@
 									showCancelButton={true}
 									showDoneButton={true}
 									showScheduleControls={true}
+									showIntensityControl={true}
 									showNextDueTiming={false}
 									lastDonePlacement="schedule"
 									busyAction={busyTasks[task.id] || null}
 									onInactivate={handleCancelActive}
 									onDone={handleDone}
 									onScheduleChange={handleScheduleChange}
+									onIntensityChange={handleIntensityChange}
 									onSaveInstanceNote={handleSaveInstanceNote}
 									onSaveNote={handleSaveNote}
 								/>
@@ -573,6 +589,7 @@
 								showDaymapToggle={true}
 								showActivateButton={true}
 								showScheduleControls={true}
+								showIntensityControl={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
@@ -581,6 +598,7 @@
 								onToggleDaymapLock={handleDaymapLockToggle}
 								onQueueToggle={handleQueueToggle}
 								onScheduleChange={handleScheduleChange}
+								onIntensityChange={handleIntensityChange}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}
@@ -609,6 +627,7 @@
 								showDaymapToggle={true}
 								showActivateButton={true}
 								showScheduleControls={true}
+								showIntensityControl={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
@@ -617,6 +636,7 @@
 								onActivate={() => handleActivate(task.id)}
 								onArchive={handleArchive}
 								onScheduleChange={handleScheduleChange}
+								onIntensityChange={handleIntensityChange}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}

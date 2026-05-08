@@ -16,6 +16,9 @@ const TASK_COLOR_MAP = Object.freeze({
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
 const TASK_TRACKING_TYPE_VALUES = Object.freeze(['time', 'tally']);
 const TASK_WEEKDAY_VALUES = Object.freeze([0, 1, 2, 3, 4, 5, 6]);
+const TASK_INTENSITY_MIN = 1;
+const TASK_INTENSITY_MAX = 100;
+const DEFAULT_TASK_INTENSITY = 50;
 
 const serializedTaskJsonSchema = {
 	type: 'object',
@@ -31,6 +34,7 @@ const serializedTaskJsonSchema = {
 		'activeTallyCount',
 		'lastCompletedTallyCount',
 		'note',
+		'intensity',
 		'instanceNote',
 		'daymapLocked',
 		'daymapWeekdays',
@@ -64,6 +68,11 @@ const serializedTaskJsonSchema = {
 		activeTallyCount: { type: 'integer' },
 		lastCompletedTallyCount: { type: ['integer', 'null'] },
 		note: { type: ['string', 'null'] },
+		intensity: {
+			type: 'integer',
+			minimum: TASK_INTENSITY_MIN,
+			maximum: TASK_INTENSITY_MAX
+		},
 		instanceNote: { type: ['string', 'null'] },
 		daymapLocked: { type: 'boolean' },
 		daymapWeekdays: {
@@ -112,6 +121,7 @@ const serializedCompletedTaskJsonSchema = {
 		'activeTallyCount',
 		'lastCompletedTallyCount',
 		'note',
+		'intensity',
 		'instanceNote',
 		'daymapLocked',
 		'daymapWeekdays',
@@ -150,6 +160,11 @@ const serializedCompletedTaskJsonSchema = {
 		activeTallyCount: { type: 'integer' },
 		lastCompletedTallyCount: { type: ['integer', 'null'] },
 		note: { type: ['string', 'null'] },
+		intensity: {
+			type: 'integer',
+			minimum: TASK_INTENSITY_MIN,
+			maximum: TASK_INTENSITY_MAX
+		},
 		instanceNote: { type: ['string', 'null'] },
 		daymapLocked: { type: 'boolean' },
 		daymapWeekdays: {
@@ -207,6 +222,14 @@ function normalizeTaskWeekdays(value) {
 	return [...new Set(value)]
 		.filter((weekday) => Number.isInteger(weekday) && TASK_WEEKDAY_VALUES.includes(weekday))
 		.sort((left, right) => left - right);
+}
+
+function normalizeTaskIntensity(value) {
+	if (!Number.isInteger(value)) {
+		return DEFAULT_TASK_INTENSITY;
+	}
+
+	return Math.min(TASK_INTENSITY_MAX, Math.max(TASK_INTENSITY_MIN, value));
 }
 
 function areTaskWeekdaysEqual(left, right) {
@@ -298,6 +321,7 @@ function serializeTask(task) {
 			? task.lastCompletedTallyCount
 			: null,
 		note: task.note ?? null,
+		intensity: normalizeTaskIntensity(task.intensity),
 		instanceNote: task.instanceNote ?? null,
 		daymapLocked: task.daymapLocked === true,
 		daymapWeekdays: normalizeTaskWeekdays(task.daymapWeekdays),
@@ -325,6 +349,9 @@ function serializeTask(task) {
 
 module.exports = {
 	TASK_COLOR_MAP,
+	DEFAULT_TASK_INTENSITY,
+	TASK_INTENSITY_MAX,
+	TASK_INTENSITY_MIN,
 	TASK_MODE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
 	TASK_WEEKDAY_VALUES,
@@ -335,6 +362,7 @@ module.exports = {
 	isAllowedTaskMode,
 	isAllowedTaskTrackingType,
 	isTaskScheduledForWeekday,
+	normalizeTaskIntensity,
 	normalizeTaskWeekdays,
 	serializedCompletedTaskJsonSchema,
 	serializedTaskJsonSchema,

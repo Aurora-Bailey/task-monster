@@ -23,6 +23,7 @@
 		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
+		updateTaskIntensity,
 		updateTaskInstanceNote,
 		updateTaskNextDue,
 		updateTaskTally,
@@ -426,6 +427,15 @@
 		return updatedTask;
 	}
 
+	async function handleIntensityChange(taskId, intensity) {
+		const updatedTask = await updateTaskIntensity(taskId, intensity);
+		mergeTaskUpdate(taskId, updatedTask, {
+			preservePanic: true,
+			preserveInstanceNote: true
+		});
+		return updatedTask;
+	}
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('active');
 		void loadTasks();
@@ -649,9 +659,11 @@
 							panicDurationLabel={getPanicDurationLabel(task)}
 							effectiveDurationLabel={getEffectiveDurationLabel(task)}
 							onSaveInstanceNote={handleSaveInstanceNote}
+							showIntensityControl={true}
 							busyAction={getBusyAction(task.id)}
 							onDone={handleDone}
 							onInactivate={handleCancelActive}
+							onIntensityChange={handleIntensityChange}
 							onSaveNote={handleSaveNote}
 							onSaveNextDue={handleSaveNextDue}
 							onTally={handleTally}

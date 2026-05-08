@@ -8,6 +8,7 @@ const {
 	TASK_WEEKDAY_VALUES,
 	areTaskWeekdaysEqual,
 	findOwnedTask,
+	normalizeTaskIntensity,
 	normalizeTaskWeekdays,
 	serializedTaskJsonSchema,
 	serializeTask
@@ -59,6 +60,11 @@ const updateTaskSchema = {
 			note: {
 				type: ['string', 'null'],
 				maxLength: 2000
+			},
+			intensity: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 100
 			},
 			nextDueAt: {
 				type: ['string', 'null'],
@@ -140,11 +146,13 @@ async function updateTaskRoute(app) {
 			const changes = [];
 			const updatedAt = new Date();
 			const nextTask = {
-				...task
+				...task,
+				intensity: normalizeTaskIntensity(task.intensity)
 			};
 			const providedTallyUnit = Object.hasOwn(request.body, 'tallyUnit');
 			const providedTallyTarget = Object.hasOwn(request.body, 'tallyTarget');
 			const providedActiveTallyCount = Object.hasOwn(request.body, 'activeTallyCount');
+			const providedIntensity = Object.hasOwn(request.body, 'intensity');
 			const providedNextDueAt = Object.hasOwn(request.body, 'nextDueAt');
 			const providedDaymapWeekdays = Object.hasOwn(request.body, 'daymapWeekdays');
 
@@ -193,6 +201,19 @@ async function updateTaskRoute(app) {
 					label: 'Changed: task note',
 					value: nextTask.note ? `"${nextTask.note}"` : 'cleared'
 				});
+			}
+
+			if (providedIntensity) {
+				const nextIntensity = normalizeTaskIntensity(request.body.intensity);
+
+				if (nextIntensity !== normalizeTaskIntensity(task.intensity)) {
+					nextTask.intensity = nextIntensity;
+					changes.push({
+						field: 'intensity',
+						label: 'Changed: intensity',
+						value: String(nextIntensity)
+					});
+				}
 			}
 
 			if (providedNextDueAt) {
@@ -375,6 +396,7 @@ async function updateTaskRoute(app) {
 				tallyTarget: nextTask.tallyTarget,
 				activeTallyCount: nextTask.activeTallyCount,
 				note: nextTask.note ?? null,
+				intensity: normalizeTaskIntensity(nextTask.intensity),
 				nextDueAt: nextTask.nextDueAt ?? null,
 				daymapLocked: nextTask.daymapLocked === true,
 				daymapWeekdays: normalizeTaskWeekdays(nextTask.daymapWeekdays),

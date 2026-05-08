@@ -248,6 +248,14 @@ export async function updateTaskDaymapWeekdays(taskId, daymapWeekdays) {
 	return body?.task ?? null;
 }
 
+export async function updateTaskIntensity(taskId, intensity) {
+	const body = await updateTask(taskId, {
+		intensity
+	});
+
+	return body?.task ?? null;
+}
+
 export function archiveTask(taskId) {
 	return runTaskAction(taskId, 'archive');
 }

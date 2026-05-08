@@ -126,6 +126,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Tasks have two tracking types:
   - `time`
   - `tally`
+- Tasks store `intensity` as an integer from `1` to `100`; missing legacy values default to `50` in serialization
 - Repeatable tasks can store automatic daymap weekdays:
   - `tasks.daymapWeekdays`
   - integer values use JavaScript weekday numbering: `0` Sunday through `6` Saturday
@@ -352,6 +353,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/add`
   - task creation form
   - task notes are always visible on the form; there is no notes checkbox gate
+  - intensity is selected with a `1` to `100` slider below the notes section
 - `/profile`
   - active sessions plus recent login attempt history
 
@@ -359,6 +361,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - `/` is a minimalist public landing page, not a redirect anymore
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
+- `/tasks`, `/active`, and `/done` task cards expose a shared left-edge coin intensity slider from `TaskCard.svelte` that persists on release
+- Task-card accent bars use a reusable intensity color formula: `--task-accent-strong` for the saturated/bright top and `--task-accent-pastel` for the softer bottom; reuse that relationship for future stats/header task cells
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes
 - Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day
