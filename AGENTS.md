@@ -285,6 +285,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - each cell is one minute; active task spans color cells with the task color
   - midnight starts on the bottom row and the day moves upward
   - overlapping task colors are shown as two- or three-way horizontal split cells
+  - each day grid is followed by a muted, dot-separated list of the distinct task names worked during that local day
   - loads 10 days at a time and infinite-scrolls older days
 
 ## Frontend architecture
@@ -363,6 +364,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
 - `/tasks`, `/active`, and `/done` task cards expose a shared left-edge coin intensity slider from `TaskCard.svelte` that persists on release
 - Task-card accent bars use a reusable intensity color formula: `--task-accent-strong` for the saturated/bright top and `--task-accent-pastel` for the softer bottom; reuse that relationship for future stats/header task cells
+- `/stats` and the header current-hour trace receive task intensity from `GET /stats/heatmap`; task-cell opacity maps intensity from 25% at `0` to 100% at `100`, and panic overlap is marked with a small solid red dot in the top-right of each affected cell
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes
 - Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day

@@ -18,6 +18,7 @@
 
 	import AssistantDrawer from '$lib/AssistantDrawer.svelte';
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
@@ -257,25 +258,6 @@
 		return new Date(year, month - 1, date, 0, 0, 0, 0).getTime();
 	}
 
-	function buildSplitFill(colors) {
-		const visibleColors = colors.filter(Boolean).slice(0, 3);
-
-		if (visibleColors.length === 0) {
-			return '';
-		}
-
-		if (visibleColors.length === 1) {
-			return visibleColors[0];
-		}
-
-		const segmentSize = 100 / visibleColors.length;
-		const segments = visibleColors.map(
-			(color, index) => `${color} ${index * segmentSize}% ${(index + 1) * segmentSize}%`
-		);
-
-		return `linear-gradient(180deg, ${segments.join(', ')})`;
-	}
-
 	function getUniqueTaskSessions(sessions) {
 		const seenTaskIds = new Set();
 
@@ -366,12 +348,14 @@
 
 			const uniqueTaskSessions = getUniqueTaskSessions(sessions);
 			const uniqueTaskNames = uniqueTaskSessions.map((session) => session.name);
-			const uniqueColors = uniqueTaskSessions.map((session) => session.color).filter(Boolean);
+			const firstTaskSession = uniqueTaskSessions.find((session) => session.color);
 
 			return {
 				active: true,
-				fill: buildSplitFill(uniqueColors),
-				glow: uniqueColors[0] ?? '',
+				fill: buildIntensitySplitFill(uniqueTaskSessions),
+				glow: firstTaskSession
+					? getIntensityCellColor(firstTaskSession.color, firstTaskSession.intensity)
+					: '',
 				label: `${minuteLabel}: ${uniqueTaskNames.join(' + ')}${panicking ? ' + Panic' : ''}`,
 				panicking
 			};
@@ -1047,8 +1031,12 @@
 
 	.current-hour-trace__minute::after {
 		position: absolute;
-		inset: 0;
-		border-radius: inherit;
+		top: 1px;
+		right: 1px;
+		width: 3px;
+		height: 3px;
+		border-radius: 999px;
+		background: #ff2f2f;
 		pointer-events: none;
 		content: '';
 		opacity: 0;
@@ -1063,8 +1051,7 @@
 
 	.current-hour-trace__minute-panic {
 		&::after {
-			background: #ff3b30;
-			opacity: 0.3;
+			opacity: 1;
 		}
 	}
 

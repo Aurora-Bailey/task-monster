@@ -2,10 +2,12 @@
 	import { onMount } from 'svelte';
 
 	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { loadStatsHeatmap } from '$lib/stats-client';
+	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 
 	const DAYS_PER_BATCH = 10;
 	const MINUTES_PER_DAY = 24 * 60;
@@ -75,25 +77,6 @@
 
 	function formatMinuteLabel(day, minuteIndex) {
 		return clockFormatter.format(new Date(getLocalDayStartMs(day) + minuteIndex * MINUTE_MS));
-	}
-
-	function buildSplitFill(colors) {
-		const visibleColors = colors.filter(Boolean).slice(0, 3);
-
-		if (visibleColors.length === 0) {
-			return '';
-		}
-
-		if (visibleColors.length === 1) {
-			return visibleColors[0];
-		}
-
-		const segmentSize = 100 / visibleColors.length;
-		const segments = visibleColors.map(
-			(color, index) => `${color} ${index * segmentSize}% ${(index + 1) * segmentSize}%`
-		);
-
-		return `linear-gradient(180deg, ${segments.join(', ')})`;
 	}
 
 	function getUniqueTaskSessions(sessions) {
@@ -175,13 +158,15 @@
 
 			const uniqueTaskSessions = getUniqueTaskSessions(sessions);
 			const uniqueTaskNames = uniqueTaskSessions.map((session) => session.name);
-			const uniqueColors = uniqueTaskSessions.map((session) => session.color).filter(Boolean);
 			const labelParts = hasPanic ? [...uniqueTaskNames, 'panic time'] : uniqueTaskNames;
+			const firstTaskSession = uniqueTaskSessions.find((session) => session.color);
 
 			return {
 				active: true,
-				fill: buildSplitFill(uniqueColors),
-				glow: uniqueColors[0] ?? '',
+				fill: buildIntensitySplitFill(uniqueTaskSessions),
+				glow: firstTaskSession
+					? getIntensityCellColor(firstTaskSession.color, firstTaskSession.intensity)
+					: '',
 				label: `${formatMinuteLabel(day.day, minuteIndex)}: ${labelParts.join(' + ')}`,
 				panic: hasPanic
 			};
@@ -216,6 +201,25 @@
 		return new Set((day.sessions ?? []).map((session) => session.taskId)).size;
 	}
 
+	function getDayTaskNames(day) {
+		const seenTaskIds = new Set();
+		const taskNames = [];
+
+		for (const session of day.sessions ?? []) {
+			const name = typeof session.name === 'string' ? session.name.trim() : '';
+			const key = session.taskId || name.toLowerCase();
+
+			if (!name || seenTaskIds.has(key)) {
+				continue;
+			}
+
+			seenTaskIds.add(key);
+			taskNames.push(name);
+		}
+
+		return taskNames;
+	}
+
 	function getDaySummary(day) {
 		const activeMilliseconds = getDayActiveMilliseconds(day);
 		const taskCount = getDayTaskCount(day);
@@ -230,7 +234,8 @@
 	function normalizeDay(day) {
 		return {
 			...day,
-			minutes: reverseHourRows(buildMinuteCells(day))
+			minutes: reverseHourRows(buildMinuteCells(day)),
+			taskNames: getDayTaskNames(day)
 		};
 	}
 
@@ -316,6 +321,9 @@
 		const handlePanicUpdated = () => {
 			void reloadHeatmap();
 		};
+		const handleTaskUpdated = () => {
+			void reloadHeatmap();
+		};
 		const handleAssistantRefresh = (event) => {
 			if (
 				event.detail?.refresh?.tasks !== true &&
@@ -330,10 +338,12 @@
 
 		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 
 		return () => {
 			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
+			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		};
 	});
 </script>
@@ -417,6 +427,20 @@
 								></span>
 							{/each}
 						</div>
+
+						{#if day.taskNames.length > 0}
+							<p
+								class="day-card__activity"
+								aria-label={`Tasks worked on ${formatDayLabel(day.day)}`}
+							>
+								{#each day.taskNames as taskName, taskNameIndex}
+									{#if taskNameIndex > 0}
+										<span class="day-card__activity-dot" aria-hidden="true"></span>
+									{/if}
+									<span>{taskName}</span>
+								{/each}
+							</p>
+						{/if}
 					</article>
 				{/each}
 			</div>
@@ -528,11 +552,8 @@
 	}
 
 	.legend-chip--panic i {
-		border: 1px solid #ff2f2f;
-		background: transparent;
-		box-shadow:
-			inset 0 0 0 1px #fff,
-			0 0 0 2px rgba(255, 47, 47, 0.16);
+		background: #ff2f2f;
+		box-shadow: 0 0 0 2px rgba(255, 47, 47, 0.16);
 	}
 
 	.message-card {
@@ -576,6 +597,26 @@
 		color: var(--color-muted);
 	}
 
+	.day-card__activity {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.26rem;
+		color: var(--color-text);
+		font-size: 0.76rem;
+		font-weight: 700;
+		line-height: 1.35;
+		opacity: 0.7;
+	}
+
+	.day-card__activity-dot {
+		width: 0.28rem;
+		height: 0.28rem;
+		border-radius: 999px;
+		background: currentColor;
+		opacity: 0.72;
+	}
+
 	.minute-grid {
 		display: grid;
 		grid-template-columns: repeat(60, minmax(0, 1fr));
@@ -606,10 +647,16 @@
 	}
 
 	.minute-panic {
-		border: 1px solid #ff2f2f;
-		box-shadow:
-			inset 0 0 0 1px #fff,
-			0 0 5px rgba(255, 47, 47, 0.42);
+		&::after {
+			position: absolute;
+			top: 1px;
+			right: 1px;
+			width: 3px;
+			height: 3px;
+			border-radius: 999px;
+			background: #ff2f2f;
+			content: '';
+		}
 	}
 
 	.load-sentinel {
