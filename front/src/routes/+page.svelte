@@ -15,8 +15,7 @@
 		todayMobile: resolve('/images/marketing/mobile-tasks-dark.png'),
 		tasks: resolve('/images/marketing/demo-tasks.png'),
 		card: resolve('/images/marketing/demo-card.png'),
-		stats: resolve('/images/marketing/demo-stats.png'),
-		statsLight: resolve('/images/marketing/home-stats.png')
+		stats: resolve('/images/marketing/demo-stats.png')
 	};
 
 	const corePoints = ['Add task', 'Track today', 'View stats'];
@@ -41,7 +40,6 @@
 			<a href="#adhd">ADHD</a>
 			<a href="#workflow">Workflow</a>
 			<a href="#stats">Stats</a>
-			<a href={resolve('/demo-board')}>Tour</a>
 			<a class="nav-login" href={resolve('/auth')}>Log in</a>
 		</div>
 	</nav>
@@ -67,7 +65,6 @@
 
 			<div class="hero-actions">
 				<a class="primary-action" href={resolve(heroPrimaryHref)}>{heroPrimaryLabel}</a>
-				<a class="secondary-action" href={resolve('/demo-board')}>See product tour</a>
 			</div>
 
 			<div class="workflow-strip" aria-label="Task Monster workflow">
@@ -169,23 +166,13 @@
 				</p>
 			</div>
 
-			<div class="stats-pair">
-				<figure class="shot-frame">
-					<img
-						src={marketingImages.stats}
-						alt="Task Monster dark stats view showing a minute-map heatmap."
-						loading="lazy"
-					/>
-				</figure>
-
-				<figure class="shot-frame">
-					<img
-						src={marketingImages.statsLight}
-						alt="Task Monster light stats view showing a minute-map heatmap."
-						loading="lazy"
-					/>
-				</figure>
-			</div>
+			<figure class="shot-frame shot-frame--large">
+				<img
+					src={marketingImages.stats}
+					alt="Task Monster dark stats view showing a minute-map heatmap."
+					loading="lazy"
+				/>
+			</figure>
 		</section>
 	</section>
 
@@ -195,7 +182,6 @@
 
 		<div class="closing-actions">
 			<a class="primary-action" href={resolve('/auth')}>Sign up / Login</a>
-			<a class="secondary-action" href={resolve('/demo-board')}>Open tour</a>
 		</div>
 	</section>
 </section>
@@ -237,8 +223,7 @@
 
 	.brand,
 	.nav-links a,
-	.primary-action,
-	.secondary-action {
+	.primary-action {
 		text-decoration: none;
 		font-weight: 750;
 	}
@@ -406,8 +391,7 @@
 		padding-top: 0.35rem;
 	}
 
-	.primary-action,
-	.secondary-action {
+	.primary-action {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -426,14 +410,7 @@
 		box-shadow: var(--surface-shadow);
 	}
 
-	.secondary-action {
-		border: 1px solid var(--line);
-		background: var(--marketing-panel);
-		color: var(--ink);
-	}
-
-	.primary-action:hover,
-	.secondary-action:hover {
+	.primary-action:hover {
 		transform: translateY(-1px);
 	}
 
@@ -570,12 +547,6 @@
 		width: min(24rem, 52%);
 	}
 
-	.stats-pair {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 1rem;
-	}
-
 	.closing-band {
 		display: grid;
 		justify-items: center;
@@ -619,8 +590,7 @@
 		}
 
 		.point-section,
-		.point-section--reverse,
-		.stats-pair {
+		.point-section--reverse {
 			grid-template-columns: 1fr;
 		}
 
@@ -677,8 +647,7 @@
 			justify-content: stretch;
 		}
 
-		.primary-action,
-		.secondary-action {
+		.primary-action {
 			width: 100%;
 		}
 

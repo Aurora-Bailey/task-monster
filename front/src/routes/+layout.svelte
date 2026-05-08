@@ -12,11 +12,10 @@
 	import './layout.css';
 
 	let { children } = $props();
-	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms', '/demo-board']);
+	const PUBLIC_ROUTE_PATHS = new Set(['/', '/auth', '/privacy', '/terms']);
 	const DEVELOPMENT_SW_RELOAD_KEY = 'task-monster-dev-sw-reload';
 	const ROUTE_ANIMATION_ORDER = [
 		'/',
-		'/demo-board',
 		'/auth',
 		'/add',
 		'/tasks',
@@ -129,7 +128,7 @@
 	});
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));
-	const isMarketingRoute = $derived(currentPath === '/' || currentPath === '/demo-board');
+	const isMarketingRoute = $derived(currentPath === '/');
 	const isAuthRoute = $derived(currentPath === '/auth');
 	const isAddAccountRoute = $derived(
 		isAuthRoute && page.url.searchParams.get('addAccount') === '1'

@@ -52,7 +52,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - frontend Vite config points `envDir` at the repo root
   - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
 - `/` is now a minimalist public marketing landing page that uses current product screenshots
-- `/demo-board` is also public and currently acts as a product-screen tour without requiring auth
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
 - Backend config is in `back/lib/config.js`
@@ -291,9 +290,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - Auth gate and boot splash:
   - `front/src/routes/+layout.svelte`
-  - public routes are currently `/`, `/demo-board`, `/auth`, `/privacy`, and `/terms`
+  - public routes are currently `/`, `/auth`, `/privacy`, and `/terms`
   - protected routes still wait for session initialization before redirecting guests
-- Marketing visuals used by the public landing/product-tour pages live in:
+- Marketing visuals used by the public landing page live in:
   - `front/static/images/marketing/`
   - named `hero-*`, `add-*`, `mobile-*`, `home-*`, and `demo-*` PNG screenshots are the current marketing-page source images
 - Session storage and authorized fetch helpers:
@@ -331,8 +330,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - `/`
   - minimalist public landing page with marketing copy, signup/login CTA, and real product screenshots
-- `/demo-board`
-  - public product-tour page using current Daymap, Active, Add, Stats, and Profile screenshots
 - `/auth`
   - login and account creation
 - `/privacy`
@@ -361,7 +358,6 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 ## Current UI behavior worth knowing
 
 - `/` is a minimalist public landing page, not a redirect anymore
-- `/demo-board` now holds the screenshot-based product tour that replaced the old simulated board demo
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes

@@ -19,8 +19,6 @@ The current UI is easiest to recognize by the task board, active sessions, and s
 - Public frontend routes:
   - `/`
     - minimalist public homepage using current product screenshots
-  - `/demo-board`
-    - public product tour using the same marketing screenshot set
   - `/auth`
   - `/privacy`
   - `/terms`
@@ -117,8 +115,6 @@ Public frontend routes:
 
 - `/`
   - minimalist public homepage with product positioning, CTA, and real screenshots from `front/static/images/marketing/`
-- `/demo-board`
-  - public product tour page using current Daymap, Active, Add, Stats, and Profile screenshots
 - `/auth`
 - `/privacy`
 - `/terms`
