@@ -15,7 +15,8 @@
 		active: false,
 		fill: '',
 		glow: '',
-		label: ''
+		label: '',
+		panic: false
 	});
 	const taskColorLegend = [
 		{ key: 'red', label: 'System', color: '#c74a4a' },
@@ -113,6 +114,7 @@
 	function buildMinuteCells(day) {
 		const dayStartMs = getLocalDayStartMs(day.day);
 		const minuteBuckets = Array.from({ length: MINUTES_PER_DAY }, () => []);
+		const panicMinutes = Array.from({ length: MINUTES_PER_DAY }, () => false);
 
 		for (const session of day.sessions ?? []) {
 			const startedAtMs = new Date(session.startedAt).getTime();
@@ -134,20 +136,54 @@
 			}
 		}
 
+		for (const panicSession of day.panicSessions ?? []) {
+			const startedAtMs = new Date(panicSession.startedAt).getTime();
+			const endedAtMs = new Date(panicSession.endedAt).getTime();
+
+			if (
+				!Number.isFinite(startedAtMs) ||
+				!Number.isFinite(endedAtMs) ||
+				endedAtMs <= startedAtMs
+			) {
+				continue;
+			}
+
+			const startMinute = Math.max(0, Math.floor((startedAtMs - dayStartMs) / MINUTE_MS));
+			const endMinute = Math.min(MINUTES_PER_DAY, Math.ceil((endedAtMs - dayStartMs) / MINUTE_MS));
+
+			for (let minute = startMinute; minute < endMinute; minute += 1) {
+				panicMinutes[minute] = true;
+			}
+		}
+
 		return minuteBuckets.map((sessions, minuteIndex) => {
-			if (sessions.length === 0) {
+			const hasPanic = panicMinutes[minuteIndex];
+
+			if (sessions.length === 0 && !hasPanic) {
 				return EMPTY_MINUTE;
+			}
+
+			if (sessions.length === 0) {
+				return {
+					active: false,
+					fill: '',
+					glow: '',
+					label: `${formatMinuteLabel(day.day, minuteIndex)}: panic time`,
+					panic: true
+				};
 			}
 
 			const uniqueTaskSessions = getUniqueTaskSessions(sessions);
 			const uniqueTaskNames = uniqueTaskSessions.map((session) => session.name);
 			const uniqueColors = uniqueTaskSessions.map((session) => session.color).filter(Boolean);
+			const labelParts = hasPanic ? [...uniqueTaskNames, 'panic time'] : uniqueTaskNames;
 
 			return {
 				active: true,
 				fill: buildSplitFill(uniqueColors),
 				glow: uniqueColors[0] ?? '',
-				label: `${formatMinuteLabel(day.day, minuteIndex)}: ${uniqueTaskNames.join(' + ')}`
+				label: `${formatMinuteLabel(day.day, minuteIndex)}: ${labelParts.join(' + ')}`,
+				panic: hasPanic
 			};
 		});
 	}
@@ -325,6 +361,10 @@
 					{item.label}
 				</span>
 			{/each}
+			<span class="legend-chip legend-chip--panic">
+				<i aria-hidden="true"></i>
+				Panic
+			</span>
 		</div>
 	</header>
 
@@ -367,6 +407,7 @@
 							{#each day.minutes as minute}
 								<span
 									class:minute-active={minute.active}
+									class:minute-panic={minute.panic}
 									class="minute-cell"
 									style={minute.fill
 										? `--minute-fill: ${minute.fill}; --minute-glow: ${minute.glow};`
@@ -480,9 +521,18 @@
 	.legend-chip i {
 		width: 0.45rem;
 		height: 0.45rem;
+		box-sizing: border-box;
 		border-radius: 999px;
 		background: var(--legend-color);
 		box-shadow: 0 0 0 2px color-mix(in srgb, var(--legend-color) 16%, transparent);
+	}
+
+	.legend-chip--panic i {
+		border: 1px solid #ff2f2f;
+		background: transparent;
+		box-shadow:
+			inset 0 0 0 1px #fff,
+			0 0 0 2px rgba(255, 47, 47, 0.16);
 	}
 
 	.message-card {
@@ -538,8 +588,10 @@
 	}
 
 	.minute-cell {
+		position: relative;
 		aspect-ratio: 1;
 		min-width: 0;
+		box-sizing: border-box;
 		border-radius: 1.5px;
 		background: color-mix(in srgb, var(--color-muted) 14%, transparent);
 	}
@@ -551,6 +603,13 @@
 	.minute-active {
 		background: var(--minute-fill);
 		box-shadow: 0 0 5px color-mix(in srgb, var(--minute-glow) 42%, transparent);
+	}
+
+	.minute-panic {
+		border: 1px solid #ff2f2f;
+		box-shadow:
+			inset 0 0 0 1px #fff,
+			0 0 5px rgba(255, 47, 47, 0.42);
 	}
 
 	.load-sentinel {
