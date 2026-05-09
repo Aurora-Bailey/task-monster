@@ -85,7 +85,7 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `OPENAI_MODEL=gpt-5.4-mini`
   - if blank or still set to `your_model_name_here`, the backend falls back to `gpt-5.4-mini`
 
-Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset.
+Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to the Render-backed API domain `https://api.taskmonster.dev`.
 
 ## Core runtime model
 
@@ -218,5 +218,5 @@ Current cheap smoke checks:
 
 - `cd front && npm run lint`
 - `cd front && npm run build`
-- `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
+- `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
 - boot the backend against a reachable Mongo instance

@@ -13,7 +13,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend install: `cd front && npm install`
 - Frontend dev: `cd front && npm run dev`
 - Frontend build check: `cd front && npm run build`
-- Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
+- Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
 - Backend install: `cd back && npm install`
 - Backend dev: `cd back && npm run dev`
 - Backend start: `cd back && npm start`
@@ -26,7 +26,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend production hosting is GitHub Pages.
   - `.github/workflows/deploy-frontend.yml` builds and deploys `front/` from the `production` branch
   - GitHub Pages serves the frontend under the repo base path, so production builds set `BASE_PATH=/${{ github.event.repository.name }}`
-  - production frontend API calls point at Render backend `https://task-monster-api.onrender.com`
+  - production frontend API calls point at the Render-backed API domain `https://api.taskmonster.dev`
   - `front/svelte.config.js` uses `@sveltejs/adapter-static` with `fallback: '404.html'` for SPA route refreshes
 - Frontend PWA support is manual static-file support.
   - app metadata lives in `front/static/manifest.webmanifest`
@@ -551,7 +551,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Cheap smoke checks that match current workflow:
   - `cd front && npm run lint`
   - `cd front && npm run build`
-  - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
+  - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
   - boot the backend against a reachable Mongo instance
 - `db/` should not be treated as the source of truth for runtime behavior
 - If docs and code disagree, prefer the code and then update this file

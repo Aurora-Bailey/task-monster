@@ -133,18 +133,17 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Active tasks support:
   - inactivate
   - done
-  - elapsed and effective runtime for time tasks
+  - inline start and end datetime editing on each active task card
+  - end time follows the current time until the user edits it, then Done uses the pinned card-local value
+  - effective runtime for time tasks
   - tally increment/decrement for tally tasks
-- Marking a task done from `/active` opens a modal that can:
-  - edit the run start time directly with a local datetime input
-  - edit the completion time directly with a local datetime input
-  - attach an instance note
-  - for repeatable tasks, optionally set `nextDueAt` with its own local datetime input
 - The done page loads the 10 freshest completed runs first and uses an intersection observer to request older runs
 - The stats page loads 10 local days at a time from `GET /stats/heatmap`
   - each day renders a 60 x 24 minute grid
   - midnight starts at the bottom and the day moves upward
   - overlapping tasks render as two- or three-way horizontal split cells
+  - task-cell opacity is driven by task intensity, and panic overlap is marked with a small red dot
+  - each grid is followed by a muted dot-separated list of distinct task names worked that day
   - scrolling near the bottom requests older day batches
 - Panic mode is controlled from the top nav, not from the active page itself
 - PWA behavior:
@@ -175,7 +174,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - per-task mappings such as recoloring/classifying tasks by meaning should come back through targeted batch edits
   - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
   - metadata edits still flow through the broad task edit route
-  - `next due` is mostly AI-managed, but the active done modal can now set it for repeatable tasks directly
+  - `next due` is editable from task cards and can also be managed by the assistant
 
 ## Data source notes
 

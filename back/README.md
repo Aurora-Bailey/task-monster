@@ -278,7 +278,7 @@ Assistant prompt policy:
 - pasted checklist/TODO imports should use `create_tasks` instead of long single-task create loops
 - status-wide cleanup where every task gets the same change should use `bulk_edit_tasks`
 - targeted mappings where each task may get different metadata should use `edit_tasks`
-- `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
+- `nextDueAt` is an optional task field that can be edited from task cards and managed by assistant tools
 - broad task lookup should use `search_tasks` instead of pagination loops
 - timing corrections should be passed as tool arguments, not approximated with notes
 - if a non-active task is being completed historically, both `startedAt` and `completedAt` should be supplied
