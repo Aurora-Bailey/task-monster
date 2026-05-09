@@ -400,8 +400,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Active page includes:
   - tally increment and decrement controls
   - cancel control that unstages an active task back to Daymap without logging an inactive run
-  - done modal with direct local start and finish datetime editors
-  - repeatable-task done flow can optionally set `nextDueAt` with its own direct datetime editor
+  - inline start and end datetime editors on each active task card
+  - start defaults to the activation time; end tracks the current time until the user edits it, then Done sends the card-local start/end values directly with no confirmation modal
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The top nav exposes icon-only `AI` and `Panic` controls plus a theme-colored account switcher
   - the account switcher lists stored accounts with initial/name rows rendered in each account's saved theme
@@ -477,7 +477,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - for cleanup across a matched set where every task gets the exact same change set it should call `bulk_edit_tasks`
   - for targeted multi-task mappings like `Task A -> blue, Task B -> red`, or classification passes where each task can get a different target value, it should call `edit_tasks` instead of `bulk_edit_tasks` or repeated `edit_task`
   - for recolor/classification requests across all tasks, it should first call `filter_tasks` to read the full matching set, then call `edit_tasks` with the per-task target colors
-  - `nextDueAt` is an optional task field that can be edited from task cards, set in the active done modal for repeatable tasks, and managed by assistant tools
+  - `nextDueAt` is an optional task field that can be edited from task cards and managed by assistant tools
   - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
   - ambiguous requests should trigger a short clarification instead of a guess
   - time-correction requests should be passed as actual tool arguments, not approximated with notes

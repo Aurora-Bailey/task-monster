@@ -43,7 +43,9 @@
 		clickActionLabel = 'Activate',
 		enableInactiveCardClick = false,
 		compact = false,
-		activeDurationLabel = '',
+		activeStartedAtValue = '',
+		activeCompletedAtValue = '',
+		activeCompletedAtLocked = false,
 		panicDurationLabel = '',
 		effectiveDurationLabel = '',
 		doneDurationLabel = '',
@@ -72,7 +74,9 @@
 		onTally = () => {},
 		onUnmap = () => {},
 		onInactivate = () => {},
-		onDone = () => {}
+		onDone = () => {},
+		onActiveStartedAtChange = () => {},
+		onActiveCompletedAtChange = () => {}
 	} = $props();
 
 	let draftIntensity = $state(50);
@@ -152,6 +156,10 @@
 	let nextDueSaveStatus = $state('idle');
 	let nextDueSaveError = $state('');
 	let nextDueInput = $state(null);
+	let activeStartedAtEditorOpen = $state(false);
+	let activeCompletedAtEditorOpen = $state(false);
+	let activeStartedAtInput = $state(null);
+	let activeCompletedAtInput = $state(null);
 
 	let pendingSaveTimer = null;
 	let noteRevision = 0;
@@ -539,6 +547,55 @@
 
 	function formatTimingTitle(label, meta) {
 		return `${label}: ${[meta.weekdayLabel, meta.dateTimeLabel].filter(Boolean).join(' ')}`;
+	}
+
+	function formatActiveCompletionTime(value) {
+		const meta = formatLastDone(value);
+
+		if (meta.dateTimeLabel === 'Untracked') {
+			return {
+				weekdayLabel: 'Unset',
+				dateTimeLabel: 'Choose time'
+			};
+		}
+
+		return meta;
+	}
+
+	async function openActiveStartedAtEditor(event) {
+		event.stopPropagation();
+
+		if (variant !== 'active' || busyAction !== null) {
+			return;
+		}
+
+		activeStartedAtEditorOpen = true;
+		activeCompletedAtEditorOpen = false;
+		await tick();
+		activeStartedAtInput?.focus();
+	}
+
+	async function openActiveCompletedAtEditor(event) {
+		event.stopPropagation();
+
+		if (variant !== 'active' || busyAction !== null) {
+			return;
+		}
+
+		activeCompletedAtEditorOpen = true;
+		activeStartedAtEditorOpen = false;
+		await tick();
+		activeCompletedAtInput?.focus();
+	}
+
+	function handleActiveStartedAtInput(event) {
+		event.stopPropagation();
+		onActiveStartedAtChange(task.id, event.currentTarget.value);
+	}
+
+	function handleActiveCompletedAtInput(event) {
+		event.stopPropagation();
+		onActiveCompletedAtChange(task.id, event.currentTarget.value);
 	}
 
 	async function openNextDueEditor(event) {
@@ -1287,16 +1344,82 @@
 					</button>
 				</div>
 			{/if}
-		{:else}
+		{/if}
+
+		{#if variant === 'active'}
+			{@const startedAtMeta = formatActiveCompletionTime(activeStartedAtValue)}
+			{@const completedAtMeta = formatActiveCompletionTime(activeCompletedAtValue)}
+			<div class="task-card__runtime task-card__active-time-grid">
+				<div class="runtime-stat active-time-stat">
+					<button
+						class="active-time-button task-card__interactive"
+						type="button"
+						disabled={busyAction !== null}
+						aria-expanded={activeStartedAtEditorOpen}
+						aria-label={`Edit start time for ${task.name}. ${formatTimingTitle('Start time', startedAtMeta)}`}
+						onclick={openActiveStartedAtEditor}
+					>
+						<span>Start time</span>
+						<strong>{startedAtMeta.weekdayLabel} {startedAtMeta.dateTimeLabel}</strong>
+					</button>
+
+					{#if activeStartedAtEditorOpen}
+						<label class="active-time-editor task-card__interactive">
+							<span>Adjust start</span>
+							<input
+								bind:this={activeStartedAtInput}
+								type="datetime-local"
+								value={activeStartedAtValue}
+								disabled={busyAction !== null}
+								onpointerdown={stopEventPropagation}
+								onclick={stopEventPropagation}
+								onkeydown={stopEventPropagation}
+								oninput={handleActiveStartedAtInput}
+							/>
+						</label>
+					{/if}
+				</div>
+
+				<div class="runtime-stat active-time-stat">
+					<button
+						class="active-time-button task-card__interactive"
+						type="button"
+						disabled={busyAction !== null}
+						aria-expanded={activeCompletedAtEditorOpen}
+						aria-label={`Edit end time for ${task.name}. ${formatTimingTitle('End time', completedAtMeta)}`}
+						onclick={openActiveCompletedAtEditor}
+					>
+						<span>End time</span>
+						<strong>{completedAtMeta.weekdayLabel} {completedAtMeta.dateTimeLabel}</strong>
+					</button>
+
+					{#if activeCompletedAtEditorOpen}
+						<label class="active-time-editor task-card__interactive">
+							<span>{activeCompletedAtLocked ? 'Adjust end' : 'Pin end'}</span>
+							<input
+								bind:this={activeCompletedAtInput}
+								type="datetime-local"
+								value={activeCompletedAtValue}
+								disabled={busyAction !== null}
+								onpointerdown={stopEventPropagation}
+								onclick={stopEventPropagation}
+								onkeydown={stopEventPropagation}
+								oninput={handleActiveCompletedAtInput}
+							/>
+						</label>
+					{/if}
+				</div>
+			</div>
+		{:else if !isTallyTask}
 			<div class="task-card__runtime">
 				<div class="runtime-stat">
-					<span>{variant === 'done' ? 'Worked for' : 'Active for'}</span>
-					<strong>{variant === 'done' ? doneDurationLabel : activeDurationLabel}</strong>
+					<span>Worked for</span>
+					<strong>{doneDurationLabel}</strong>
 				</div>
 
 				<div class="runtime-stat">
-					<span>{variant === 'done' ? 'Completed' : 'Timer'}</span>
-					<strong>{variant === 'done' ? completedAtLabel : 'Running'}</strong>
+					<span>Completed</span>
+					<strong>{completedAtLabel}</strong>
 				</div>
 			</div>
 		{/if}
@@ -2305,6 +2428,68 @@
 		color: var(--color-heading);
 	}
 
+	.active-time-stat {
+		display: grid;
+		gap: 0.65rem;
+		align-content: start;
+	}
+
+	.active-time-button {
+		width: 100%;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.active-time-button strong {
+		display: block;
+		line-height: 1.18;
+	}
+
+	.active-time-button:disabled {
+		cursor: wait;
+		opacity: 0.72;
+	}
+
+	.active-time-button:focus-visible {
+		outline: none;
+		border-radius: 0.45rem;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--task-accent) 18%, transparent);
+	}
+
+	.active-time-editor {
+		display: grid;
+		gap: 0.38rem;
+		padding-top: 0.62rem;
+		border-top: 1px solid color-mix(in srgb, var(--task-accent) 20%, var(--surface-border));
+	}
+
+	.active-time-editor input {
+		width: 100%;
+		min-height: 2.45rem;
+		padding: 0.58rem 0.68rem;
+		border: 1px solid color-mix(in srgb, var(--task-accent) 24%, var(--field-border));
+		border-radius: 12px;
+		background: var(--field-bg);
+		color: var(--color-heading);
+		font: inherit;
+		font-size: 0.88rem;
+		color-scheme: inherit;
+		box-shadow: var(--surface-inset);
+	}
+
+	.active-time-editor input:focus {
+		outline: none;
+		border-color: color-mix(in srgb, var(--task-accent) 58%, var(--field-border));
+		box-shadow:
+			0 0 0 3px color-mix(in srgb, var(--task-accent) 16%, transparent),
+			var(--surface-inset);
+	}
+
 	.task-card__panic-duration {
 		margin: -0.45rem 0 0;
 		padding: 0 0.2rem;
@@ -2482,6 +2667,7 @@
 	.task-card__actions {
 		display: grid;
 		gap: 0.7rem;
+		align-self: start;
 	}
 
 	.split-actions {
@@ -2493,7 +2679,9 @@
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		min-height: 3.2rem;
+		height: 3.2rem;
+		min-height: 0;
+		max-height: 3.2rem;
 		padding: 0.9rem 1rem;
 		border: 0;
 		border-radius: 14px;
