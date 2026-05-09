@@ -39,7 +39,7 @@ jobs:
         working-directory: front
         env:
           BASE_PATH: /${{ github.event.repository.name }}
-          PUBLIC_API_BASE_URL: https://task-monster-api.onrender.com
+          PUBLIC_API_BASE_URL: https://api.taskmonster.dev
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
