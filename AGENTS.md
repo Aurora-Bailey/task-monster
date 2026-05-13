@@ -111,6 +111,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `GET /login-attempts`
 - User preference routes:
   - `PATCH /users/theme`
+  - `PATCH /users/password`
+    - requires the current password and a new password
+    - updates the stored password hash and revokes all other active sessions for the user
 - Security details:
   - passwords use salted `scrypt` in `back/lib/passwords.js`
   - auth tokens are generated raw once, but only SHA-256 token hashes are stored in Mongo

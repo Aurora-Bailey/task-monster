@@ -5,6 +5,7 @@
 	import { readApiBody, readApiError } from '$lib/api';
 	import {
 		authorizedRequest,
+		changeCurrentUserPassword,
 		logoutAccount,
 		revokeSession,
 		saveCurrentUserTheme,
@@ -36,9 +37,14 @@
 	let revokeError = '';
 	let logoutError = '';
 	let themeError = '';
+	let passwordError = '';
+	let passwordSuccess = '';
 	let revokingSessionId = null;
 	let isLoggingOut = false;
 	let savingThemeId = null;
+	let isSavingPassword = false;
+	let currentPassword = '';
+	let newPassword = '';
 	let activeSessions = [];
 	let loginAttempts = [];
 	let loadedProfileUserKey = '';
@@ -87,6 +93,39 @@
 			themeError = error.message;
 		} finally {
 			savingThemeId = null;
+		}
+	}
+
+	async function handlePasswordSubmit(event) {
+		event.preventDefault();
+		passwordError = '';
+		passwordSuccess = '';
+
+		if (newPassword.length < 8) {
+			passwordError = 'New password must be at least 8 characters.';
+			return;
+		}
+
+		isSavingPassword = true;
+
+		try {
+			const result = await changeCurrentUserPassword({
+				currentPassword,
+				newPassword
+			});
+			const revokedCount = Number(result?.revokedSessionCount ?? 0);
+
+			currentPassword = '';
+			newPassword = '';
+			activeSessions = activeSessions.filter((item) => item.isCurrent);
+			passwordSuccess =
+				revokedCount > 0
+					? `${revokedCount} other session${revokedCount === 1 ? '' : 's'} invalidated. Log out and sign back in on this device when you're ready.`
+					: "No other sessions were active. Log out and sign back in on this device when you're ready.";
+		} catch (error) {
+			passwordError = error.message;
+		} finally {
+			isSavingPassword = false;
 		}
 	}
 
@@ -286,6 +325,64 @@
 				</div>
 			{/if}
 
+			<section class="panel password-panel" aria-labelledby="password-panel-heading">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Security</p>
+						<h2 id="password-panel-heading">Change password</h2>
+					</div>
+					<span class="pill">Password</span>
+				</div>
+
+				<p class="password-copy">
+					Update the account password here. Other active sessions are voided after the change.
+				</p>
+
+				<form class="password-form" onsubmit={handlePasswordSubmit}>
+					<label class="field-label">
+						<span>Old password</span>
+						<input
+							class="password-input"
+							type="password"
+							autocomplete="current-password"
+							bind:value={currentPassword}
+							maxlength="128"
+							required
+							disabled={isSavingPassword}
+						/>
+					</label>
+
+					<label class="field-label">
+						<span>New password</span>
+						<input
+							class="password-input"
+							type="password"
+							autocomplete="new-password"
+							bind:value={newPassword}
+							minlength="8"
+							maxlength="128"
+							required
+							disabled={isSavingPassword}
+						/>
+					</label>
+
+					<button class="save-password-button" type="submit" disabled={isSavingPassword}>
+						{isSavingPassword ? 'Saving...' : 'Save password'}
+					</button>
+				</form>
+
+				{#if passwordError}
+					<p class="inline-error">{passwordError}</p>
+				{/if}
+
+				{#if passwordSuccess}
+					<div class="status-card success-card" role="status">
+						<strong>Password changed</strong>
+						<p>{passwordSuccess}</p>
+					</div>
+				{/if}
+			</section>
+
 			<div class="section-grid">
 				<section class="panel">
 					<div class="panel-header">
@@ -447,6 +544,7 @@
 
 	.lede,
 	.theme-copy,
+	.password-copy,
 	.panel-header p:last-child,
 	.session-topline p,
 	.attempt-topline p,
@@ -730,6 +828,61 @@
 		background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-1));
 	}
 
+	.success-card {
+		border-color: color-mix(in srgb, var(--color-success) 24%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-success) 9%, var(--surface-1));
+	}
+
+	.password-panel {
+		gap: 0.9rem;
+	}
+
+	.password-form {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+		align-items: end;
+		gap: 0.8rem;
+	}
+
+	.field-label {
+		display: grid;
+		gap: 0.38rem;
+		color: var(--color-heading);
+		font-size: 0.78rem;
+		font-weight: 900;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.password-input {
+		width: 100%;
+		min-height: 2.7rem;
+		padding: 0.72rem 0.85rem;
+		border: 1px solid var(--surface-border);
+		border-radius: 16px;
+		background: var(--surface-2);
+		color: var(--color-heading);
+		font: inherit;
+		font-size: 0.95rem;
+		font-weight: 700;
+		letter-spacing: 0;
+		text-transform: none;
+		box-shadow: var(--surface-inset);
+	}
+
+	.password-input:focus {
+		outline: none;
+		border-color: color-mix(in srgb, var(--color-accent) 46%, var(--surface-border));
+		box-shadow:
+			0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent),
+			var(--surface-inset);
+	}
+
+	.password-input:disabled {
+		cursor: wait;
+		opacity: 0.72;
+	}
+
 	.session-list,
 	.attempt-list {
 		display: grid;
@@ -791,6 +944,7 @@
 		color: var(--color-heading);
 	}
 
+	.save-password-button,
 	.void-button {
 		justify-self: start;
 		padding: 0.78rem 1rem;
@@ -806,6 +960,12 @@
 		cursor: pointer;
 	}
 
+	.save-password-button {
+		min-height: 2.7rem;
+		white-space: nowrap;
+	}
+
+	.save-password-button:disabled,
 	.void-button:disabled {
 		cursor: wait;
 		opacity: 0.7;
@@ -814,6 +974,11 @@
 	@media (max-width: 860px) {
 		.section-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.password-form {
+			grid-template-columns: 1fr;
+			align-items: stretch;
 		}
 
 		.theme-grid {

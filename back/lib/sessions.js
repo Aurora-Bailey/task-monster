@@ -48,7 +48,25 @@ async function revokeSession(db, { sessionId, userId, revokedAt = new Date() }) 
 	);
 }
 
+async function revokeOtherSessions(db, { userId, currentSessionId, revokedAt = new Date() }) {
+	return db.collection('sessions').updateMany(
+		{
+			userId: new ObjectId(userId),
+			_id: {
+				$ne: new ObjectId(currentSessionId)
+			},
+			revokedAt: null
+		},
+		{
+			$set: {
+				revokedAt
+			}
+		}
+	);
+}
+
 module.exports = {
 	createSession,
+	revokeOtherSessions,
 	revokeSession
 };

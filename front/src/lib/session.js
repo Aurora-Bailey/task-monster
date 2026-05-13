@@ -529,6 +529,22 @@ export async function saveCurrentUserTheme(themeId) {
 	return user.theme;
 }
 
+export async function changeCurrentUserPassword({ currentPassword, newPassword }) {
+	const response = await authorizedRequest('/users/password', {
+		method: 'PATCH',
+		body: {
+			currentPassword,
+			newPassword
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to change the password.'));
+	}
+
+	return readApiBody(response);
+}
+
 export async function authorizedRequest(path, options = {}) {
 	const current = get(session);
 	const token = current.token || readStoredToken();
