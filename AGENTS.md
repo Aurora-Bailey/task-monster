@@ -139,7 +139,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Task responses can include local-day derived display flags:
   - `scheduledToday`
   - `startedToday`
+  - `skippedToday`
 - Task responses also include `lastStartedAt`; card fading uses `task_runs.startedAt` inside the current local day so overnight sleep tasks are attributed by start time
+- Daily skips store the local day on `tasks.skippedLocalDay` and are presentation-only; they fade Daymap cards without creating a `task_runs` completion record
 - Shared task validation and serialization live in `back/lib/tasks.js`
 - Template-level task note:
   - stored on `tasks.note`
@@ -179,6 +181,12 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `POST /tasks/:taskId/daymap`
 - Remove from daymap back to inactive:
   - `POST /tasks/:taskId/unmap`
+- Pin or unpin daymap membership:
+  - `PATCH /tasks/:taskId/daymap-pin`
+  - pins set `mappedToday: true` and set `daymapLocked: true` for repeatable tasks
+- Skip or unskip the current local day:
+  - `PATCH /tasks/:taskId/day-skip`
+  - updates `tasks.skippedLocalDay` without creating task history
 - Activate:
   - `POST /tasks/:taskId/activate`
   - opens a `task_runs` record
@@ -221,6 +229,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`
 - Daymap lock is mainly meaningful for repeatable tasks because it controls whether `done` loops them back to the daymap
+- The `/tasks` UI now treats the star as the daymap pin control; the separate lock button is no longer shown there
 
 ## Active-task behavior
 
@@ -370,9 +379,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/stats` and the header current-hour trace receive task intensity from `GET /stats/heatmap`; task-cell opacity maps intensity from 25% at `0` to 100% at `100`, and panic overlap is marked with a small solid red dot in the top-right of each affected cell
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes
-- Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day
+- Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day or has been skipped for the current local day
 - Inactive cards expose icon actions:
-  - star moves the task to daymap
+  - star pins the task to daymap
   - play activates directly
   - archive hides inactive tasks
 - Account creation on `/auth` now requires:
@@ -384,8 +393,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Daymap cards expose:
   - activate through a play icon
   - queue or unqueue
-  - daymap lock toggle
-  - star toggle back to inactive for manually mapped tasks
+  - star toggles the daymap pin; for repeatable tasks, starring also makes done loop them back to Daymap until unstarred
+  - skip today through a calendar-x icon, which fades the card without marking it done
   - scheduled-only cards use the weekday buttons to remove today's automatic Daymap membership
   - the shared `/tasks` sort menu includes `Queue`, which floats queued daymap tasks to the top in queue-number order
 - Task board pages now expose a shared right-side board control strip

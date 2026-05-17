@@ -104,6 +104,47 @@ export async function updateTaskDaymapLock(taskId, daymapLocked) {
 	return body?.task ?? null;
 }
 
+export async function updateTaskDaymapPin(taskId, pinned) {
+	const response = await authorizedRequest(`/tasks/${taskId}/daymap-pin`, {
+		method: 'PATCH',
+		body: {
+			pinned
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the daymap pin.'));
+	}
+
+	const body = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'daymap-pin',
+		taskId
+	});
+	return body?.task ?? null;
+}
+
+export async function updateTaskDaySkip(taskId, skipped) {
+	const response = await authorizedRequest(`/tasks/${taskId}/day-skip`, {
+		method: 'PATCH',
+		body: {
+			skipped,
+			tzOffsetMinutes: getTimezoneOffsetMinutes()
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update the daily skip.'));
+	}
+
+	const body = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'day-skip',
+		taskId
+	});
+	return body?.task ?? null;
+}
+
 export async function updateTaskTally(taskId, delta) {
 	const response = await authorizedRequest(`/tasks/${taskId}/tally`, {
 		method: 'POST',

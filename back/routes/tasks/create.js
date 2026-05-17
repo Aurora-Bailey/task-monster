@@ -177,6 +177,8 @@ async function createTaskRoute(app) {
 				daymapWeekdays,
 				mappedToday: false,
 				mappedAt: null,
+				skippedLocalDay: null,
+				skippedAt: null,
 				queuePosition: null,
 				activeToday: false,
 				activatedAt: null,

@@ -22,11 +22,10 @@
 		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
-		moveTaskToDaymap,
 		queueTask,
 		unqueueTask,
-		unmapTask,
-		updateTaskDaymapLock,
+		updateTaskDaymapPin,
+		updateTaskDaySkip,
 		updateTaskDaymapWeekdays,
 		updateTaskIntensity,
 		updateTaskInstanceNote,
@@ -88,6 +87,7 @@
 						...task,
 						...updatedTask,
 						scheduledToday: updatedTask.scheduledToday || task.scheduledToday,
+						skippedToday: updatedTask.skippedToday || task.skippedToday,
 						startedToday: updatedTask.startedToday || task.startedToday,
 						lastStartedAt: updatedTask.lastStartedAt ?? task.lastStartedAt
 					}
@@ -119,7 +119,7 @@
 	function getNextQueuedDaymapTask() {
 		return (
 			daymapTasks
-				.filter((task) => getQueuePosition(task) !== null)
+				.filter((task) => getQueuePosition(task) !== null && task.skippedToday !== true)
 				.sort((left, right) => {
 					const leftQueuePosition = getQueuePosition(left);
 					const rightQueuePosition = getQueuePosition(right);
@@ -149,8 +149,13 @@
 				updatedTask?.startedToday === true ||
 				currentTask?.startedToday === true ||
 				Boolean(lastStartedAt),
+			skippedToday: updatedTask?.skippedToday === true || currentTask?.skippedToday === true,
 			lastStartedAt
 		};
+	}
+
+	function isTaskDaymapPinned(task) {
+		return task?.mappedToday === true || task?.daymapLocked === true;
 	}
 
 	function activateQueuedTaskLocally(queuedTask, activatedAt) {
@@ -222,36 +227,6 @@
 			inactiveTasks.filter((task) => task.id !== nextTask.id),
 			nextTask
 		);
-	}
-
-	async function handleMoveToDaymap(taskId) {
-		actionError = '';
-		setBusy(taskId, 'daymap');
-
-		try {
-			const updatedTask = await moveTaskToDaymap(taskId);
-			inactiveTasks = inactiveTasks.filter((task) => task.id !== taskId);
-			daymapTasks = updatedTask ? [...daymapTasks, updatedTask] : await loadDaymapTasks();
-		} catch (error) {
-			actionError = error.message;
-		} finally {
-			clearBusy(taskId);
-		}
-	}
-
-	async function handleMoveToInactive(taskId) {
-		actionError = '';
-		setBusy(taskId, 'unmap');
-
-		try {
-			const updatedTask = await unmapTask(taskId);
-			daymapTasks = daymapTasks.filter((task) => task.id !== taskId);
-			inactiveTasks = updatedTask ? [...inactiveTasks, updatedTask] : await loadInactiveTasks();
-		} catch (error) {
-			actionError = error.message;
-		} finally {
-			clearBusy(taskId);
-		}
 	}
 
 	async function handleActivate(taskId) {
@@ -370,13 +345,31 @@
 		}
 	}
 
-	async function handleDaymapLockToggle(task) {
+	async function handleDaymapPinToggle(task) {
 		actionError = '';
-		setBusy(task.id, task.daymapLocked ? 'unlock' : 'lock');
+		const nextPinned = !isTaskDaymapPinned(task);
+		setBusy(task.id, nextPinned ? 'daymap' : 'unmap');
 
 		try {
-			const updatedTask = await updateTaskDaymapLock(task.id, !task.daymapLocked);
-			replaceTask(task.id, updatedTask);
+			const updatedTask = await updateTaskDaymapPin(task.id, nextPinned);
+			const nextTask = buildLocalTaskUpdate(task, updatedTask);
+
+			applyTaskBoardMembership(nextTask);
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(task.id);
+		}
+	}
+
+	async function handleDaySkipToggle(task) {
+		actionError = '';
+		const nextSkipped = task.skippedToday !== true;
+		setBusy(task.id, nextSkipped ? 'skip' : 'unskip');
+
+		try {
+			await updateTaskDaySkip(task.id, nextSkipped);
+			daymapTasks = await loadDaymapTasks();
 		} catch (error) {
 			actionError = error.message;
 		} finally {
@@ -396,6 +389,7 @@
 				...updatedTask,
 				daymapWeekdays,
 				scheduledToday,
+				skippedToday: task.skippedToday || updatedTask?.skippedToday === true,
 				startedToday: task.startedToday || updatedTask?.startedToday === true,
 				lastStartedAt: updatedTask?.lastStartedAt ?? task.lastStartedAt
 			};
@@ -587,15 +581,16 @@
 								editableTaskId={task.id}
 								compact={true}
 								showDaymapToggle={true}
+								showSkipButton={true}
 								showActivateButton={true}
 								showScheduleControls={true}
 								showIntensityControl={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
-								onDaymapToggle={() => handleMoveToInactive(task.id)}
+								onDaymapToggle={handleDaymapPinToggle}
 								onActivate={() => handleActivate(task.id)}
-								onToggleDaymapLock={handleDaymapLockToggle}
+								onSkipDay={handleDaySkipToggle}
 								onQueueToggle={handleQueueToggle}
 								onScheduleChange={handleScheduleChange}
 								onIntensityChange={handleIntensityChange}
@@ -632,7 +627,7 @@
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
 								showArchiveButton={true}
-								onDaymapToggle={() => handleMoveToDaymap(task.id)}
+								onDaymapToggle={handleDaymapPinToggle}
 								onActivate={() => handleActivate(task.id)}
 								onArchive={handleArchive}
 								onScheduleChange={handleScheduleChange}

@@ -115,6 +115,7 @@ Important task-state fields:
 - `queuePosition`
 - `daymapLocked`
 - `daymapWeekdays`
+- `skippedLocalDay`
 - `activatedAt`
 - `lastStartedAt`
 - `activeTallyCount`
@@ -136,6 +137,11 @@ Notes:
   - `POST /tasks/:taskId/daymap`
 - Remove from daymap:
   - `POST /tasks/:taskId/unmap`
+- Pin or unpin daymap membership:
+  - `PATCH /tasks/:taskId/daymap-pin`
+- Skip or unskip the current local day:
+  - `PATCH /tasks/:taskId/day-skip`
+  - stores a local-day skip marker without creating a `task_runs` history record
 - Queue:
   - `POST /tasks/:taskId/queue`
 - Unqueue:
@@ -163,6 +169,7 @@ Done semantics:
 - one-time tasks archive immediately
 - repeatable tasks return to inactive unless `daymapLocked === true`
 - repeatable locked tasks return to daymap after done
+- `daymap-pin` sets `daymapLocked` for repeatable tasks when starred/pinned
 
 Queue semantics:
 

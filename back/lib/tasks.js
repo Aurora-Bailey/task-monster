@@ -40,6 +40,7 @@ const serializedTaskJsonSchema = {
 		'daymapWeekdays',
 		'scheduledToday',
 		'mappedToday',
+		'skippedToday',
 		'mappedAt',
 		'queuePosition',
 		'activeToday',
@@ -85,6 +86,7 @@ const serializedTaskJsonSchema = {
 		},
 		scheduledToday: { type: 'boolean' },
 		mappedToday: { type: 'boolean' },
+		skippedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
 		queuePosition: { type: ['integer', 'null'] },
 		activeToday: { type: 'boolean' },
@@ -127,6 +129,7 @@ const serializedCompletedTaskJsonSchema = {
 		'daymapWeekdays',
 		'scheduledToday',
 		'mappedToday',
+		'skippedToday',
 		'mappedAt',
 		'queuePosition',
 		'activeToday',
@@ -177,6 +180,7 @@ const serializedCompletedTaskJsonSchema = {
 		},
 		scheduledToday: { type: 'boolean' },
 		mappedToday: { type: 'boolean' },
+		skippedToday: { type: 'boolean' },
 		mappedAt: { type: ['string', 'null'] },
 		queuePosition: { type: ['integer', 'null'] },
 		activeToday: { type: 'boolean' },
@@ -295,11 +299,13 @@ async function decorateTasksForLocalDay(db, { tasks, userId, day, timezoneOffset
 	);
 
 	return tasks.map((task) => {
-		const lastStartedAt = lastStartedAtByTaskId.get(task._id.toString()) ?? task.lastStartedAt ?? null;
+		const lastStartedAt =
+			lastStartedAtByTaskId.get(task._id.toString()) ?? task.lastStartedAt ?? null;
 
 		return {
 			...task,
 			scheduledToday: isTaskScheduledForWeekday(task, weekdayIndex),
+			skippedToday: task.skippedLocalDay === day,
 			startedToday: lastStartedAtByTaskId.has(task._id.toString()),
 			lastStartedAt
 		};
@@ -327,6 +333,7 @@ function serializeTask(task) {
 		daymapWeekdays: normalizeTaskWeekdays(task.daymapWeekdays),
 		scheduledToday: task.scheduledToday === true,
 		mappedToday: task.mappedToday === true,
+		skippedToday: task.skippedToday === true,
 		mappedAt: task.mappedAt ? task.mappedAt.toISOString() : null,
 		queuePosition: Number.isInteger(task.queuePosition) ? task.queuePosition : null,
 		activeToday: task.activeToday,

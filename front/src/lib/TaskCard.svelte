@@ -1,4 +1,5 @@
 <script>
+	import { CalendarX, Star } from 'lucide-svelte';
 	import { onDestroy, tick } from 'svelte';
 
 	import {
@@ -60,6 +61,7 @@
 		onScheduleChange = null,
 		onIntensityChange = null,
 		showDaymapToggle = false,
+		showSkipButton = false,
 		showActivateButton = false,
 		showCancelButton = false,
 		showDoneButton = false,
@@ -69,7 +71,7 @@
 		onActivate = () => {},
 		onDaymapToggle = () => {},
 		onArchive = () => {},
-		onToggleDaymapLock = () => {},
+		onSkipDay = () => {},
 		onQueueToggle = () => {},
 		onTally = () => {},
 		onUnmap = () => {},
@@ -92,17 +94,20 @@
 	const isQueuedDaymapTask = $derived(
 		isDaymapCard && Number.isInteger(task.queuePosition) && task.queuePosition > 0
 	);
-	const showsDaymapLock = $derived(isDaymapCard && task.mode === 'repeatable');
 	const showsRuntime = $derived(variant === 'active' || variant === 'done');
 	const showsActions = $derived(variant === 'active');
 	const showsHeaderDaymapToggle = $derived(showDaymapToggle && (isInactiveCard || isDaymapCard));
+	const showsHeaderSkip = $derived(showSkipButton && isDaymapCard);
 	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
 	const showsHeaderCancel = $derived(showCancelButton && isBoardActiveCard);
 	const showsHeaderDone = $derived(showDoneButton && isBoardActiveCard);
-	const isScheduledOnlyDaymapTask = $derived(
-		isDaymapCard && task.scheduledToday === true && task.mappedToday !== true
+	const isDaymapPinned = $derived(task.mappedToday === true || task.daymapLocked === true);
+	const isDimmedForToday = $derived(
+		(task.startedToday === true || task.skippedToday === true) &&
+			variant !== 'active' &&
+			!isBoardActiveCard
 	);
-	const canUseHeaderDaymapToggle = $derived(showsHeaderDaymapToggle && !isScheduledOnlyDaymapTask);
+	const canUseHeaderDaymapToggle = $derived(showsHeaderDaymapToggle);
 	const showsWeekdaySchedule = $derived(
 		showScheduleControls && task.mode === 'repeatable' && Boolean(onScheduleChange)
 	);
@@ -283,14 +288,14 @@
 		onQueueToggle(task);
 	}
 
-	function handleDaymapLockClick(event) {
+	function handleSkipDayClick(event) {
 		event.stopPropagation();
 
-		if (!showsDaymapLock || busyAction !== null) {
+		if (!showsHeaderSkip || busyAction !== null) {
 			return;
 		}
 
-		onToggleDaymapLock(task);
+		onSkipDay(task);
 	}
 
 	function handleDaymapToggleClick(event) {
@@ -788,7 +793,7 @@
 	class:is-busy={busyAction !== null}
 	class:is-compact={compact}
 	class:is-board-active={isBoardActiveCard}
-	class:is-started-today={task.startedToday === true && variant !== 'active' && !isBoardActiveCard}
+	class:is-dimmed-today={isDimmedForToday}
 	class:has-intensity-control={canEditIntensity}
 	class:uses-card-click={usesInactiveCardClick}
 	style={`--task-accent: ${task.color};`}
@@ -851,19 +856,13 @@
 			{#if showsHeaderDaymapToggle}
 				<button
 					class="task-card__icon-action daymap-toggle-button"
-					class:is-selected={isDaymapCard && task.mappedToday === true}
+					class:is-selected={isDaymapPinned}
 					type="button"
-					aria-label={isScheduledOnlyDaymapTask
-						? `${task.name} is scheduled for today. Toggle today's weekday off to remove it from the daymap.`
-						: isDaymapCard
-							? `Move ${task.name} to inactive`
-							: `Move ${task.name} to daymap`}
-					title={isScheduledOnlyDaymapTask
-						? "Scheduled today; toggle today's weekday off below"
-						: isDaymapCard
-							? 'Move to inactive'
-							: 'Move to daymap'}
-					disabled={busyAction !== null || !canUseHeaderDaymapToggle}
+					aria-label={isDaymapPinned
+						? `Unstar ${task.name} from the daymap`
+						: `Star ${task.name} to keep it on the daymap`}
+					title={isDaymapPinned ? 'Unstar from daymap' : 'Star and keep on daymap'}
+					disabled={busyAction !== null}
 					onpointerdown={stopEventPropagation}
 					onclick={handleDaymapToggleClick}
 					onkeydown={stopEventPropagation}
@@ -871,54 +870,34 @@
 					{#if busyAction === 'daymap' || busyAction === 'unmap'}
 						<span class="queue-button__spinner" aria-hidden="true"></span>
 					{:else}
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="m12 3 2.72 5.5 6.07.88-4.39 4.28 1.04 6.04L12 16.84 6.56 19.7l1.04-6.04-4.39-4.28 6.07-.88L12 3Z"
-								fill={task.mappedToday === true ? 'currentColor' : 'none'}
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="1.65"
-							/>
-						</svg>
-					{/if}
-				</button>
-			{/if}
-
-			{#if showsDaymapLock}
-				<button
-					class="task-card__icon-action daymap-lock-button"
-					class:is-locked={task.daymapLocked}
-					type="button"
-					aria-label={task.daymapLocked
-						? `Unlock ${task.name} from looping back to daymap`
-						: `Lock ${task.name} to loop back to daymap`}
-					title={task.daymapLocked
-						? 'Locked to return to daymap after done'
-						: 'Return to inactive after done'}
-					disabled={busyAction !== null}
-					onpointerdown={stopEventPropagation}
-					onclick={handleDaymapLockClick}
-					onkeydown={stopEventPropagation}
-				>
-					{#if busyAction === 'lock' || busyAction === 'unlock'}
-						<span class="queue-button__spinner" aria-hidden="true"></span>
-					{:else}
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M8 10V8a4 4 0 1 1 8 0v2m-9 0h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
-								fill="none"
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="1.8"
-							/>
-						</svg>
+						<Star size={18} strokeWidth={2.2} fill={isDaymapPinned ? 'currentColor' : 'none'} />
 					{/if}
 				</button>
 			{/if}
 
 			{#if isDaymapCard}
+				{#if showsHeaderSkip}
+					<button
+						class="task-card__icon-action skip-day-button"
+						class:is-skipped={task.skippedToday === true}
+						type="button"
+						aria-label={task.skippedToday === true
+							? `Unskip ${task.name} for today`
+							: `Skip ${task.name} for today`}
+						title={task.skippedToday === true ? 'Unskip today' : 'Skip today'}
+						disabled={busyAction !== null}
+						onpointerdown={stopEventPropagation}
+						onclick={handleSkipDayClick}
+						onkeydown={stopEventPropagation}
+					>
+						{#if busyAction === 'skip' || busyAction === 'unskip'}
+							<span class="queue-button__spinner" aria-hidden="true"></span>
+						{:else}
+							<CalendarX size={18} strokeWidth={2.25} aria-hidden="true" />
+						{/if}
+					</button>
+				{/if}
+
 				<button
 					class="task-card__icon-action queue-button"
 					class:is-queued={isQueuedDaymapTask}
@@ -1692,7 +1671,7 @@
 		border-radius: 16px;
 	}
 
-	.task-card.is-started-today {
+	.task-card.is-dimmed-today {
 		opacity: 0.5;
 	}
 
@@ -1901,10 +1880,6 @@
 		transform: none;
 	}
 
-	.daymap-lock-button {
-		color: var(--color-muted);
-	}
-
 	.queue-button span {
 		font-size: 0.88rem;
 		font-weight: 800;
@@ -1925,6 +1900,19 @@
 		background: color-mix(in srgb, var(--color-theme-2) 18%, var(--surface-2));
 		border-color: color-mix(in srgb, var(--color-theme-2) 38%, var(--surface-border));
 		color: color-mix(in srgb, var(--color-theme-2) 88%, var(--color-heading));
+	}
+
+	.skip-day-button {
+		color: color-mix(in srgb, var(--color-muted) 76%, var(--color-soft));
+	}
+
+	.skip-day-button.is-skipped {
+		background: color-mix(in srgb, var(--color-warning) 14%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-warning) 32%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-warning) 86%, var(--color-heading));
+		box-shadow:
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-warning) 9%, transparent);
 	}
 
 	.activate-icon-button {
@@ -1954,21 +1942,8 @@
 			0 0 0 1px color-mix(in srgb, var(--color-danger) 8%, transparent);
 	}
 
-	.daymap-lock-button.is-locked {
-		background: color-mix(in srgb, var(--color-warning) 15%, var(--surface-2));
-		border-color: color-mix(in srgb, var(--color-warning) 35%, var(--surface-border));
-		color: var(--color-warning);
-		box-shadow:
-			var(--surface-shadow),
-			0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent);
-	}
-
-	.daymap-lock-button:not(.is-locked) {
-		color: var(--color-soft);
-	}
-
-	.daymap-lock-button:hover,
 	.queue-button:hover,
+	.skip-day-button:hover,
 	.daymap-toggle-button:hover,
 	.activate-icon-button:hover,
 	.cancel-icon-button:hover,
@@ -1977,8 +1952,8 @@
 		box-shadow: var(--surface-shadow-strong);
 	}
 
-	.daymap-lock-button:disabled,
 	.queue-button:disabled,
+	.skip-day-button:disabled,
 	.daymap-toggle-button:disabled,
 	.activate-icon-button:disabled,
 	.cancel-icon-button:disabled,
