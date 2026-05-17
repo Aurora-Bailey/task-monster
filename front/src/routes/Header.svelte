@@ -39,6 +39,8 @@
 	const MINUTES_PER_HOUR = 60;
 	const MINUTE_MS = 60 * 1000;
 	const CLOCK_MODE_STORAGE_KEY = 'task_monster_clock_mode';
+	const TOP_NAV_HIDE_SCROLL_DELTA = 8;
+	const TOP_NAV_HIDE_THRESHOLD = 72;
 	const CLOCK_HOUR_MARKS = Array.from({ length: 12 }, (_, index) => index);
 	const CLOCK_WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 	const DIGITAL_CLOCK_SEGMENTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
@@ -110,6 +112,7 @@
 	let mobileRouteListElement = $state(null);
 	let desktopNavIndicatorStyle = $state('');
 	let mobileNavIndicatorStyle = $state('');
+	let topNavHidden = $state(false);
 
 	const navLinks = [
 		{ href: '/add', label: 'Add', icon: Plus },
@@ -230,9 +233,16 @@
 
 	$effect(() => {
 		currentPath;
+		topNavHidden = false;
 
 		if (browser) {
 			void updateNavIndicators();
+		}
+	});
+
+	$effect(() => {
+		if (showAssistantDrawer || showPanicReturnModal || accountMenuOpen) {
+			topNavHidden = false;
 		}
 	});
 
@@ -546,6 +556,41 @@
 		}
 
 		let currentMinuteKey = getCurrentMinuteKey();
+		let lastScrollY = Math.max(0, window.scrollY);
+		let topNavScrollFrame = 0;
+		const updateTopNavVisibility = () => {
+			topNavScrollFrame = 0;
+			const nextScrollY = Math.max(0, window.scrollY);
+			const scrollDelta = nextScrollY - lastScrollY;
+			const shouldUseAutoHide = window.matchMedia('(max-width: 1024px)').matches;
+
+			if (
+				!shouldUseAutoHide ||
+				nextScrollY <= TOP_NAV_HIDE_THRESHOLD ||
+				showAssistantDrawer ||
+				showPanicReturnModal ||
+				accountMenuOpen
+			) {
+				topNavHidden = false;
+				lastScrollY = nextScrollY;
+				return;
+			}
+
+			if (scrollDelta > TOP_NAV_HIDE_SCROLL_DELTA) {
+				topNavHidden = true;
+			} else if (scrollDelta < -TOP_NAV_HIDE_SCROLL_DELTA) {
+				topNavHidden = false;
+			}
+
+			lastScrollY = nextScrollY;
+		};
+		const handleWindowScroll = () => {
+			if (topNavScrollFrame !== 0) {
+				return;
+			}
+
+			topNavScrollFrame = window.requestAnimationFrame(updateTopNavVisibility);
+		};
 		const handleGlobalKeydown = async (event) => {
 			if (
 				event.defaultPrevented ||
@@ -642,6 +687,7 @@
 		};
 		const handleWindowResize = () => {
 			void updateNavIndicators();
+			updateTopNavVisibility();
 		};
 		const handleDocumentPointerDown = (event) => {
 			if (!accountMenuOpen || !accountMenuElement || !(event.target instanceof Node)) {
@@ -658,6 +704,7 @@
 		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 		window.addEventListener('resize', handleWindowResize);
+		window.addEventListener('scroll', handleWindowScroll, { passive: true });
 		window.addEventListener('pointerdown', handleDocumentPointerDown);
 
 		const navResizeObserver =
@@ -685,14 +732,18 @@
 			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			window.removeEventListener('resize', handleWindowResize);
+			window.removeEventListener('scroll', handleWindowScroll);
 			window.removeEventListener('pointerdown', handleDocumentPointerDown);
 			navResizeObserver?.disconnect();
+			if (topNavScrollFrame !== 0) {
+				window.cancelAnimationFrame(topNavScrollFrame);
+			}
 			window.clearInterval(intervalId);
 		};
 	});
 </script>
 
-<header>
+<header class={`app-header ${topNavHidden ? 'app-header--hidden' : ''}`}>
 	<div class="corner">
 		<a class="brand" href={resolve('/active')}>
 			<img src={logo} alt="task-monster" />
@@ -1956,6 +2007,13 @@
 			grid-template-columns: auto 1fr auto;
 			gap: 0.55rem;
 			padding: 0.68rem 0.85rem;
+			transform: translateY(0);
+			transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+			will-change: transform;
+		}
+
+		.app-header--hidden {
+			transform: translateY(calc(-100% - 0.35rem));
 		}
 
 		.header-actions {
@@ -2004,9 +2062,9 @@
 
 		.mobile-bottom-nav {
 			position: fixed;
-			left: 0.75rem;
-			right: 0.75rem;
-			bottom: calc(0.65rem + env(safe-area-inset-bottom));
+			left: 0;
+			right: 0;
+			bottom: 0;
 			z-index: 70;
 			display: block;
 			pointer-events: none;
@@ -2015,16 +2073,19 @@
 		.mobile-bottom-nav__list {
 			position: relative;
 			isolation: isolate;
-			width: min(100%, 44rem);
+			width: 100%;
 			min-height: 4.6rem;
-			margin: 0 auto;
+			margin: 0;
 			padding: 0.5rem;
 			display: grid;
 			grid-template-columns: repeat(5, minmax(0, 1fr));
 			gap: 0.12rem;
 			background: var(--surface-2);
 			border: 1px solid var(--surface-border);
-			border-radius: 999px;
+			border-right: 0;
+			border-bottom: 0;
+			border-left: 0;
+			border-radius: 22px 22px 0 0;
 			box-shadow: var(--surface-shadow-strong), var(--surface-inset);
 			backdrop-filter: blur(22px);
 			overflow: hidden;
@@ -2135,9 +2196,9 @@
 		}
 
 		.mobile-bottom-nav {
-			left: 0.55rem;
-			right: 0.55rem;
-			bottom: calc(0.5rem + env(safe-area-inset-bottom));
+			left: 0;
+			right: 0;
+			bottom: 0;
 		}
 
 		.mobile-bottom-nav__list {
