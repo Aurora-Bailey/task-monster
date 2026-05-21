@@ -33,6 +33,10 @@
 		hour: 'numeric',
 		minute: '2-digit'
 	});
+	const doneDayFormatter = new Intl.DateTimeFormat(undefined, {
+		month: 'short',
+		day: 'numeric'
+	});
 
 	let tasks = $state([]);
 	let nextCursor = $state(null);
@@ -68,6 +72,49 @@
 			: Math.max(0, (task.spentMilliseconds ?? 0) - (task.panicMilliseconds ?? 0));
 
 		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
+	}
+
+	function getDoneDayGroup(task) {
+		const completedAt = new Date(task.completedAt);
+
+		if (Number.isNaN(completedAt.getTime())) {
+			return {
+				key: 'unknown',
+				label: 'Unknown day',
+				sortTime: Number.NEGATIVE_INFINITY
+			};
+		}
+
+		const year = completedAt.getFullYear();
+		const month = completedAt.getMonth();
+		const day = completedAt.getDate();
+
+		return {
+			key: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+			label: doneDayFormatter.format(completedAt),
+			sortTime: new Date(year, month, day).getTime()
+		};
+	}
+
+	function groupDoneTasksByDay(items) {
+		const dayGroups = new Map();
+
+		for (const task of items) {
+			const day = getDoneDayGroup(task);
+			const currentGroup = dayGroups.get(day.key);
+
+			if (currentGroup) {
+				currentGroup.tasks.push(task);
+				continue;
+			}
+
+			dayGroups.set(day.key, {
+				...day,
+				tasks: [task]
+			});
+		}
+
+		return [...dayGroups.values()].sort((left, right) => right.sortTime - left.sortTime);
 	}
 
 	async function loadBoardPresence() {
@@ -170,6 +217,7 @@
 	const sortedTasks = $derived(
 		sortTasks(filterTasks(tasks, searchQuery), { mode: sortMode, variant: 'done' })
 	);
+	const doneDayGroups = $derived(groupDoneTasksByDay(sortedTasks));
 
 	$effect(() => {
 		if (!sentinel || typeof IntersectionObserver === 'undefined') {
@@ -279,22 +327,34 @@
 					<p>Clear search to show the loaded done history.</p>
 				</div>
 			{:else}
-				<div class="task-grid">
-					{#each sortedTasks as task (task.id)}
-						<TaskCard
-							{task}
-							variant="done"
-							editableTaskId={task.taskId}
-							doneDurationLabel={formatDoneMeasure(task)}
-							doneTallyCount={task.tallyCount}
-							panicDurationLabel={formatPanicDuration(task)}
-							effectiveDurationLabel={formatEffectiveDuration(task)}
-							completedAtLabel={formatCompletedAt(task.completedAt)}
-							showIntensityControl={true}
-							onIntensityChange={handleIntensityChange}
-							onSaveNote={handleSaveNote}
-							onSaveNextDue={handleSaveNextDue}
-						/>
+				<div class="done-day-list">
+					{#each doneDayGroups as dayGroup (dayGroup.key)}
+						<section class="done-day-group" aria-label={`Completed tasks for ${dayGroup.label}`}>
+							<div class="section-divider section-divider--soft done-day-divider">
+								<span></span>
+								<h2>{dayGroup.label}</h2>
+								<span></span>
+							</div>
+
+							<div class="task-grid">
+								{#each dayGroup.tasks as task (task.id)}
+									<TaskCard
+										{task}
+										variant="done"
+										editableTaskId={task.taskId}
+										doneDurationLabel={formatDoneMeasure(task)}
+										doneTallyCount={task.tallyCount}
+										panicDurationLabel={formatPanicDuration(task)}
+										effectiveDurationLabel={formatEffectiveDuration(task)}
+										completedAtLabel={formatCompletedAt(task.completedAt)}
+										showIntensityControl={true}
+										onIntensityChange={handleIntensityChange}
+										onSaveNote={handleSaveNote}
+										onSaveNextDue={handleSaveNextDue}
+									/>
+								{/each}
+							</div>
+						</section>
 					{/each}
 				</div>
 			{/if}
@@ -350,6 +410,16 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 1rem;
+	}
+
+	.done-day-list,
+	.done-day-group {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.done-day-divider {
+		margin-top: 0;
 	}
 
 	.load-sentinel {

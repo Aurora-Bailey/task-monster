@@ -361,6 +361,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - current active tasks
 - `/done`
   - completed-task history as a newest-to-oldest infinite feed
+  - loaded done cards are grouped under chronological day dividers in the feed
 - `/stats`
   - real minute-map stats from backend heatmap batches
 - `/add`
