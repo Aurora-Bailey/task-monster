@@ -193,11 +193,98 @@ async function updateOpenTaskRunFields(
 	);
 }
 
+async function syncTaskRunHistoryFields(
+	db,
+	{ userId, taskId, updatedAt = new Date(), restoreOneTimeWithoutDoneRuns = false }
+) {
+	const ownedRunMatch = {
+		userId: toObjectId(userId),
+		taskId: toObjectId(taskId)
+	};
+	const [latestStartedRun, latestDoneRun, latestClosedRun] = await Promise.all([
+		db
+			.collection('task_runs')
+			.find(ownedRunMatch)
+			.sort({
+				startedAt: -1,
+				_id: -1
+			})
+			.limit(1)
+			.next(),
+		db
+			.collection('task_runs')
+			.find({
+				...ownedRunMatch,
+				endingReason: 'done',
+				endedAt: {
+					$ne: null
+				}
+			})
+			.sort({
+				endedAt: -1,
+				_id: -1
+			})
+			.limit(1)
+			.next(),
+		db
+			.collection('task_runs')
+			.find({
+				...ownedRunMatch,
+				endedAt: {
+					$ne: null
+				}
+			})
+			.sort({
+				endedAt: -1,
+				_id: -1
+			})
+			.limit(1)
+			.next()
+	]);
+	const latestCompletedTallyCount = Number.isInteger(latestDoneRun?.tallyCount)
+		? latestDoneRun.tallyCount
+		: Number.isInteger(latestDoneRun?.startTallyCount)
+			? latestDoneRun.startTallyCount
+			: null;
+	const fields = {
+		lastStartedAt: latestStartedRun?.startedAt ?? null,
+		lastCompletedAt: latestDoneRun?.endedAt ?? null,
+		lastCompletedTallyCount: latestCompletedTallyCount,
+		lastInactivatedAt: latestClosedRun?.endedAt ?? null,
+		updatedAt
+	};
+
+	if (restoreOneTimeWithoutDoneRuns && !latestDoneRun) {
+		Object.assign(fields, {
+			archived: false,
+			mappedToday: false,
+			mappedAt: null,
+			queuePosition: null,
+			activeToday: false,
+			activatedAt: null
+		});
+	}
+
+	return db.collection('tasks').findOneAndUpdate(
+		{
+			_id: toObjectId(taskId),
+			userId: toObjectId(userId)
+		},
+		{
+			$set: fields
+		},
+		{
+			returnDocument: 'after'
+		}
+	);
+}
+
 module.exports = {
 	closeOpenTaskRun,
 	createCompletedTaskRun,
 	deleteOpenTaskRun,
 	openTaskRun,
+	syncTaskRunHistoryFields,
 	updateOpenTaskRunFields,
 	updateOpenTaskRunInstanceNote,
 	updateOpenTaskRunTally

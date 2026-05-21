@@ -268,6 +268,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - `GET /tasks/done`
   - without a `day`, the `/done` page uses `limit` and `cursor` to infinite-scroll completed runs newest-to-oldest, 10 at a time
   - with a `day`, the route still returns that local day's completion history for compatibility
+  - `PATCH /tasks/done-runs/:runId` updates a completed run's `startedAt` and `endedAt`
+  - `DELETE /tasks/done-runs/:runId` erases a completed run from history and stats; erasing the last done run for an archived one-time task restores it to Inactive
 - Daily stats route:
   - `GET /stats/daily`
 - Stats heatmap route:
@@ -362,6 +364,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - `/done`
   - completed-task history as a newest-to-oldest infinite feed
   - loaded done cards are grouped under chronological day dividers in the feed
+  - done cards expose autosaving start/end datetime editors and an erase button for the completed run
 - `/stats`
   - real minute-map stats from backend heatmap batches
 - `/add`

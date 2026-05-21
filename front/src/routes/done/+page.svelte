@@ -19,6 +19,8 @@
 		loadDaymapTasks,
 		loadDoneFeed,
 		loadInactiveTasks,
+		eraseDoneRun,
+		updateDoneRunTimes,
 		updateTaskIntensity,
 		updateTaskNextDue,
 		updateTaskNote
@@ -44,11 +46,13 @@
 	let isLoadingInitial = $state(true);
 	let isLoadingMore = $state(false);
 	let loadError = $state('');
+	let actionError = $state('');
 	let timezoneOffsetMinutes = 0;
 	let sortMode = $state(DONE_DEFAULT_SORT_MODE);
 	let searchQuery = $state('');
 	let sentinel = $state(null);
 	let hasAnyBoardTasks = $state(true);
+	let busyRuns = $state({});
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -117,6 +121,23 @@
 		return [...dayGroups.values()].sort((left, right) => right.sortTime - left.sortTime);
 	}
 
+	function getBusyAction(runId) {
+		return busyRuns[runId] || null;
+	}
+
+	function setBusy(runId, action) {
+		busyRuns = {
+			...busyRuns,
+			[runId]: action
+		};
+	}
+
+	function clearBusy(runId) {
+		const nextBusyRuns = { ...busyRuns };
+		delete nextBusyRuns[runId];
+		busyRuns = nextBusyRuns;
+	}
+
 	async function loadBoardPresence() {
 		try {
 			const [activeTasks, daymapTasks, inactiveTasks] = await Promise.all([
@@ -173,6 +194,44 @@
 		nextCursor = null;
 		hasMore = true;
 		await loadNextBatch({ reset: true });
+	}
+
+	async function handleSaveDoneRunTimes(runId, times) {
+		actionError = '';
+		setBusy(runId, 'done-time');
+
+		try {
+			const updatedRun = await updateDoneRunTimes(runId, times);
+
+			if (updatedRun) {
+				tasks = tasks.map((task) => (task.id === runId ? updatedRun : task));
+			}
+
+			return updatedRun;
+		} finally {
+			clearBusy(runId);
+		}
+	}
+
+	async function handleEraseDoneRun(runId) {
+		if (
+			typeof window !== 'undefined' &&
+			!window.confirm('Erase this completed run? It will be removed from Done and stats.')
+		) {
+			return;
+		}
+
+		actionError = '';
+		setBusy(runId, 'erase-done');
+
+		try {
+			await eraseDoneRun(runId);
+			tasks = tasks.filter((task) => task.id !== runId);
+		} catch (error) {
+			actionError = error.message;
+		} finally {
+			clearBusy(runId);
+		}
 	}
 
 	async function handleSaveNote(taskId, note) {
@@ -285,6 +344,13 @@
 		</div>
 	{/if}
 
+	{#if actionError}
+		<div class="message-card error-card">
+			<strong>Could not change completed run</strong>
+			<p>{actionError}</p>
+		</div>
+	{/if}
+
 	{#if isLoadingInitial}
 		<div class="page-loader" aria-label="Loading completed tasks">
 			<span class="page-spinner" aria-hidden="true"></span>
@@ -347,7 +413,11 @@
 										panicDurationLabel={formatPanicDuration(task)}
 										effectiveDurationLabel={formatEffectiveDuration(task)}
 										completedAtLabel={formatCompletedAt(task.completedAt)}
+										busyAction={getBusyAction(task.id)}
 										showIntensityControl={true}
+										showEraseDoneButton={true}
+										onEraseDone={handleEraseDoneRun}
+										onSaveDoneRunTimes={handleSaveDoneRunTimes}
 										onIntensityChange={handleIntensityChange}
 										onSaveNote={handleSaveNote}
 										onSaveNextDue={handleSaveNextDue}

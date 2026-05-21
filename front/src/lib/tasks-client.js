@@ -233,6 +233,53 @@ export async function loadDoneFeed({ limit = 10, cursor, tzOffsetMinutes } = {})
 	};
 }
 
+export async function updateDoneRunTimes(runId, { startedAt, endedAt } = {}) {
+	const body = {};
+
+	if (startedAt !== undefined) {
+		body.startedAt = startedAt;
+	}
+
+	if (endedAt !== undefined) {
+		body.endedAt = endedAt;
+	}
+
+	const response = await authorizedRequest(`/tasks/done-runs/${runId}`, {
+		method: 'PATCH',
+		body
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to update completed run times.'));
+	}
+
+	const responseBody = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'done-run-times',
+		runId,
+		taskId: responseBody?.task?.taskId
+	});
+	return responseBody?.task ?? null;
+}
+
+export async function eraseDoneRun(runId) {
+	const response = await authorizedRequest(`/tasks/done-runs/${runId}`, {
+		method: 'DELETE'
+	});
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to erase completed run.'));
+	}
+
+	const body = await readApiBody(response);
+	dispatchTasksUpdated({
+		type: 'erase-done-run',
+		runId,
+		taskId: body?.taskId
+	});
+	return body;
+}
+
 export async function activateTask(taskId) {
 	const response = await authorizedRequest(`/tasks/${taskId}/activate`, {
 		method: 'POST'

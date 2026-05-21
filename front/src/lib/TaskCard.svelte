@@ -1,5 +1,5 @@
 <script>
-	import { CalendarX, Star } from 'lucide-svelte';
+	import { CalendarX, Star, Trash2 } from 'lucide-svelte';
 	import { onDestroy, tick } from 'svelte';
 
 	import {
@@ -68,9 +68,11 @@
 		showScheduleControls = false,
 		showIntensityControl = false,
 		showArchiveButton = false,
+		showEraseDoneButton = false,
 		onActivate = () => {},
 		onDaymapToggle = () => {},
 		onArchive = () => {},
+		onEraseDone = () => {},
 		onSkipDay = () => {},
 		onQueueToggle = () => {},
 		onTally = () => {},
@@ -78,7 +80,8 @@
 		onInactivate = () => {},
 		onDone = () => {},
 		onActiveStartedAtChange = () => {},
-		onActiveCompletedAtChange = () => {}
+		onActiveCompletedAtChange = () => {},
+		onSaveDoneRunTimes = null
 	} = $props();
 
 	let draftIntensity = $state(50);
@@ -101,6 +104,7 @@
 	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
 	const showsHeaderCancel = $derived(showCancelButton && isBoardActiveCard);
 	const showsHeaderDone = $derived(showDoneButton && isBoardActiveCard);
+	const showsHeaderEraseDone = $derived(showEraseDoneButton && variant === 'done');
 	const isDaymapPinned = $derived(task.mappedToday === true || task.daymapLocked === true);
 	const isDimmedForToday = $derived(
 		(task.startedToday === true || task.skippedToday === true) &&
@@ -121,6 +125,7 @@
 	const canEditIntensity = $derived(
 		showIntensityControl && Boolean(editableTaskId && onIntensityChange)
 	);
+	const canEditDoneRunTimes = $derived(variant === 'done' && Boolean(onSaveDoneRunTimes));
 	const showsNextDueTiming = $derived(
 		showNextDueTiming && (canEditNextDue || Boolean(task.nextDueAt))
 	);
@@ -165,6 +170,16 @@
 	let activeCompletedAtEditorOpen = $state(false);
 	let activeStartedAtInput = $state(null);
 	let activeCompletedAtInput = $state(null);
+	let draftDoneStartedAt = $state('');
+	let draftDoneEndedAt = $state('');
+	let lastCommittedDoneStartedAt = $state('');
+	let lastCommittedDoneEndedAt = $state('');
+	let doneTimeSaveStatus = $state('idle');
+	let doneTimeSaveError = $state('');
+	let doneStartedAtEditorOpen = $state(false);
+	let doneEndedAtEditorOpen = $state(false);
+	let doneStartedAtInput = $state(null);
+	let doneEndedAtInput = $state(null);
 
 	let pendingSaveTimer = null;
 	let noteRevision = 0;
@@ -365,6 +380,16 @@
 		}
 
 		onInactivate(task.id);
+	}
+
+	function handleEraseDoneClick(event) {
+		event.stopPropagation();
+
+		if (!showsHeaderEraseDone || busyAction !== null) {
+			return;
+		}
+
+		onEraseDone(task.id);
 	}
 
 	function handleTallyClick(event, delta) {
@@ -603,6 +628,100 @@
 		onActiveCompletedAtChange(task.id, event.currentTarget.value);
 	}
 
+	function handleDoneStartedAtInput(event) {
+		event.stopPropagation();
+		draftDoneStartedAt = event.currentTarget.value;
+		doneTimeSaveError = '';
+	}
+
+	function handleDoneEndedAtInput(event) {
+		event.stopPropagation();
+		draftDoneEndedAt = event.currentTarget.value;
+		doneTimeSaveError = '';
+	}
+
+	async function openDoneStartedAtEditor(event) {
+		event.stopPropagation();
+
+		if (!canEditDoneRunTimes || busyAction !== null) {
+			return;
+		}
+
+		doneStartedAtEditorOpen = true;
+		doneEndedAtEditorOpen = false;
+		await tick();
+		doneStartedAtInput?.focus();
+	}
+
+	async function openDoneEndedAtEditor(event) {
+		event.stopPropagation();
+
+		if (!canEditDoneRunTimes || busyAction !== null) {
+			return;
+		}
+
+		doneEndedAtEditorOpen = true;
+		doneStartedAtEditorOpen = false;
+		await tick();
+		doneEndedAtInput?.focus();
+	}
+
+	async function persistDoneRunTimes(event) {
+		event.stopPropagation();
+
+		if (!canEditDoneRunTimes || doneTimeSaveStatus === 'saving') {
+			return;
+		}
+
+		const startedAt = parseDateTimeLocalValue(draftDoneStartedAt);
+		const endedAt = parseDateTimeLocalValue(draftDoneEndedAt);
+
+		if (!startedAt || !endedAt) {
+			doneTimeSaveStatus = 'error';
+			doneTimeSaveError = 'Enter a valid local start and end time.';
+			return;
+		}
+
+		if (endedAt.getTime() < startedAt.getTime()) {
+			doneTimeSaveStatus = 'error';
+			doneTimeSaveError = 'End time cannot be earlier than start time.';
+			return;
+		}
+
+		if (
+			draftDoneStartedAt === lastCommittedDoneStartedAt &&
+			draftDoneEndedAt === lastCommittedDoneEndedAt
+		) {
+			doneTimeSaveStatus = 'saved';
+			doneStartedAtEditorOpen = false;
+			doneEndedAtEditorOpen = false;
+			return;
+		}
+
+		doneTimeSaveStatus = 'saving';
+		doneTimeSaveError = '';
+
+		try {
+			const updatedRun = await onSaveDoneRunTimes(task.id, {
+				startedAt: startedAt.toISOString(),
+				endedAt: endedAt.toISOString()
+			});
+			const committedStartedAt = formatDateTimeLocalValue(updatedRun?.startedAt ?? startedAt);
+			const committedEndedAt = formatDateTimeLocalValue(updatedRun?.endedAt ?? endedAt);
+
+			lastCommittedDoneStartedAt = committedStartedAt;
+			lastCommittedDoneEndedAt = committedEndedAt;
+			draftDoneStartedAt = committedStartedAt;
+			draftDoneEndedAt = committedEndedAt;
+			doneTimeSaveStatus = 'saved';
+			doneStartedAtEditorOpen = false;
+			doneEndedAtEditorOpen = false;
+		} catch (error) {
+			doneTimeSaveStatus = 'error';
+			doneTimeSaveError = error.message;
+		}
+	}
+
 	async function openNextDueEditor(event) {
 		event.stopPropagation();
 
@@ -763,6 +882,23 @@
 		}
 
 		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
+	});
+
+	$effect(() => {
+		if (doneTimeSaveStatus === 'saving') {
+			return;
+		}
+
+		const incomingStartedAt = formatDateTimeLocalValue(task.startedAt);
+		const incomingEndedAt = formatDateTimeLocalValue(task.endedAt ?? task.completedAt);
+
+		lastCommittedDoneStartedAt = incomingStartedAt;
+		lastCommittedDoneEndedAt = incomingEndedAt;
+
+		if (doneTimeSaveStatus !== 'error') {
+			draftDoneStartedAt = incomingStartedAt;
+			draftDoneEndedAt = incomingEndedAt;
+		}
 	});
 
 	$effect(() => {
@@ -1031,6 +1167,25 @@
 								stroke-width="1.8"
 							/>
 						</svg>
+					{/if}
+				</button>
+			{/if}
+
+			{#if showsHeaderEraseDone}
+				<button
+					class="task-card__icon-action erase-done-button"
+					type="button"
+					aria-label={`Erase completed run for ${task.name}`}
+					title="Erase completed run"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleEraseDoneClick}
+					onkeydown={stopEventPropagation}
+				>
+					{#if busyAction === 'erase-done'}
+						<span class="queue-button__spinner" aria-hidden="true"></span>
+					{:else}
+						<Trash2 size={18} strokeWidth={2.1} aria-hidden="true" />
 					{/if}
 				</button>
 			{/if}
@@ -1401,6 +1556,80 @@
 					<strong>{completedAtLabel}</strong>
 				</div>
 			</div>
+		{/if}
+	{/if}
+
+	{#if canEditDoneRunTimes}
+		{@const doneStartedAtMeta = formatActiveCompletionTime(draftDoneStartedAt)}
+		{@const doneEndedAtMeta = formatActiveCompletionTime(draftDoneEndedAt)}
+		<div class="task-card__runtime task-card__done-time-grid">
+			<div class="runtime-stat done-time-stat">
+				<button
+					class="active-time-button task-card__interactive"
+					type="button"
+					disabled={busyAction !== null || doneTimeSaveStatus === 'saving'}
+					aria-expanded={doneStartedAtEditorOpen}
+					aria-label={`Edit completed start time for ${task.name}. ${formatTimingTitle('Start time', doneStartedAtMeta)}`}
+					onclick={openDoneStartedAtEditor}
+				>
+					<span>Start time</span>
+					<strong>{doneStartedAtMeta.weekdayLabel} {doneStartedAtMeta.dateTimeLabel}</strong>
+				</button>
+
+				{#if doneStartedAtEditorOpen}
+					<label class="active-time-editor task-card__interactive">
+						<span>Adjust start</span>
+						<input
+							bind:this={doneStartedAtInput}
+							bind:value={draftDoneStartedAt}
+							type="datetime-local"
+							disabled={busyAction !== null || doneTimeSaveStatus === 'saving'}
+							onpointerdown={stopEventPropagation}
+							onclick={stopEventPropagation}
+							onkeydown={stopEventPropagation}
+							oninput={handleDoneStartedAtInput}
+							onchange={persistDoneRunTimes}
+						/>
+					</label>
+				{/if}
+			</div>
+
+			<div class="runtime-stat done-time-stat">
+				<button
+					class="active-time-button task-card__interactive"
+					type="button"
+					disabled={busyAction !== null || doneTimeSaveStatus === 'saving'}
+					aria-expanded={doneEndedAtEditorOpen}
+					aria-label={`Edit completed end time for ${task.name}. ${formatTimingTitle('End time', doneEndedAtMeta)}`}
+					onclick={openDoneEndedAtEditor}
+				>
+					<span>End time</span>
+					<strong>{doneEndedAtMeta.weekdayLabel} {doneEndedAtMeta.dateTimeLabel}</strong>
+				</button>
+
+				{#if doneEndedAtEditorOpen}
+					<label class="active-time-editor task-card__interactive">
+						<span>Adjust end</span>
+						<input
+							bind:this={doneEndedAtInput}
+							bind:value={draftDoneEndedAt}
+							type="datetime-local"
+							disabled={busyAction !== null || doneTimeSaveStatus === 'saving'}
+							onpointerdown={stopEventPropagation}
+							onclick={stopEventPropagation}
+							onkeydown={stopEventPropagation}
+							oninput={handleDoneEndedAtInput}
+							onchange={persistDoneRunTimes}
+						/>
+					</label>
+				{/if}
+			</div>
+		</div>
+
+		{#if doneTimeSaveStatus === 'saving'}
+			<p class="task-card__done-time-status">Saving times...</p>
+		{:else if doneTimeSaveStatus === 'error' && doneTimeSaveError}
+			<p class="task-card__done-time-status task-card__done-time-error">{doneTimeSaveError}</p>
 		{/if}
 	{/if}
 
@@ -1933,7 +2162,8 @@
 			0 0 0 1px color-mix(in srgb, var(--color-theme-2) 13%, transparent);
 	}
 
-	.cancel-icon-button {
+	.cancel-icon-button,
+	.erase-done-button {
 		background: color-mix(in srgb, var(--color-danger) 10%, var(--surface-2));
 		border-color: color-mix(in srgb, var(--color-danger) 28%, var(--surface-border));
 		color: color-mix(in srgb, var(--color-danger) 82%, var(--color-heading));
@@ -1947,7 +2177,8 @@
 	.daymap-toggle-button:hover,
 	.activate-icon-button:hover,
 	.cancel-icon-button:hover,
-	.done-icon-button:hover {
+	.done-icon-button:hover,
+	.erase-done-button:hover {
 		transform: translateY(-1px);
 		box-shadow: var(--surface-shadow-strong);
 	}
@@ -1957,7 +2188,8 @@
 	.daymap-toggle-button:disabled,
 	.activate-icon-button:disabled,
 	.cancel-icon-button:disabled,
-	.done-icon-button:disabled {
+	.done-icon-button:disabled,
+	.erase-done-button:disabled {
 		cursor: wait;
 		opacity: 0.72;
 		transform: none;
@@ -2443,7 +2675,8 @@
 		border-top: 1px solid color-mix(in srgb, var(--task-accent) 20%, var(--surface-border));
 	}
 
-	.active-time-editor input {
+	.active-time-editor input,
+	.done-time-stat input {
 		width: 100%;
 		min-height: 2.45rem;
 		padding: 0.58rem 0.68rem;
@@ -2457,12 +2690,36 @@
 		box-shadow: var(--surface-inset);
 	}
 
-	.active-time-editor input:focus {
+	.active-time-editor input:focus,
+	.done-time-stat input:focus {
 		outline: none;
 		border-color: color-mix(in srgb, var(--task-accent) 58%, var(--field-border));
 		box-shadow:
 			0 0 0 3px color-mix(in srgb, var(--task-accent) 16%, transparent),
 			var(--surface-inset);
+	}
+
+	.done-time-stat {
+		display: grid;
+		gap: 0.5rem;
+		align-content: start;
+	}
+
+	.done-time-stat input:disabled {
+		cursor: wait;
+		opacity: 0.72;
+	}
+
+	.task-card__done-time-status {
+		margin: -0.38rem 0 0;
+		padding: 0 0.2rem;
+		font-size: 0.76rem;
+		font-weight: 800;
+		color: var(--color-muted);
+	}
+
+	.task-card__done-time-error {
+		color: var(--color-danger);
 	}
 
 	.task-card__panic-duration {
