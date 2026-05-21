@@ -201,23 +201,56 @@
 		return new Set((day.sessions ?? []).map((session) => session.taskId)).size;
 	}
 
-	function getDayTaskNames(day) {
-		const seenTaskIds = new Set();
-		const taskNames = [];
+	function getTaskSessionMilliseconds(session) {
+		const startedAtMs = new Date(session.startedAt).getTime();
+		const endedAtMs = new Date(session.endedAt).getTime();
+
+		if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
+			return 0;
+		}
+
+		return Math.max(0, endedAtMs - startedAtMs);
+	}
+
+	function getDayTaskActivity(day) {
+		const taskActivity = new Map();
 
 		for (const session of day.sessions ?? []) {
 			const name = typeof session.name === 'string' ? session.name.trim() : '';
 			const key = session.taskId || name.toLowerCase();
 
-			if (!name || seenTaskIds.has(key)) {
+			if (!name || !key) {
 				continue;
 			}
 
-			seenTaskIds.add(key);
-			taskNames.push(name);
+			const currentTask = taskActivity.get(key);
+
+			if (currentTask) {
+				currentTask.milliseconds += getTaskSessionMilliseconds(session);
+				continue;
+			}
+
+			taskActivity.set(key, {
+				key,
+				name,
+				color: typeof session.color === 'string' ? session.color : '',
+				milliseconds: getTaskSessionMilliseconds(session)
+			});
 		}
 
-		return taskNames;
+		return [...taskActivity.values()];
+	}
+
+	function formatTaskActivityDuration(milliseconds) {
+		const wholeMinutes = Math.max(1, Math.floor(Math.max(0, milliseconds) / MINUTE_MS));
+		const hours = Math.floor(wholeMinutes / MINUTES_PER_HOUR);
+		const minutes = wholeMinutes % MINUTES_PER_HOUR;
+
+		if (hours > 0) {
+			return minutes > 0 ? `${hours}h${minutes}m` : `${hours}h`;
+		}
+
+		return `${wholeMinutes}m`;
 	}
 
 	function getDaySummary(day) {
@@ -235,7 +268,7 @@
 		return {
 			...day,
 			minutes: reverseHourRows(buildMinuteCells(day)),
-			taskNames: getDayTaskNames(day)
+			taskActivity: getDayTaskActivity(day)
 		};
 	}
 
@@ -428,16 +461,22 @@
 							{/each}
 						</div>
 
-						{#if day.taskNames.length > 0}
+						{#if day.taskActivity.length > 0}
 							<p
 								class="day-card__activity"
 								aria-label={`Tasks worked on ${formatDayLabel(day.day)}`}
 							>
-								{#each day.taskNames as taskName, taskNameIndex}
-									{#if taskNameIndex > 0}
+								{#each day.taskActivity as task, taskIndex (task.key)}
+									{#if taskIndex > 0}
 										<span class="day-card__activity-dot" aria-hidden="true"></span>
 									{/if}
-									<span>{taskName}</span>
+									<span
+										class="day-card__activity-task"
+										style={task.color ? `--task-activity-color: ${task.color};` : ''}
+									>
+										<span>{task.name}</span>
+										<small>{formatTaskActivityDuration(task.milliseconds)}</small>
+									</span>
 								{/each}
 							</p>
 						{/if}
@@ -615,6 +654,33 @@
 		border-radius: 999px;
 		background: currentColor;
 		opacity: 0.72;
+	}
+
+	.day-card__activity-task {
+		position: relative;
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.18rem;
+		min-width: 0;
+		padding-bottom: 0.32rem;
+	}
+
+	.day-card__activity-task::after {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: 5px;
+		border-radius: 999px;
+		background: var(--task-activity-color, currentColor);
+		content: '';
+	}
+
+	.day-card__activity-task small {
+		color: var(--color-muted);
+		font-size: 0.68rem;
+		font-weight: 800;
+		line-height: 1;
 	}
 
 	.minute-grid {
