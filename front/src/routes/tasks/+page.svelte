@@ -404,13 +404,17 @@
 
 	async function handleSaveNote(taskId, note) {
 		const updatedTask = await updateTaskNote(taskId, note);
-		replaceTask(taskId, updatedTask);
+		replaceTask(taskId, {
+			note: updatedTask?.note ?? null
+		});
 		return updatedTask;
 	}
 
 	async function handleSaveInstanceNote(taskId, instanceNote) {
 		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
-		replaceTask(taskId, updatedTask);
+		replaceTask(taskId, {
+			instanceNote: updatedTask?.instanceNote ?? null
+		});
 		return updatedTask;
 	}
 
@@ -419,7 +423,9 @@
 
 		try {
 			const updatedTask = await updateTaskIntensity(taskId, intensity);
-			replaceTask(taskId, updatedTask);
+			replaceTask(taskId, {
+				intensity: updatedTask?.intensity
+			});
 			return updatedTask;
 		} catch (error) {
 			actionError = error.message;

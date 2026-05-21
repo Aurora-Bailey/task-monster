@@ -88,7 +88,7 @@
 	function mergeTaskUpdate(
 		taskId,
 		updatedTask,
-		{ preservePanic = false, preserveInstanceNote = false } = {}
+		{ preservePanic = false, preserveNote = false, preserveInstanceNote = false } = {}
 	) {
 		tasks = tasks.map((task) =>
 			task.id === taskId
@@ -101,6 +101,11 @@
 									panicMeasuredAt: task.panicMeasuredAt,
 									effectiveMilliseconds: task.effectiveMilliseconds,
 									taskPanicLog: task.taskPanicLog ?? []
+								}
+							: {}),
+						...(preserveNote
+							? {
+									note: task.note ?? null
 								}
 							: {}),
 						...(preserveInstanceNote
@@ -240,7 +245,8 @@
 	async function handleSaveInstanceNote(taskId, instanceNote) {
 		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
 		mergeTaskUpdate(taskId, updatedTask, {
-			preservePanic: true
+			preservePanic: true,
+			preserveNote: true
 		});
 		return updatedTask;
 	}

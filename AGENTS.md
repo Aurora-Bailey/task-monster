@@ -395,6 +395,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - checking agreement to the Privacy Policy and Terms & Conditions
 - Task note autosave is debounced in `TaskCard.svelte`
 - Active-task instance note autosave is also debounced in `TaskCard.svelte`
+- task note saves and active instance note saves merge independently in the frontend because the task note lives on `tasks` while the instance note lives on the open `task_runs` record
 - Daymap cards expose:
   - activate through a play icon
   - queue or unqueue
