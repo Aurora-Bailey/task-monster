@@ -344,6 +344,14 @@ export async function updateTaskIntensity(taskId, intensity) {
 	return body?.task ?? null;
 }
 
+export async function updateActiveTaskStartedAt(taskId, startedAt) {
+	const body = await updateTask(taskId, {
+		startedAt
+	});
+
+	return body?.task ?? null;
+}
+
 export function archiveTask(taskId) {
 	return runTaskAction(taskId, 'archive');
 }

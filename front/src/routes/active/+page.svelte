@@ -23,6 +23,7 @@
 		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
+		updateActiveTaskStartedAt,
 		updateTaskIntensity,
 		updateTaskInstanceNote,
 		updateTaskNextDue,
@@ -40,39 +41,8 @@
 	let searchQuery = $state('');
 	let panic = $state(null);
 	let hasAnyBoardTasks = $state(true);
-	let activeCompletionDrafts = $state({});
 
 	let clockIntervalId = null;
-
-	function padDateTimePart(value) {
-		return String(value).padStart(2, '0');
-	}
-
-	function formatDateTimeLocalValue(date) {
-		if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-			return '';
-		}
-
-		return (
-			[
-				date.getFullYear(),
-				padDateTimePart(date.getMonth() + 1),
-				padDateTimePart(date.getDate())
-			].join('-') +
-			'T' +
-			[padDateTimePart(date.getHours()), padDateTimePart(date.getMinutes())].join(':')
-		);
-	}
-
-	function parseDateTimeLocalValue(value) {
-		if (typeof value !== 'string' || !value.trim()) {
-			return null;
-		}
-
-		const parsed = new Date(value);
-
-		return Number.isNaN(parsed.getTime()) ? null : parsed;
-	}
 
 	async function loadActiveBoardState() {
 		const [nextActiveTasks, nextDaymapTasks, nextInactiveTasks] = await Promise.all([
@@ -81,7 +51,6 @@
 			loadInactiveTasks()
 		]);
 
-		reconcileActiveCompletionDrafts(nextActiveTasks);
 		tasks = nextActiveTasks;
 		hasAnyBoardTasks =
 			nextActiveTasks.length + nextDaymapTasks.length + nextInactiveTasks.length > 0;
@@ -183,81 +152,6 @@
 		return `Effective ${formatElapsedDuration(effectiveMilliseconds)}`;
 	}
 
-	function getDefaultActiveStartedAtValue(task) {
-		const activatedAt = task.activatedAt ? new Date(task.activatedAt) : null;
-		const startedAt =
-			activatedAt instanceof Date && !Number.isNaN(activatedAt.getTime())
-				? activatedAt
-				: new Date(nowMs);
-
-		return formatDateTimeLocalValue(startedAt);
-	}
-
-	function reconcileActiveCompletionDrafts(nextActiveTasks) {
-		const nextDrafts = {};
-
-		for (const task of nextActiveTasks) {
-			const currentDraft = activeCompletionDrafts[task.id] ?? {};
-
-			nextDrafts[task.id] = {
-				startedAtValue: currentDraft.startedAtValue || getDefaultActiveStartedAtValue(task),
-				completedAtValue: currentDraft.completedAtValue || '',
-				completedAtLocked: currentDraft.completedAtLocked === true
-			};
-		}
-
-		activeCompletionDrafts = nextDrafts;
-	}
-
-	function getActiveCompletionDraft(task) {
-		const currentDraft = activeCompletionDrafts[task.id] ?? {};
-		const completedAtLocked = currentDraft.completedAtLocked === true;
-
-		return {
-			startedAtValue: currentDraft.startedAtValue || getDefaultActiveStartedAtValue(task),
-			completedAtValue: completedAtLocked
-				? currentDraft.completedAtValue
-				: formatDateTimeLocalValue(new Date(nowMs)),
-			completedAtLocked
-		};
-	}
-
-	function updateActiveCompletionDraft(taskId, updates) {
-		activeCompletionDrafts = {
-			...activeCompletionDrafts,
-			[taskId]: {
-				...(activeCompletionDrafts[taskId] ?? {}),
-				...updates
-			}
-		};
-	}
-
-	function handleActiveStartedAtChange(taskId, startedAtValue) {
-		actionError = '';
-		updateActiveCompletionDraft(taskId, {
-			startedAtValue
-		});
-	}
-
-	function handleActiveCompletedAtChange(taskId, completedAtValue) {
-		actionError = '';
-		updateActiveCompletionDraft(taskId, {
-			completedAtValue,
-			completedAtLocked: true
-		});
-	}
-
-	function getActiveCompletionDates(task) {
-		const draft = getActiveCompletionDraft(task);
-
-		return {
-			startedAt: parseDateTimeLocalValue(draft.startedAtValue),
-			completedAt: draft.completedAtLocked
-				? parseDateTimeLocalValue(draft.completedAtValue)
-				: new Date()
-		};
-	}
-
 	async function handleTally(taskId, delta) {
 		actionError = '';
 		setBusy(taskId, delta > 0 ? 'tally-up' : 'tally-down');
@@ -283,7 +177,6 @@
 			await cancelActiveTask(taskId);
 			const nextTasks = await loadActiveTasks();
 
-			reconcileActiveCompletionDrafts(nextTasks);
 			if (nextTasks.length > 0) {
 				tasks = nextTasks;
 				return;
@@ -305,29 +198,14 @@
 		}
 
 		actionError = '';
-		const { startedAt, completedAt } = getActiveCompletionDates(task);
-
-		if (!startedAt || !completedAt) {
-			actionError = 'Enter a valid local start time and finish time.';
-			return;
-		}
-
-		if (completedAt.getTime() < startedAt.getTime()) {
-			actionError = 'Finish time cannot be earlier than start time.';
-			return;
-		}
-
 		setBusy(task.id, 'done');
 
 		try {
 			await doneTask(task.id, {
-				instanceNote,
-				startedAt: startedAt.toISOString(),
-				completedAt: completedAt.toISOString()
+				instanceNote
 			});
 			const nextTasks = await loadActiveTasks();
 
-			reconcileActiveCompletionDrafts(nextTasks);
 			if (nextTasks.length > 0) {
 				tasks = nextTasks;
 				return;
@@ -363,6 +241,14 @@
 		const updatedTask = await updateTaskInstanceNote(taskId, instanceNote);
 		mergeTaskUpdate(taskId, updatedTask, {
 			preservePanic: true
+		});
+		return updatedTask;
+	}
+
+	async function handleSaveActiveStartedAt(taskId, startedAt) {
+		const updatedTask = await updateActiveTaskStartedAt(taskId, startedAt);
+		mergeTaskUpdate(taskId, updatedTask, {
+			preserveInstanceNote: true
 		});
 		return updatedTask;
 	}
@@ -486,14 +372,10 @@
 			{:else}
 				<div class="task-grid">
 					{#each sortedTasks as task}
-						{@const activeCompletionDraft = getActiveCompletionDraft(task)}
 						<TaskCard
 							{task}
 							variant="active"
 							editableTaskId={task.id}
-							activeStartedAtValue={activeCompletionDraft.startedAtValue}
-							activeCompletedAtValue={activeCompletionDraft.completedAtValue}
-							activeCompletedAtLocked={activeCompletionDraft.completedAtLocked}
 							panicDurationLabel={getPanicDurationLabel(task)}
 							effectiveDurationLabel={getEffectiveDurationLabel(task)}
 							onSaveInstanceNote={handleSaveInstanceNote}
@@ -502,8 +384,7 @@
 							onDone={handleDone}
 							onInactivate={handleCancelActive}
 							onIntensityChange={handleIntensityChange}
-							onActiveStartedAtChange={handleActiveStartedAtChange}
-							onActiveCompletedAtChange={handleActiveCompletedAtChange}
+							onSaveActiveStartedAt={handleSaveActiveStartedAt}
 							onSaveNote={handleSaveNote}
 							onSaveNextDue={handleSaveNextDue}
 							onTally={handleTally}

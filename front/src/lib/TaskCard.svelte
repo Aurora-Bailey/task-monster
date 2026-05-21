@@ -44,9 +44,6 @@
 		clickActionLabel = 'Activate',
 		enableInactiveCardClick = false,
 		compact = false,
-		activeStartedAtValue = '',
-		activeCompletedAtValue = '',
-		activeCompletedAtLocked = false,
 		panicDurationLabel = '',
 		effectiveDurationLabel = '',
 		doneDurationLabel = '',
@@ -79,8 +76,7 @@
 		onUnmap = () => {},
 		onInactivate = () => {},
 		onDone = () => {},
-		onActiveStartedAtChange = () => {},
-		onActiveCompletedAtChange = () => {},
+		onSaveActiveStartedAt = null,
 		onSaveDoneRunTimes = null
 	} = $props();
 
@@ -125,6 +121,7 @@
 	const canEditIntensity = $derived(
 		showIntensityControl && Boolean(editableTaskId && onIntensityChange)
 	);
+	const canEditActiveStartedAt = $derived(variant === 'active' && Boolean(onSaveActiveStartedAt));
 	const canEditDoneRunTimes = $derived(variant === 'done' && Boolean(onSaveDoneRunTimes));
 	const showsNextDueTiming = $derived(
 		showNextDueTiming && (canEditNextDue || Boolean(task.nextDueAt))
@@ -166,10 +163,12 @@
 	let nextDueSaveStatus = $state('idle');
 	let nextDueSaveError = $state('');
 	let nextDueInput = $state(null);
+	let draftActiveStartedAt = $state('');
+	let lastCommittedActiveStartedAt = $state('');
+	let activeStartedAtSaveStatus = $state('idle');
+	let activeStartedAtSaveError = $state('');
 	let activeStartedAtEditorOpen = $state(false);
-	let activeCompletedAtEditorOpen = $state(false);
 	let activeStartedAtInput = $state(null);
-	let activeCompletedAtInput = $state(null);
 	let draftDoneStartedAt = $state('');
 	let draftDoneEndedAt = $state('');
 	let lastCommittedDoneStartedAt = $state('');
@@ -595,37 +594,59 @@
 	async function openActiveStartedAtEditor(event) {
 		event.stopPropagation();
 
-		if (variant !== 'active' || busyAction !== null) {
+		if (!canEditActiveStartedAt || busyAction !== null) {
 			return;
 		}
 
 		activeStartedAtEditorOpen = true;
-		activeCompletedAtEditorOpen = false;
 		await tick();
 		activeStartedAtInput?.focus();
 	}
 
-	async function openActiveCompletedAtEditor(event) {
+	function handleActiveStartedAtInput(event) {
+		event.stopPropagation();
+		draftActiveStartedAt = event.currentTarget.value;
+		activeStartedAtSaveError = '';
+	}
+
+	async function persistActiveStartedAt(event) {
 		event.stopPropagation();
 
-		if (variant !== 'active' || busyAction !== null) {
+		if (!canEditActiveStartedAt || activeStartedAtSaveStatus === 'saving') {
 			return;
 		}
 
-		activeCompletedAtEditorOpen = true;
-		activeStartedAtEditorOpen = false;
-		await tick();
-		activeCompletedAtInput?.focus();
-	}
+		const startedAt = parseDateTimeLocalValue(draftActiveStartedAt);
 
-	function handleActiveStartedAtInput(event) {
-		event.stopPropagation();
-		onActiveStartedAtChange(task.id, event.currentTarget.value);
-	}
+		if (!startedAt) {
+			activeStartedAtSaveStatus = 'error';
+			activeStartedAtSaveError = 'Enter a valid local start time.';
+			return;
+		}
 
-	function handleActiveCompletedAtInput(event) {
-		event.stopPropagation();
-		onActiveCompletedAtChange(task.id, event.currentTarget.value);
+		if (draftActiveStartedAt === lastCommittedActiveStartedAt) {
+			activeStartedAtSaveStatus = 'saved';
+			activeStartedAtEditorOpen = false;
+			return;
+		}
+
+		activeStartedAtSaveStatus = 'saving';
+		activeStartedAtSaveError = '';
+
+		try {
+			const updatedTask = await onSaveActiveStartedAt(task.id, startedAt.toISOString());
+			const committedStartedAt = formatDateTimeLocalValue(
+				updatedTask?.activatedAt ?? updatedTask?.lastStartedAt ?? startedAt
+			);
+
+			lastCommittedActiveStartedAt = committedStartedAt;
+			draftActiveStartedAt = committedStartedAt;
+			activeStartedAtSaveStatus = 'saved';
+			activeStartedAtEditorOpen = false;
+		} catch (error) {
+			activeStartedAtSaveStatus = 'error';
+			activeStartedAtSaveError = error.message;
+		}
 	}
 
 	function handleDoneStartedAtInput(event) {
@@ -882,6 +903,20 @@
 		}
 
 		draftNextDueAt = formatDateTimeLocalValue(task.nextDueAt);
+	});
+
+	$effect(() => {
+		if (activeStartedAtSaveStatus === 'saving') {
+			return;
+		}
+
+		const incomingStartedAt = formatDateTimeLocalValue(task.activatedAt ?? task.lastStartedAt);
+
+		lastCommittedActiveStartedAt = incomingStartedAt;
+
+		if (activeStartedAtSaveStatus !== 'error') {
+			draftActiveStartedAt = incomingStartedAt;
+		}
 	});
 
 	$effect(() => {
@@ -1481,14 +1516,13 @@
 		{/if}
 
 		{#if variant === 'active'}
-			{@const startedAtMeta = formatActiveCompletionTime(activeStartedAtValue)}
-			{@const completedAtMeta = formatActiveCompletionTime(activeCompletedAtValue)}
+			{@const startedAtMeta = formatActiveCompletionTime(draftActiveStartedAt)}
 			<div class="task-card__runtime task-card__active-time-grid">
 				<div class="runtime-stat active-time-stat">
 					<button
 						class="active-time-button task-card__interactive"
 						type="button"
-						disabled={busyAction !== null}
+						disabled={busyAction !== null || activeStartedAtSaveStatus === 'saving'}
 						aria-expanded={activeStartedAtEditorOpen}
 						aria-label={`Edit start time for ${task.name}. ${formatTimingTitle('Start time', startedAtMeta)}`}
 						onclick={openActiveStartedAtEditor}
@@ -1502,48 +1536,25 @@
 							<span>Adjust start</span>
 							<input
 								bind:this={activeStartedAtInput}
+								bind:value={draftActiveStartedAt}
 								type="datetime-local"
-								value={activeStartedAtValue}
-								disabled={busyAction !== null}
+								disabled={busyAction !== null || activeStartedAtSaveStatus === 'saving'}
 								onpointerdown={stopEventPropagation}
 								onclick={stopEventPropagation}
 								onkeydown={stopEventPropagation}
 								oninput={handleActiveStartedAtInput}
-							/>
-						</label>
-					{/if}
-				</div>
-
-				<div class="runtime-stat active-time-stat">
-					<button
-						class="active-time-button task-card__interactive"
-						type="button"
-						disabled={busyAction !== null}
-						aria-expanded={activeCompletedAtEditorOpen}
-						aria-label={`Edit end time for ${task.name}. ${formatTimingTitle('End time', completedAtMeta)}`}
-						onclick={openActiveCompletedAtEditor}
-					>
-						<span>End time</span>
-						<strong>{completedAtMeta.weekdayLabel} {completedAtMeta.dateTimeLabel}</strong>
-					</button>
-
-					{#if activeCompletedAtEditorOpen}
-						<label class="active-time-editor task-card__interactive">
-							<span>{activeCompletedAtLocked ? 'Adjust end' : 'Pin end'}</span>
-							<input
-								bind:this={activeCompletedAtInput}
-								type="datetime-local"
-								value={activeCompletedAtValue}
-								disabled={busyAction !== null}
-								onpointerdown={stopEventPropagation}
-								onclick={stopEventPropagation}
-								onkeydown={stopEventPropagation}
-								oninput={handleActiveCompletedAtInput}
+								onchange={persistActiveStartedAt}
 							/>
 						</label>
 					{/if}
 				</div>
 			</div>
+
+			{#if activeStartedAtSaveStatus === 'saving'}
+				<p class="task-card__time-status">Saving start time...</p>
+			{:else if activeStartedAtSaveStatus === 'error' && activeStartedAtSaveError}
+				<p class="task-card__time-status task-card__time-error">{activeStartedAtSaveError}</p>
+			{/if}
 		{:else if !isTallyTask}
 			<div class="task-card__runtime">
 				<div class="runtime-stat">
@@ -1627,9 +1638,9 @@
 		</div>
 
 		{#if doneTimeSaveStatus === 'saving'}
-			<p class="task-card__done-time-status">Saving times...</p>
+			<p class="task-card__time-status">Saving times...</p>
 		{:else if doneTimeSaveStatus === 'error' && doneTimeSaveError}
-			<p class="task-card__done-time-status task-card__done-time-error">{doneTimeSaveError}</p>
+			<p class="task-card__time-status task-card__time-error">{doneTimeSaveError}</p>
 		{/if}
 	{/if}
 
@@ -2615,6 +2626,10 @@
 		gap: 0.8rem;
 	}
 
+	.task-card__active-time-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
 	.runtime-stat {
 		padding: 0.9rem 1rem;
 		border-radius: 16px;
@@ -2705,12 +2720,13 @@
 		align-content: start;
 	}
 
+	.active-time-editor input:disabled,
 	.done-time-stat input:disabled {
 		cursor: wait;
 		opacity: 0.72;
 	}
 
-	.task-card__done-time-status {
+	.task-card__time-status {
 		margin: -0.38rem 0 0;
 		padding: 0 0.2rem;
 		font-size: 0.76rem;
@@ -2718,7 +2734,7 @@
 		color: var(--color-muted);
 	}
 
-	.task-card__done-time-error {
+	.task-card__time-error {
 		color: var(--color-danger);
 	}
 

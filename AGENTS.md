@@ -417,8 +417,9 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Active page includes:
   - tally increment and decrement controls
   - cancel control that unstages an active task back to Daymap without logging an inactive run
-  - inline start and end datetime editors on each active task card
-  - start defaults to the activation time; end tracks the current time until the user edits it, then Done sends the card-local start/end values directly with no confirmation modal
+  - a compact inline start datetime editor on each active task card
+  - start defaults to the activation time and autosaves to the active task run when changed
+  - Done completes active tasks at the current time; end-time corrections live on `/done`
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The top nav exposes icon-only `AI` and `Panic` controls plus a theme-colored account switcher
   - the account switcher lists stored accounts with initial/name rows rendered in each account's saved theme
