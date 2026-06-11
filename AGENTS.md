@@ -10,13 +10,18 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 ## Run commands
 
-- Frontend install: `cd front && npm install`
-- Frontend dev: `cd front && npm run dev`
-- Frontend build check: `cd front && npm run build`
+The repo is an npm workspace (`front` + `back`); prefer the root commands.
+
+- Install both apps: `npm install` (repo root)
+- Dev (both, concurrently): `npm run dev` — back on `:3001`, front on the Vite dev server
+- Dev (backend only): `npm run dev:back`
+- Dev (frontend only): `npm run dev:front`
+- Frontend build check: `npm run build`
+- Frontend lint: `npm run lint`
+- Backend start: `npm run start`
 - Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
-- Backend install: `cd back && npm install`
-- Backend dev: `cd back && npm run dev`
-- Backend start: `cd back && npm start`
+
+Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) still work.
 
 ## Runtime and config
 
@@ -549,8 +554,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - There is no automated test suite yet
 - Cheap smoke checks that match current workflow:
-  - `cd front && npm run lint`
-  - `cd front && npm run build`
+  - `npm run lint`
+  - `npm run build`
   - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://task-monster-api.onrender.com npm run build`
   - boot the backend against a reachable Mongo instance
 - `db/` should not be treated as the source of truth for runtime behavior
