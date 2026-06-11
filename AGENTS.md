@@ -10,13 +10,19 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 ## Run commands
 
-- Frontend install: `cd front && npm install`
-- Frontend dev: `cd front && npm run dev`
-- Frontend build check: `cd front && npm run build`
+The repo is an npm workspace (`front` + `back`); prefer the root commands.
+
+- Required Node version: `^20.19.0 || >=22.12.0`
+- Install both apps: `npm install` (repo root)
+- Dev (both, concurrently): `npm run dev` — back on `:3001`, front on the Vite dev server
+- Dev (backend only): `npm run dev:back`
+- Dev (frontend only): `npm run dev:front`
+- Frontend build check: `npm run build`
+- Frontend lint: `npm run lint`
+- Backend start: `npm run start`
 - Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
-- Backend install: `cd back && npm install`
-- Backend dev: `cd back && npm run dev`
-- Backend start: `cd back && npm start`
+
+Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) still work.
 
 ## Runtime and config
 
@@ -26,7 +32,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 - Frontend production hosting is GitHub Pages.
   - `.github/workflows/deploy-frontend.yml` builds and deploys `front/` from the `production` branch
   - GitHub Pages serves the frontend under the repo base path, so production builds set `BASE_PATH=/${{ github.event.repository.name }}`
-  - production frontend API calls point at the Render-backed API domain `https://api.taskmonster.dev`
+  - production frontend API calls point at `https://api.taskmonster.dev`
   - `front/svelte.config.js` uses `@sveltejs/adapter-static` with `fallback: '404.html'` for SPA route refreshes
 - Frontend PWA support is manual static-file support.
   - app metadata lives in `front/static/manifest.webmanifest`
@@ -50,7 +56,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
   - tracked template: `.env.example`
   - backend loads `../.env` at startup
   - frontend Vite config points `envDir` at the repo root
-  - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
+  - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/dynamic/public`
 - `/` is now a minimalist public marketing landing page that uses current product screenshots
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
@@ -568,8 +574,8 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 - There is no automated test suite yet
 - Cheap smoke checks that match current workflow:
-  - `cd front && npm run lint`
-  - `cd front && npm run build`
+  - `npm run lint`
+  - `npm run build`
   - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
   - boot the backend against a reachable Mongo instance
 - `db/` should not be treated as the source of truth for runtime behavior

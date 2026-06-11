@@ -60,15 +60,20 @@ If you are setting up a new machine, start by copying `.env.example` to `.env` a
 
 ## Quick start
 
-1. Start MongoDB on `127.0.0.1:27017`, or set `MONGO_URL` to another instance.
-2. Create a root `.env` from `.env.example`.
-3. Start the backend:
-   - `cd back && npm install`
+1. Use Node `^20.19.0 || >=22.12.0`.
+2. Start MongoDB on `127.0.0.1:27017`, or set `MONGO_URL` to another instance.
+3. Create a root `.env` from `.env.example`.
+4. Install dependencies for both apps from the repo root:
+   - `npm install`
+5. Start the backend and frontend together:
    - `npm run dev`
-4. Start the frontend:
-   - `cd front && npm install`
-   - `npm run dev`
-5. Open the Vite dev server in your browser.
+6. Open the Vite dev server in your browser.
+
+This repo is an npm workspace (`front` + `back`), so a single root `npm install`
+sets up both apps and `npm run dev` runs them concurrently (back on `:3001`,
+front on the Vite dev server). To run just one: `npm run dev:back` or
+`npm run dev:front`. The per-app commands (`cd front && npm run dev`, etc.) still
+work too.
 
 Creating an account currently requires alpha code `gyarados`.
 Creating an account also requires agreeing to the current Privacy Policy and Terms & Conditions.
@@ -85,7 +90,7 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `OPENAI_MODEL=gpt-5.4-mini`
   - if blank or still set to `your_model_name_here`, the backend falls back to `gpt-5.4-mini`
 
-Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to the Render-backed API domain `https://api.taskmonster.dev`.
+Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to `https://api.taskmonster.dev`.
 
 ## Core runtime model
 
@@ -216,7 +221,7 @@ Panic and stats routes:
 
 Current cheap smoke checks:
 
-- `cd front && npm run lint`
-- `cd front && npm run build`
+- `npm run lint` (frontend prettier check)
+- `npm run build` (frontend build)
 - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.dev npm run build`
 - boot the backend against a reachable Mongo instance
