@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "workspaces": ["front", "back"],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "concurrently -n back,front -c blue,green \"npm:dev:back\" \"npm:dev:front\"",
     "dev:back": "npm run dev --workspace back",

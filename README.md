@@ -60,13 +60,14 @@ If you are setting up a new machine, start by copying `.env.example` to `.env` a
 
 ## Quick start
 
-1. Start MongoDB on `127.0.0.1:27017`, or set `MONGO_URL` to another instance.
-2. Create a root `.env` from `.env.example`.
-3. Install dependencies for both apps from the repo root:
+1. Use Node `^20.19.0 || >=22.12.0`.
+2. Start MongoDB on `127.0.0.1:27017`, or set `MONGO_URL` to another instance.
+3. Create a root `.env` from `.env.example`.
+4. Install dependencies for both apps from the repo root:
    - `npm install`
-4. Start the backend and frontend together:
+5. Start the backend and frontend together:
    - `npm run dev`
-5. Open the Vite dev server in your browser.
+6. Open the Vite dev server in your browser.
 
 This repo is an npm workspace (`front` + `back`), so a single root `npm install`
 sets up both apps and `npm run dev` runs them concurrently (back on `:3001`,

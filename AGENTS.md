@@ -12,6 +12,7 @@ This file is the canonical repo handoff for future agents. If behavior changes, 
 
 The repo is an npm workspace (`front` + `back`); prefer the root commands.
 
+- Required Node version: `^20.19.0 || >=22.12.0`
 - Install both apps: `npm install` (repo root)
 - Dev (both, concurrently): `npm run dev` — back on `:3001`, front on the Vite dev server
 - Dev (backend only): `npm run dev:back`
@@ -55,7 +56,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - tracked template: `.env.example`
   - backend loads `../.env` at startup
   - frontend Vite config points `envDir` at the repo root
-  - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/static/public`
+  - frontend SvelteKit config points `kit.env.dir` at the repo root for `$env/dynamic/public`
 - `/` is now a minimalist public marketing landing page that uses current product screenshots
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
