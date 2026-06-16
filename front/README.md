@@ -9,7 +9,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - the default API base is `http://127.0.0.1:3001`
 - `PUBLIC_API_BASE_URL` is now read from the repo root `.env`
 - Vite env loading is configured to use the repo root as `envDir`
-- authenticated app pages expose icon-only top-nav controls for AI, panic, and profile; logout lives on the profile page
+- authenticated app pages expose icon-only top-nav controls for panic and profile; logout lives on the profile page
 
 ## Commands
 
@@ -70,13 +70,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - daily stats and heatmap API wrapper
 - `src/lib/panic-client.js`
   - panic API wrapper and event dispatch
-- `src/lib/assistant-client.js`
-  - assistant API wrapper and assistant-refresh event dispatch
-- `src/lib/assistant-markdown.js`
-  - local safe markdown renderer used by assistant replies
-- `src/lib/AssistantDrawer.svelte`
-  - right-side authenticated chat drawer with themed markdown response rendering
-  - hydrates the latest persisted backend history slice when first opened after reload
+- `src/lib/app-events.js`
+  - app-wide refresh event dispatch used by account switching
 - `src/lib/TaskCard.svelte`
   - shared card UI for inactive, daymap, active, and done variants
 - `src/lib/theme.js`
@@ -86,7 +81,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `src/routes/layout.css`
   - root theme tokens and shared themed surfaces
 - `src/routes/Header.svelte`
-  - top nav, AI drawer trigger, panic control, theme-colored account switcher, and arrow-key page navigation
+  - top nav, panic control, theme-colored account switcher, and arrow-key page navigation
 - `static/sw.js`
   - production PWA service worker; dev hosts clear Task Monster caches and unregister instead of serving cached app files
 - `static/manifest.webmanifest`
@@ -151,30 +146,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - production navigation uses network-first fallback behavior
   - immutable app assets and static shell assets are cached
   - dev mode unregisters existing Task Monster service workers and clears `task-monster-pwa-*` caches to avoid stale local files
-- The header AI drawer talks to `POST /assistant/chat`
-  - the key stays on the backend
-  - the drawer also hydrates from `GET /assistant/history`
-  - `Esc` opens the drawer and focuses the input
-  - `Esc` closes it again
-  - arrow-key page navigation is disabled while the drawer is open
-  - the thread is bottom-scrolled and newest-message-oriented
-  - replies are rendered through the local markdown renderer, not raw text
-  - the drawer only sends the most recent 12 messages to the backend
-  - successful turns are persisted on the backend, so reloading the page restores the latest stored thread slice
-  - assistant-triggered task or panic changes dispatch `taskmonster:assistant-refresh`
-  - active, tasks, done, and stats pages listen for that refresh event
-- Assistant create behavior now has a duplicate guard
-  - if the backend sees a close match already in `inactive` or `daymap`, the assistant should present a `1 / 2 / 3` choice instead of silently creating another task
-  - that follow-up choice still depends on the relevant choice being present in the current 12-message working window
-- The backend assistant surface is now higher-level and more domain-shaped
-  - broad reads should come back through board snapshots, but those snapshot task arrays are preview-only
-  - exact full-set checks should come back through backend-owned filtered reads
-  - pasted checklist/TODO imports should use batch task creation instead of long chains of single task creates
-  - status-wide cleanup where every task gets the same change should come back through backend-owned bulk edit actions
-  - per-task mappings such as recoloring/classifying tasks by meaning should come back through targeted batch edits
-  - task completion can now include corrected run timing in one assistant action, including historical completion of non-active tasks when both times are known
-  - metadata edits still flow through the broad task edit route
-  - `next due` is editable from task cards and can also be managed by the assistant
+- Account switching dispatches `taskmonster:app-refresh`
+  - active, tasks, done, stats, and the header trace listen for the refresh event where needed
 
 ## Data source notes
 

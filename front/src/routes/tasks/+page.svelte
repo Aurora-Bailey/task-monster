@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
-	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { APP_REFRESH_EVENT } from '$lib/app-events';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -441,7 +441,7 @@
 			return;
 		}
 
-		const handleAssistantRefresh = async (event) => {
+		const handleAppRefresh = async (event) => {
 			if (event.detail?.refresh?.tasks !== true) {
 				return;
 			}
@@ -449,10 +449,10 @@
 			await loadTasks();
 		};
 
-		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 
 		return () => {
-			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 		};
 	});
 

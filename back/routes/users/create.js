@@ -5,7 +5,7 @@ const { DEFAULT_THEME } = require('../../lib/themes');
 const { normalizeUsername, validateUsername } = require('../../lib/users');
 
 const PRERELEASE_ALPHA_CODE = 'gyarados';
-const LEGAL_DOCUMENTS_VERSION = '2026-04-24';
+const LEGAL_DOCUMENTS_VERSION = '2026-06-16';
 
 const createUserSchema = {
 	body: {

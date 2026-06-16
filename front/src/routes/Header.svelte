@@ -4,7 +4,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
-		Bot,
 		ChartNoAxesColumn,
 		Check,
 		CircleCheck,
@@ -16,8 +15,7 @@
 	} from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 
-	import AssistantDrawer from '$lib/AssistantDrawer.svelte';
-	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { APP_REFRESH_EVENT, dispatchAppRefresh } from '$lib/app-events';
 	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
 	import {
 		dispatchPanicUpdated,
@@ -102,7 +100,6 @@
 	let panicReturnNote = $state('');
 	let panicReturnCharge = $state(5);
 	let panicReturnNoteInput = $state(null);
-	let showAssistantDrawer = $state(false);
 	let clockMode = $state(getStoredClockMode());
 	let accountMenuOpen = $state(false);
 	let accountMenuError = $state('');
@@ -210,9 +207,6 @@
 	const panicButtonTitle = $derived(
 		panicIsActive ? `Panic active for ${panicElapsedLabel}` : 'Start tracking off-the-rails time'
 	);
-	const assistantButtonTitle = $derived(
-		showAssistantDrawer ? 'Close the AI assistant' : 'Open the AI assistant'
-	);
 	const clockDate = $derived(new Date(nowMs));
 	const clockHours = $derived(clockDate.getHours());
 	const clockMinutes = $derived(clockDate.getMinutes());
@@ -241,7 +235,7 @@
 	});
 
 	$effect(() => {
-		if (showAssistantDrawer || showPanicReturnModal || accountMenuOpen) {
+		if (showPanicReturnModal || accountMenuOpen) {
 			topNavHidden = false;
 		}
 	});
@@ -437,15 +431,6 @@
 		}
 	}
 
-	function openAssistantDrawer() {
-		accountMenuOpen = false;
-		showAssistantDrawer = true;
-	}
-
-	function closeAssistantDrawer() {
-		showAssistantDrawer = false;
-	}
-
 	function toggleClockMode() {
 		accountMenuOpen = false;
 		const nextMode = clockMode === 'analog' ? 'digital' : 'analog';
@@ -467,28 +452,14 @@
 	function toggleAccountMenu() {
 		accountMenuError = '';
 		accountMenuOpen = !accountMenuOpen;
-
-		if (accountMenuOpen) {
-			showAssistantDrawer = false;
-		}
 	}
 
 	function dispatchAccountRefresh() {
-		if (!browser) {
-			return;
-		}
-
-		window.dispatchEvent(
-			new CustomEvent(ASSISTANT_REFRESH_EVENT, {
-				detail: {
-					refresh: {
-						tasks: true,
-						stats: true,
-						panic: true
-					}
-				}
-			})
-		);
+		dispatchAppRefresh({
+			tasks: true,
+			stats: true,
+			panic: true
+		});
 	}
 
 	async function handleSwitchAccount(account) {
@@ -567,7 +538,6 @@
 			if (
 				!shouldUseAutoHide ||
 				nextScrollY <= TOP_NAV_HIDE_THRESHOLD ||
-				showAssistantDrawer ||
 				showPanicReturnModal ||
 				accountMenuOpen
 			) {
@@ -607,28 +577,15 @@
 					return;
 				}
 
-				event.preventDefault();
-
 				if (accountMenuOpen) {
+					event.preventDefault();
 					accountMenuOpen = false;
-					return;
 				}
 
-				if (showAssistantDrawer) {
-					closeAssistantDrawer();
-					return;
-				}
-
-				openAssistantDrawer();
 				return;
 			}
 
-			if (
-				showPanicReturnModal ||
-				showAssistantDrawer ||
-				accountMenuOpen ||
-				isTypingTarget(event.target)
-			) {
+			if (showPanicReturnModal || accountMenuOpen || isTypingTarget(event.target)) {
 				return;
 			}
 
@@ -669,7 +626,7 @@
 				void loadCurrentHourTrace();
 			}
 		}, 1000);
-		const handleAssistantRefresh = async (event) => {
+		const handleAppRefresh = async (event) => {
 			if (event.detail?.refresh?.panic === true) {
 				await loadPanic();
 			}
@@ -700,7 +657,7 @@
 		};
 
 		window.addEventListener('keydown', handleGlobalKeydown);
-		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 		window.addEventListener('resize', handleWindowResize);
@@ -728,7 +685,7 @@
 
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
-			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			window.removeEventListener('resize', handleWindowResize);
@@ -819,17 +776,6 @@
 					<span class="clock-digital__day">{clockDayLabel}</span>
 				</span>
 			{/if}
-		</button>
-
-		<button
-			class="utility-button assistant-button"
-			class:is-open={showAssistantDrawer}
-			type="button"
-			title={assistantButtonTitle}
-			aria-label={assistantButtonTitle}
-			onclick={showAssistantDrawer ? closeAssistantDrawer : openAssistantDrawer}
-		>
-			<Bot size={21} strokeWidth={2.35} aria-hidden="true" />
 		</button>
 
 		<button
@@ -968,13 +914,6 @@
 {#if panicError}
 	<p class="panic-error">{panicError}</p>
 {/if}
-
-<AssistantDrawer
-	open={showAssistantDrawer}
-	username={user?.username || ''}
-	{currentPath}
-	onClose={closeAssistantDrawer}
-/>
 
 {#if showPanicReturnModal}
 	<div class="panic-modal-backdrop">
@@ -1591,23 +1530,6 @@
 		color: var(--panic-button-text);
 	}
 
-	.assistant-button {
-		background:
-			radial-gradient(
-				circle at top left,
-				color-mix(in srgb, var(--color-accent) 20%, transparent),
-				transparent 46%
-			),
-			linear-gradient(
-				135deg,
-				color-mix(in srgb, var(--surface-3) 92%, transparent),
-				color-mix(in srgb, var(--surface-2) 96%, transparent)
-			);
-		border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--surface-border));
-		box-shadow: var(--surface-shadow);
-		color: var(--color-heading);
-	}
-
 	.panic-button.is-active {
 		background: linear-gradient(135deg, var(--panic-active-start), var(--panic-active-end));
 		box-shadow: 0 14px 28px var(--panic-active-shadow);
@@ -1655,15 +1577,6 @@
 		border-radius: 999px;
 		background: var(--color-danger);
 		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-contrast) 65%, transparent);
-	}
-
-	.assistant-button.is-open {
-		border-color: color-mix(in srgb, var(--color-accent) 42%, var(--surface-border));
-		background: var(--accent-gradient);
-		color: var(--color-accent-contrast);
-		box-shadow:
-			0 0 0 3px var(--focus-ring),
-			0 14px 28px color-mix(in srgb, var(--color-accent) 28%, transparent);
 	}
 
 	.user-pill {

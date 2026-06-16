@@ -2,7 +2,7 @@
 
 Task Monster is a SvelteKit + Fastify + MongoDB productivity app built around a narrow task flow: choose work for today, run it in Active, finish it into Done, and review the result in Stats. The board is split into `inactive`, `daymap`, `active`, `done`, and `stats` so planning, execution, and history stay separate.
 
-The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, panic tracking, and an authenticated AI drawer that can create, edit, complete, and summarize tasks through backend tools.
+The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, and panic tracking.
 
 ## Screenshots
 
@@ -37,14 +37,12 @@ The current UI is easiest to recognize by the task board, active sessions, and s
 - Account creation is gated by the prerelease alpha code and a required legal-acceptance checkbox
 - Production PWA caching is handled by `front/static/sw.js`; dev builds unregister Task Monster service workers and clear local PWA caches
 - Theme selection is account-backed through `users.theme`, with a boot-time local cache to avoid a default-theme flash
-- `sms-bridge/` is still planning-only, not an implemented runtime service
 
 ## Repo layout
 
 - `front/`: SvelteKit frontend
 - `back/`: Fastify API and Mongo-backed business logic
 - `db/`: scratch area, not a runtime surface
-- `sms-bridge/`: design/spec area for a future SMS bridge service
 - `AGENTS.md`: canonical handoff for future coding agents
 
 ## Environment source of truth
@@ -86,9 +84,6 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `PORT=3001`
 - `MONGO_URL=mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME=task-monster`
-- `OPENAI_API_KEY=...`
-- `OPENAI_MODEL=gpt-5.4-mini`
-  - if blank or still set to `your_model_name_here`, the backend falls back to `gpt-5.4-mini`
 
 Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to `https://api.taskmonster.dev`.
 
@@ -132,49 +127,6 @@ Auth/session routes:
 - `POST /sessions/logout`
 - `GET /login-attempts`
 
-Assistant route:
-
-- `POST /assistant/chat`
-  - authenticated assistant route used by the header drawer
-  - request body currently includes:
-    - `messages`
-    - `timezoneOffsetMinutes`
-    - `currentPath`
-  - the frontend only sends the most recent 12 conversation messages
-  - the backend accepts a larger payload window, then sanitizes/trims to the most recent 12 user/assistant messages before calling OpenAI
-  - each successful user/assistant turn is persisted in Mongo under the authenticated user account in `assistant_messages`
-  - the drawer reloads from backend history instead of starting empty on page refresh
-  - the backend now gives the model a higher-level domain tool surface instead of asking it to compose low-level route semantics
-  - current v2 actions include:
-    - board snapshot reads with exhaustive counts and preview-only task lists
-    - full-board filtered reads for exact set checks
-    - full-board task search with backend-side ranking
-    - create one task or batch-create pasted checklist/TODO imports
-    - edit a single task’s metadata, notes, next due, tally settings, and active started time
-    - targeted batch-edit named tasks when each task needs different metadata
-    - bulk-edit matching task sets only for shared metadata cleanup
-    - complete an active run or a historical daymap/inactive run with optional corrected `startedAt` / `completedAt`
-    - activate, daymap, backlog, queue, unqueue, and archive control actions
-    - adjust active tally counts
-    - start or stop panic
-    - summarize a local day from real stats
-  - duplicate-task guard behavior:
-    - create checks only `inactive` and `daymap` for close matches
-    - if a close match exists, the assistant should stop and present options `1`, `2`, and `3`
-    - option `3` is the explicit duplicate override path
-  - board-read guard behavior:
-    - `get_board_snapshot` counts are exhaustive, but its task lists are previews only
-    - for “all inactive tasks”, “every daymap-locked task”, or similar full-set claims, the assistant should use `filter_tasks`
-    - for status-wide cleanup where every task gets the same change, the assistant should use `bulk_edit_tasks`
-    - for per-task mappings like recoloring/classifying tasks by meaning, the assistant should use `edit_tasks`
-  - assistant time behavior:
-    - `startedAt` / `completedAt` tool arguments are local user times, not UTC wall-clock guesses
-    - the prompt includes the current local timezone offset, and backend normalization corrects accidental `Z` timestamps from the model
-- `GET /assistant/history`
-  - authenticated assistant history route used to hydrate the drawer on load
-  - returns the latest persisted assistant/user messages in chronological order
-  - the drawer currently asks for the latest 12, which guarantees at least the last 6 are present when enough history exists
-
 Task routes:
 
 - `POST /tasks`
@@ -205,7 +157,7 @@ Panic and stats routes:
 - `POST /panic/start`
 - `POST /panic/stop`
 - `GET /stats/daily`
-  - assistant/day-summary endpoint with summary, overlap, cadence, panic, done, and session details
+  - local-day endpoint with summary, overlap, cadence, panic, done, and session details
 - `GET /stats/heatmap`
   - current `/stats` page endpoint; returns clipped task-run sessions for 10-day minute-map batches by default
 
@@ -214,7 +166,6 @@ Panic and stats routes:
 - `AGENTS.md`: agent-oriented handoff and current repo reality
 - `front/README.md`: frontend-specific notes
 - `back/README.md`: backend-specific notes
-- `sms-bridge/README.md`: planning document for the future SMS assistant service
 - `db/readme.md`: what the `db/` folder is and is not
 
 ## Verification

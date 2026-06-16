@@ -16,7 +16,6 @@ The real runtime database integration lives in:
 - `back/lib/tasks.js`
 - `back/lib/task-runs.js`
 - `back/lib/panic.js`
-- `back/lib/assistant.js`
 
 If you need the actual app model, read:
 

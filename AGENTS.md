@@ -65,9 +65,6 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `PORT` default: `3001`
   - `MONGO_URL` default: `mongodb://127.0.0.1:27017`
   - `MONGO_DB_NAME` default: `task-monster`
-  - `OPENAI_MODEL` default: `gpt-5.4-mini`
-    - if blank or still set to `your_model_name_here`, config falls back to `gpt-5.4-mini`
-  - `OPENAI_API_KEY` is required for the authenticated in-app assistant
 - MongoDB is expected locally unless env vars override it
 
 ## Backend architecture
@@ -85,7 +82,6 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `tasks`
   - `task_runs`
   - `panic_runs`
-  - `assistant_messages`
 - Current startup quirk:
   - Fastify/Ajv emits strict-mode warnings for `type: ['integer', 'string']` query/body schemas around `tzOffsetMinutes`, but the server still boots
 
@@ -102,14 +98,11 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `users.legalAcceptance.version`
 - `back/routes/users/create.js` currently hardcodes:
   - `PRERELEASE_ALPHA_CODE = 'gyarados'`
-  - `LEGAL_DOCUMENTS_VERSION = '2026-04-24'`
+  - `LEGAL_DOCUMENTS_VERSION = '2026-06-16'`
 - if the legal page content materially changes, bump `LEGAL_DOCUMENTS_VERSION`
 - Session verification route:
   - `GET /whoami`
   - returns `id`, `username`, and `theme`
-- Assistant route:
-  - `POST /assistant/chat`
-  - runs authenticated tool actions under the current user
 - Session management routes:
   - `GET /sessions`
   - `DELETE /sessions/:sessionId`
@@ -330,23 +323,18 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `front/src/lib/stats-client.js`
 - Panic client:
   - `front/src/lib/panic-client.js`
-- Assistant client:
-  - `front/src/lib/assistant-client.js`
-- Assistant markdown renderer:
-  - `front/src/lib/assistant-markdown.js`
-- Assistant drawer:
-  - `front/src/lib/AssistantDrawer.svelte`
-  - restores the latest persisted backend history slice on first open after reload
+- App-wide refresh events:
+  - `front/src/lib/app-events.js`
+  - account switching dispatches `taskmonster:app-refresh`
 - Shared task card:
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
   - `front/src/lib/TaskSortBar.svelte`
 - Top nav and utility controls:
   - `front/src/routes/Header.svelte`
-  - owns icon-only top-nav controls for AI and panic
+  - owns icon-only top-nav panic controls
   - owns the theme-colored account switcher dropdown
   - owns the current-hour activity trace under the header
-  - owns the authenticated AI drawer trigger and drawer mount
 
 ## Main frontend routes
 
@@ -428,103 +416,14 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - start defaults to the activation time and autosaves to the active task run when changed
   - Done completes active tasks at the current time; end-time corrections live on `/done`
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
-- The top nav exposes icon-only `AI` and `Panic` controls plus a theme-colored account switcher
+- The top nav exposes an icon-only `Panic` control plus a theme-colored account switcher
   - the account switcher lists stored accounts with initial/name rows rendered in each account's saved theme
   - `Add account` opens `/auth?addAccount=1` without logging out the current account
   - `Settings for <user>` opens `/profile`
   - switching accounts verifies the stored token, makes it active, applies that user's theme, and refreshes account-backed board data
-  - it opens a right-side assistant drawer
-  - `Esc` opens the drawer and focuses the input
-  - pressing `Esc` again closes it
-  - assistant replies are rendered through a local safe markdown renderer, not a third-party package
-  - assistant-triggered changes dispatch `taskmonster:assistant-refresh`
+  - account switching dispatches `taskmonster:app-refresh`
   - active/tasks/done/stats listen for that event and reload as needed
-  - arrow-key navigation is intentionally disabled while the drawer is open
-  - the drawer only sends the most recent 12 messages to the backend on each request
-  - the drawer hydrates from `GET /assistant/history`
 - Panic controls live in the top nav, not on the active page itself
-
-## In-app assistant
-
-- The authenticated assistant is backend-mediated only; the OpenAI key stays on the server.
-- Backend route:
-  - `POST /assistant/chat`
-- Request body currently includes:
-  - `messages`
-  - `timezoneOffsetMinutes`
-  - `currentPath`
-- Validation and history window:
-  - route schema currently accepts up to 64 inbound messages
-  - backend sanitization then trims to the most recent 12 `user` / `assistant` messages
-  - each successful user + assistant turn is persisted in Mongo in `assistant_messages`
-  - `GET /assistant/history` returns the latest persisted messages in chronological order
-- Backend implementation:
-  - `back/lib/assistant.js`
-  - `back/lib/assistant-history.js`
-  - currently uses the OpenAI Chat Completions API, not the Responses API
-- Current v2 tool surface:
-  - `get_board_snapshot`
-    - broad board reads with exhaustive counts plus preview-only task lists
-  - `filter_tasks`
-    - full-board filtered reads when the user means every matching task, not just a preview slice
-  - `search_tasks`
-    - backend-ranked task search across the full board; this is preferred over making the model paginate broad lists
-  - `get_day_summary`
-    - real local-day stats read
-  - `create_task`
-    - still guarded against close duplicates in `inactive` and `daymap`
-  - `create_tasks`
-    - batch task creation for pasted checklists/TODO imports so the assistant does not loop single-task tool calls until it hits the tool-use limit
-    - close duplicate matches are skipped and reported in the batch result unless duplicates were explicitly allowed
-  - `edit_task`
-    - metadata, note, next due, tally settings, daymap lock, and active `startedAt`
-  - `edit_tasks`
-    - targeted batch edits for many named tasks where each task may need a different color, mode, name, note, due date, or other metadata
-  - `bulk_edit_tasks`
-    - shared metadata cleanup across a matched task set
-  - `complete_task_run`
-    - marks an active task done, or records a historical daymap/inactive completion when both times are supplied, and can correct `startedAt`, `completedAt`, and `instanceNote` in one call
-  - `control_task`
-    - activate, move to daymap, move to inactive, queue, unqueue, or archive
-  - `adjust_active_tally`
-    - active tally increments/decrements
-  - `set_panic_mode`
-    - unified panic start/stop tool
-- Current prompt/behavior policy:
-  - tools are required for all task-specific facts and all mutations
-  - the model is explicitly told to always send a JSON object for tool arguments
-  - for broad reads it should call `get_board_snapshot` with `{"scope":"board"}`
-  - board snapshot task arrays are previews only and must not be treated as exhaustive sections
-  - for full-set checks like “all inactive tasks due this week” it should call `filter_tasks`
-  - for pasted checklists, TODO imports, markdown checkbox lists, bullet lists, or “turn these into individual tasks” requests it should call `create_tasks` once instead of looping `create_task`
-  - imported checklist items default to one-time inactive time tasks, with house/home/remodel/shopping lists defaulting to Home/gold unless the user says otherwise
-  - imported checklist section headings such as Buy/Install/Build/Move/Remove should be folded into child task names so similar items remain distinct
-  - for cleanup across a matched set where every task gets the exact same change set it should call `bulk_edit_tasks`
-  - for targeted multi-task mappings like `Task A -> blue, Task B -> red`, or classification passes where each task can get a different target value, it should call `edit_tasks` instead of `bulk_edit_tasks` or repeated `edit_task`
-  - for recolor/classification requests across all tasks, it should first call `filter_tasks` to read the full matching set, then call `edit_tasks` with the per-task target colors
-  - `nextDueAt` is an optional task field that can be edited from task cards and managed by assistant tools
-  - for day summaries it should call `get_day_summary` with `{"scope":"day"}` and add an explicit `day` only when needed
-  - ambiguous requests should trigger a short clarification instead of a guess
-  - time-correction requests should be passed as actual tool arguments, not approximated with notes
-  - for historical completion of non-active tasks, the assistant should pass both `startedAt` and `completedAt`
-  - assistant time tool arguments are local user times, not UTC; the prompt includes the current local offset and backend normalization corrects accidental `Z` timestamps
-  - `"pause"` and similar language should resolve toward daymap
-  - `"inactive"` and `"backlog"` should resolve toward fully unmapping back to inactive
-  - structured replies should use markdown when it helps
-  - raw millisecond values should usually be converted into human-readable durations
-  - the intended tone is calm, sharp, concise, and slightly futuristic
-  - time tasks should be described in terms of active runtime and completion history
-- Task creation guard:
-  - `create_task` now checks for close existing matches in `inactive` and `daymap` before creating
-  - if a close match exists, the backend returns `requiresChoice: true` with `errorCode: duplicate_task_guard`
-  - when that happens, the backend immediately asks the model for a no-tools follow-up reply so the user sees a choice prompt instead of raw tool output
-  - the assistant should present exactly three options:
-    - `1.` reuse the closest existing task
-    - `2.` create a clearer, more specific variant
-    - `3.` create the exact requested task with `allowDuplicate: true`
-  - a bare follow-up `1`, `2`, or `3` should be interpreted as selecting that last duplicate-task choice
-  - that bare follow-up only works while the relevant prior choice is still present in the current 12-message working window sent back to the backend
-  - current matching is intentionally stricter for single-word loose matches so things like `work` do not too eagerly collide with `homework`
 
 ## Filler vs real data
 

@@ -9,7 +9,6 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 - active run tracking in `task_runs`
 - panic logging in `panic_runs`
 - newest-to-oldest done feeds, daily stats summaries, and heatmap batches
-- authenticated assistant actions through `POST /assistant/chat`
 
 ## Commands
 
@@ -35,20 +34,12 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
   - default: `mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME`
   - default: `task-monster`
-- `OPENAI_API_KEY`
-  - required for the authenticated in-app assistant
-- `OPENAI_MODEL`
-  - default: `gpt-5.4-mini`
-  - if blank or left as `your_model_name_here`, `lib/config.js` falls back to `gpt-5.4-mini`
-
 ## Structure
 
 - `index.js`
   - builds the Fastify app, connects to Mongo, installs hooks, and registers routes
 - `lib/`
   - shared logic
-- `lib/assistant.js`
-  - assistant prompt, tool definitions, task matching, and OpenAI chat loop
 - `routes/`
   - one file per route, auto-registered recursively
 
@@ -61,7 +52,6 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
 - `tasks`
 - `task_runs`
 - `panic_runs`
-- `assistant_messages`
 
 Indexes are created on startup in `lib/mongo.js`.
 
@@ -72,10 +62,6 @@ Indexes are created on startup in `lib/mongo.js`.
   - `GET /ping`
   - `POST /users`
   - `POST /sessions/login`
-- Assistant route:
-  - `POST /assistant/chat`
-  - requires a normal bearer token
-  - executes tool actions under the authenticated user
 - Session/profile route:
   - `GET /login-attempts`
   - returns recent login-event history for the profile page
@@ -240,81 +226,7 @@ Current daily stats output includes:
 - done log
 - session log
 
-The current `/stats` frontend page uses `GET /stats/heatmap`, not the daily report UI. The daily endpoint remains used by assistant day-summary behavior and available for future UI.
-
-## Assistant scope
-
-The current in-app assistant can:
-
-- take a broad board snapshot with backend-owned grouping and exhaustive counts
-- inspect exact full-board task sets through backend-owned filters
-- search tasks across the full board with backend-owned ranking
-- summarize a selected local day from real stats
-- create one task or batch-create pasted checklist/TODO imports
-- edit task metadata, note fields, next due, tally settings, daymap lock, and active started time
-- targeted batch-edit named tasks when each task may need different metadata
-- bulk-edit shared metadata across a matched task set
-- complete an active run, or a historical daymap/inactive run, with corrected `startedAt` / `completedAt`, optional `instanceNote`, and optional `nextDueAt`
-- control activate/daymap/inactive/queue/archive semantics through a single high-level task-control tool
-- update active tally counts
-- start or stop panic mode through one unified tool
-
-Assistant request model:
-
-- route: `POST /assistant/chat`
-- body fields:
-  - `messages`
-  - `timezoneOffsetMinutes`
-  - `currentPath`
-- request validation currently allows up to 64 inbound messages
-- the backend then sanitizes and trims to the most recent 12 `user` / `assistant` messages before calling OpenAI
-- each successful user + assistant turn is persisted to the `assistant_messages` collection
-- route: `GET /assistant/history`
-  - returns the most recent persisted messages for the authenticated user in chronological order
-- the backend currently uses the Chat Completions API shape, not the Responses API
-
-Assistant prompt policy:
-
-- use tools for all task-specific facts and all mutations
-- do not guess task state or stats
-- always send tool arguments as a JSON object
-- broad board reads should use `get_board_snapshot`
-- the task arrays in `get_board_snapshot` are previews only; its counts are exhaustive
-- full-set checks should use `filter_tasks`
-- `filter_tasks` can now narrow by whether a next due exists and by due-before / due-after timestamps
-- pasted checklist/TODO imports should use `create_tasks` instead of long single-task create loops
-- status-wide cleanup where every task gets the same change should use `bulk_edit_tasks`
-- targeted mappings where each task may get different metadata should use `edit_tasks`
-- `nextDueAt` is an optional task field that can be edited from task cards and managed by assistant tools
-- broad task lookup should use `search_tasks` instead of pagination loops
-- timing corrections should be passed as tool arguments, not approximated with notes
-- if a non-active task is being completed historically, both `startedAt` and `completedAt` should be supplied
-- assistant time tool arguments are interpreted as the user’s local wall-clock times; the prompt now gives the current local offset and backend normalization protects against accidental UTC `Z` timestamps
-- ambiguous requests should get a short clarification question
-- `"pause"` or `"take it off active"` should resolve toward daymap
-- `"inactive"` or `"backlog"` should resolve toward fully unmapping back to inactive
-- replies are encouraged to use markdown when structured output helps
-- raw millisecond values should usually be converted into human-readable durations
-- the current voice target is calm, sharp, concise, and slightly futuristic
-
-Assistant UI/runtime coupling:
-
-- the frontend only sends the most recent 12 messages on each request
-- the drawer hydrates from `GET /assistant/history` and currently loads the latest 12 persisted messages
-- `currentPath` is included so the system prompt knows which page the user is viewing
-
-Assistant create-task guard:
-
-- before creating a task, the backend checks for close matches already in `inactive` or `daymap`
-- if it finds one, `create_task` returns a guarded `requiresChoice` payload instead of mutating state
-- when that happens, the backend chat loop immediately asks the model for a no-tools follow-up response so the user gets the `1 / 2 / 3` choice instead of a raw tool blob
-- the assistant should then offer:
-  - `1.` reuse the existing task
-  - `2.` create a clearer, more specific version
-  - `3.` create the exact requested task anyway
-- exact duplicate creation now requires the tool argument `allowDuplicate: true`, which should only be used after the user explicitly chooses option `3`
-- the current matcher intentionally guards more aggressively on exact, prefix, and strong token matches than on loose one-word substring overlap
-- a bare follow-up `1`, `2`, or `3` still depends on the relevant prior choice being present in the current 12-message working window that the drawer sends back to the backend
+The current `/stats` frontend page uses `GET /stats/heatmap`, not the daily report UI. The daily endpoint remains available for future UI.
 
 ## Current quirk
 

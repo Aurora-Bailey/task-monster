@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
-	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { APP_REFRESH_EVENT } from '$lib/app-events';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
@@ -277,7 +277,7 @@
 			clockIntervalId = window.setInterval(() => {
 				nowMs = Date.now();
 			}, 1000);
-			const handleAssistantRefresh = async (event) => {
+			const handleAppRefresh = async (event) => {
 				if (event.detail?.refresh?.tasks !== true && event.detail?.refresh?.panic !== true) {
 					return;
 				}
@@ -298,11 +298,11 @@
 				}
 			};
 
-			window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 
 			return () => {
-				window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+				window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
 			};

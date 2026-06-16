@@ -122,12 +122,6 @@ async function ensureDatabaseIndexes(db) {
 		}
 	);
 
-	await db.collection('assistant_messages').createIndex(
-		{ userId: 1, createdAt: -1, _id: -1 },
-		{
-			name: 'assistant_messages_userId_createdAt_id'
-		}
-	);
 }
 
 module.exports = {

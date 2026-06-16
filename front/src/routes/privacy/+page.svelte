@@ -2,7 +2,7 @@
 	<title>Privacy Policy</title>
 	<meta
 		name="description"
-		content="Full Privacy Policy for Task Monster, including the web app, backend services, and Task Monster SMS Assistant."
+		content="Full Privacy Policy for Task Monster, including the web app and backend services."
 	/>
 </svelte:head>
 
@@ -12,9 +12,9 @@
 		<h1>Privacy Policy</h1>
 		<p class="lede">
 			This Privacy Policy explains what Task Monster collects, how it uses and protects that
-			information, and how the optional Task Monster SMS Assistant fits into the broader service.
+			information, and how account data supports the broader service.
 		</p>
-		<p class="meta">Last updated: April 24, 2026</p>
+		<p class="meta">Last updated: June 16, 2026</p>
 	</div>
 
 	<div class="legal-card">
@@ -22,7 +22,7 @@
 			<h2>I. Scope and Coverage</h2>
 			<p>
 				This Privacy Policy applies to the Task Monster website, web app, backend APIs, related
-				account and security systems, and the optional <strong>Task Monster SMS Assistant</strong>.
+				account systems, and security systems.
 			</p>
 			<p>
 				It covers information collected directly from you, automatically through your use of the
@@ -48,14 +48,6 @@
 				<li>
 					activity records such as task runs, done events, panic sessions, stats inputs, and other
 					history needed to render logs and summaries
-				</li>
-				<li>
-					phone-link information such as submitted phone numbers, verification state, consent
-					records, and linked-account metadata
-				</li>
-				<li>
-					SMS information such as message content, timestamps, delivery events, opt-in records, and
-					opt-out records
 				</li>
 				<li>
 					operational and troubleshooting data needed to monitor reliability, investigate abuse, and
@@ -85,34 +77,17 @@
 			</p>
 			<p>
 				This information is used to operate the app features you request, including active-task
-				workflows, logs, summaries, stats, and future assistant features tied to your account.
-			</p>
-		</section>
-
-		<section id="sms-data">
-			<h2>V. Phone Numbers and SMS Program Data</h2>
-			<p>
-				If you link a phone number or use the Task Monster SMS Assistant, Task Monster may collect
-				and process your phone number, verification codes, verification attempts, linked-number
-				status, inbound SMS content, outbound SMS content, message timestamps, and delivery
-				metadata.
-			</p>
-			<p>
-				SMS information is used only for service operations such as phone verification, account
-				linking, task-assistant actions, clarification prompts, support responses, security checks,
-				and program administration.
+				workflows, logs, summaries, and stats tied to your account.
 			</p>
 		</section>
 
 		<section id="how-used">
-			<h2>VI. How We Use Information</h2>
+			<h2>V. How We Use Information</h2>
 			<p>Task Monster may use collected information to:</p>
 			<ul>
-				<li>provide the web app, backend API, and optional SMS Assistant</li>
+				<li>provide the web app and backend API</li>
 				<li>authenticate users and protect accounts</li>
 				<li>store, retrieve, and organize tasks, notes, run history, and stats</li>
-				<li>send verification codes, operational notices, and service-related responses</li>
-				<li>interpret SMS requests and map them to the correct account and task action</li>
 				<li>
 					maintain logs, diagnose problems, detect abuse, and improve reliability and performance
 				</li>
@@ -120,31 +95,17 @@
 			</ul>
 		</section>
 
-		<section id="automation">
-			<h2>VII. AI-Assisted and Automated Processing</h2>
-			<p>
-				Task Monster may use automated systems or AI-assisted services to interpret natural-language
-				input, including optional SMS requests, and turn that input into task-related actions or
-				clarifying questions.
-			</p>
-			<p>
-				When AI or automated processing is used, it is used to operate the service, not to profile
-				you for third-party advertising. Riskier or ambiguous actions may require additional checks,
-				confirmation steps, or manual clarification.
-			</p>
-		</section>
-
 		<section id="sharing">
-			<h2>VIII. Sharing and Service Providers</h2>
+			<h2>VI. Sharing and Service Providers</h2>
 			<p>
 				Task Monster does not sell or rent your personal information. Task Monster also does not
 				share personal information with third parties for their own marketing purposes.
 			</p>
 			<p>
 				Task Monster may use third-party processors and infrastructure providers strictly as needed
-				to run the service, such as hosting, databases, backups, logging systems, SMS providers, and
-				AI-processing providers. Those providers may receive only the information reasonably needed
-				to perform their service functions.
+				to run the service, such as hosting, databases, backups, and logging systems. Those
+				providers may receive only the information reasonably needed to perform their service
+				functions.
 			</p>
 			<p>
 				Task Monster may also disclose information if reasonably necessary to comply with law,
@@ -153,21 +114,8 @@
 			</p>
 		</section>
 
-		<section id="no-marketing-sharing">
-			<h2>IX. Mobile Data and Marketing Restrictions</h2>
-			<p>
-				Mobile opt-in data, consent records, phone-link data, and SMS message content are not shared
-				with third parties or affiliates for their own marketing or promotional purposes.
-			</p>
-			<p>
-				Task Monster does not use your phone number or SMS consent as permission to send unrelated
-				marketing campaigns. SMS use is limited to service-related communications tied to the Task
-				Monster product.
-			</p>
-		</section>
-
 		<section id="retention">
-			<h2>X. Data Retention</h2>
+			<h2>VII. Data Retention</h2>
 			<p>
 				Task Monster keeps information for as long as reasonably necessary to operate the service,
 				maintain security, preserve logs, troubleshoot issues, enforce policies, and comply with
@@ -181,7 +129,7 @@
 		</section>
 
 		<section id="security">
-			<h2>XI. Security</h2>
+			<h2>VIII. Security</h2>
 			<p>
 				Task Monster uses reasonable administrative, technical, and organizational safeguards
 				designed to protect user information. These may include authentication controls, hashed
@@ -195,24 +143,18 @@
 		</section>
 
 		<section id="choices">
-			<h2>XII. Your Choices and Controls</h2>
+			<h2>IX. Your Choices and Controls</h2>
 			<p>
 				You may stop using the web app at any time. You may also log out of active sessions and, if
 				the feature is enabled for your account, revoke other sessions from within the app.
 			</p>
-			<p>
-				If you use the Task Monster SMS Assistant, you can opt out by replying <strong>STOP</strong>
-				to a program message. For assistance, reply <strong>HELP</strong> or contact
-				<a href="mailto:support@task-monster.app">support@task-monster.app</a>.
-			</p>
 		</section>
 
 		<section id="children">
-			<h2>XIII. Children&apos;s Privacy</h2>
+			<h2>X. Children&apos;s Privacy</h2>
 			<p>
 				Task Monster is not intended for children under 13, and the service operator does not intend
-				to knowingly collect personal information from children under 13 through the app or the SMS
-				program.
+				to knowingly collect personal information from children under 13 through the app.
 			</p>
 			<p>
 				If you believe information from a child under 13 has been submitted to Task Monster, contact
@@ -221,7 +163,7 @@
 		</section>
 
 		<section id="transfers">
-			<h2>XIV. Storage Locations and Transfers</h2>
+			<h2>XI. Storage Locations and Transfers</h2>
 			<p>
 				Task Monster may use infrastructure and service providers that store or process information
 				in different jurisdictions. By using the service, you understand that information may be
@@ -230,7 +172,7 @@
 		</section>
 
 		<section id="changes">
-			<h2>XV. Changes to This Policy</h2>
+			<h2>XII. Changes to This Policy</h2>
 			<p>
 				Task Monster may update this Privacy Policy from time to time to reflect operational,
 				technical, legal, or product changes. The updated version will be posted on this page with
@@ -243,9 +185,9 @@
 		</section>
 
 		<section id="contact">
-			<h2>XVI. Contact</h2>
+			<h2>XIII. Contact</h2>
 			<p>
-				For privacy questions, SMS-program questions, or data-handling concerns, contact
+				For privacy questions or data-handling concerns, contact
 				<a href="mailto:support@task-monster.app">support@task-monster.app</a>.
 			</p>
 		</section>

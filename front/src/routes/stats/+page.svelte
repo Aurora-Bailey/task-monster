@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 
-	import { ASSISTANT_REFRESH_EVENT } from '$lib/assistant-client';
+	import { APP_REFRESH_EVENT } from '$lib/app-events';
 	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
@@ -357,7 +357,7 @@
 		const handleTaskUpdated = () => {
 			void reloadHeatmap();
 		};
-		const handleAssistantRefresh = (event) => {
+		const handleAppRefresh = (event) => {
 			if (
 				event.detail?.refresh?.tasks !== true &&
 				event.detail?.refresh?.stats !== true &&
@@ -369,12 +369,12 @@
 			void reloadHeatmap();
 		};
 
-		window.addEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 
 		return () => {
-			window.removeEventListener(ASSISTANT_REFRESH_EVENT, handleAssistantRefresh);
+			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		};
