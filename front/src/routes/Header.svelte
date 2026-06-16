@@ -572,19 +572,6 @@
 				return;
 			}
 
-			if (event.key === 'Escape') {
-				if (showPanicReturnModal) {
-					return;
-				}
-
-				if (accountMenuOpen) {
-					event.preventDefault();
-					accountMenuOpen = false;
-				}
-
-				return;
-			}
-
 			if (showPanicReturnModal || accountMenuOpen || isTypingTarget(event.target)) {
 				return;
 			}
