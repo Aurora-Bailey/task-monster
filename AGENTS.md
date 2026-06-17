@@ -435,7 +435,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - queue or unqueue
   - star toggles the daymap pin; for repeatable tasks, starring also makes done loop them back to Daymap until unstarred
   - skip today through a calendar-x icon, which fades the card without marking it done
-  - the original task id at the bottom of the card, clickable to copy with a brief copied state
+  - a tiny pill icon at the bottom-right that copies the original task id and briefly shows a copied state
   - scheduled-only cards use the weekday buttons to remove today's automatic Daymap membership
   - the shared `/tasks` sort menu includes `Queue`, which floats queued daymap tasks to the top in queue-number order
 - Task board pages now expose a shared right-side board control strip

@@ -1,5 +1,5 @@
 <script>
-	import { CalendarX, Star, Trash2, Wrench } from 'lucide-svelte';
+	import { CalendarX, Pill, Star, Trash2, Wrench } from 'lucide-svelte';
 	import { onDestroy, tick } from 'svelte';
 
 	import {
@@ -1786,16 +1786,15 @@
 			class:is-copied={copiedTaskId}
 			type="button"
 			aria-label={`Copy task id ${task.id}`}
-			title="Copy task id"
+			title={copiedTaskId ? 'Task id copied' : `Copy task id ${task.id}`}
 			disabled={busyAction !== null}
 			onpointerdown={stopEventPropagation}
 			onclick={handleTaskIdCopy}
 			onkeydown={stopEventPropagation}
 		>
-			<span class="task-card__task-id-label">Task ID</span>
-			<code>{task.id}</code>
-			<span class="task-card__task-id-copied" aria-live="polite">
-				{copiedTaskId ? 'Copied' : 'Copy'}
+			<Pill size={13} strokeWidth={2.35} aria-hidden="true" />
+			<span class="visually-hidden" aria-live="polite">
+				{copiedTaskId ? 'Task id copied' : ''}
 			</span>
 		</button>
 	{/if}
@@ -3002,20 +3001,30 @@
 	}
 
 	.task-card__task-id {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		display: inline-flex;
 		align-items: center;
-		gap: 0.55rem;
-		width: 100%;
-		min-height: 2.35rem;
-		padding: 0.55rem 0.65rem;
-		border: 1px dashed color-mix(in srgb, var(--task-accent) 32%, var(--surface-border));
-		border-radius: 12px;
-		background: color-mix(in srgb, var(--task-accent) 6%, var(--surface-2));
-		color: var(--color-muted);
+		justify-content: center;
+		justify-self: end;
+		width: 1.55rem;
+		height: 1.55rem;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--task-accent) 24%, var(--surface-border));
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--task-accent) 7%, var(--surface-2));
+		color: color-mix(in srgb, var(--task-accent) 58%, var(--color-muted));
 		cursor: pointer;
-		font: inherit;
-		text-align: left;
+		box-shadow: var(--surface-inset);
+		transition:
+			transform 160ms ease,
+			border-color 160ms ease,
+			background 160ms ease,
+			color 160ms ease;
+	}
+
+	.task-card__task-id:hover {
+		transform: translateY(-1px);
+		border-color: color-mix(in srgb, var(--task-accent) 44%, var(--surface-border));
+		color: color-mix(in srgb, var(--task-accent) 78%, var(--color-heading));
 	}
 
 	.task-card__task-id:disabled {
@@ -3028,50 +3037,9 @@
 		outline-offset: 3px;
 	}
 
-	.task-card__task-id-label,
-	.task-card__task-id-copied {
-		font-size: 0.68rem;
-		font-weight: 900;
-		letter-spacing: 0;
-		text-transform: uppercase;
-	}
-
-	.task-card__task-id-label {
-		color: var(--color-soft);
-	}
-
-	.task-card__task-id code {
-		overflow: hidden;
-		color: var(--color-heading);
-		font-family:
-			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.task-card__task-id-copied {
-		min-width: 3.8rem;
-		padding: 0.3rem 0.45rem;
-		border-radius: 999px;
-		background: var(--surface-muted);
-		color: var(--color-soft);
-		text-align: center;
-		transition:
-			background 160ms ease,
-			color 160ms ease,
-			transform 160ms ease;
-	}
-
 	.task-card__task-id.is-copied {
 		border-color: color-mix(in srgb, var(--color-success) 42%, var(--surface-border));
-		background: color-mix(in srgb, var(--color-success) 10%, var(--surface-2));
-	}
-
-	.task-card__task-id.is-copied .task-card__task-id-copied {
-		background: color-mix(in srgb, var(--color-success) 18%, transparent);
+		background: color-mix(in srgb, var(--color-success) 14%, var(--surface-2));
 		color: var(--color-success);
 		animation: task-id-copied-pop 360ms ease both;
 	}
