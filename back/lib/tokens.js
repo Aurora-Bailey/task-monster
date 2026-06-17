@@ -4,6 +4,10 @@ function createAuthToken() {
 	return randomBytes(32).toString('hex');
 }
 
+function createQuickActionToken() {
+	return `tmq_live_${randomBytes(32).toString('base64url')}`;
+}
+
 function hashAuthToken(token) {
 	return createHash('sha256').update(token).digest('hex');
 }
@@ -24,6 +28,7 @@ function parseBearerToken(authorizationHeader) {
 
 module.exports = {
 	createAuthToken,
+	createQuickActionToken,
 	hashAuthToken,
 	parseBearerToken
 };

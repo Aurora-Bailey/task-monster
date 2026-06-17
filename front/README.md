@@ -52,6 +52,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - task creation form
 - `/profile`
   - active sessions and recent login attempts
+- `/quick-actions`
+  - shortcut-token management plus iOS Shortcuts and Apple Watch setup docs
 
 ## Important files
 
@@ -70,6 +72,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - daily stats and heatmap API wrapper
 - `src/lib/panic-client.js`
   - panic API wrapper and event dispatch
+- `src/lib/quick-actions-client.js`
+  - shortcut-token management API wrapper
 - `src/lib/app-events.js`
   - app-wide refresh event dispatch used by account switching
 - `src/lib/TaskCard.svelte`
@@ -98,6 +102,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - The profile page exposes the theme engine grouped into Light and Dark sections
   - the selected theme is saved to the backend user record through `PATCH /users/theme`
   - `task_monster_theme` and stored account metadata are only local boot caches for fast pre-Svelte rendering
+  - the Security section links to `/quick-actions` for shortcut-token setup
 - The header account switcher stores multiple local account sessions under `task_monster_session_accounts`
   - each saved account row renders with that account's cached theme
   - switching accounts verifies the stored token, applies that user's theme, and refreshes account-backed board data
@@ -141,6 +146,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - each grid is followed by a muted dot-separated list of distinct task names worked that day
   - scrolling near the bottom requests older day batches
 - Panic mode is controlled from the top nav, not from the active page itself
+- The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides copyable setup blocks for iPhone and Apple Watch, including displaying the response `message` field
+  - generated raw shortcut tokens are cached in localStorage on that browser so copy examples can include the real bearer token
 - PWA behavior:
   - service worker registration is production-only
   - production navigation uses network-first fallback behavior
@@ -164,5 +171,6 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - `/stats`
   - `/add`
   - `/profile`
+  - `/quick-actions`
 - `src/lib/task-catalog.js` is still filler/reference data only
 - Old docs that described `/stats` as filler are no longer accurate

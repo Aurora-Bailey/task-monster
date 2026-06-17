@@ -77,6 +77,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Main collections currently used:
   - `users`
   - `sessions`
+  - `quick_action_tokens`
   - `login_attempts`
   - `login_events`
   - `tasks`
@@ -108,6 +109,11 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `DELETE /sessions/:sessionId`
   - `POST /sessions/logout`
   - `GET /login-attempts`
+- Shortcut token routes:
+  - `GET /quick-tokens`
+  - `POST /quick-tokens`
+    - returns raw `tmq_live_*` shortcut tokens exactly once and stores only `tokenHash`
+  - `DELETE /quick-tokens/:tokenId`
 - User preference routes:
   - `PATCH /users/theme`
   - `PATCH /users/password`
@@ -116,6 +122,8 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Security details:
   - passwords use salted `scrypt` in `back/lib/passwords.js`
   - auth tokens are generated raw once, but only SHA-256 token hashes are stored in Mongo
+  - quick action tokens are generated raw once, but only SHA-256 token hashes and previews are stored in Mongo
+  - the frontend may cache generated raw quick action tokens in localStorage for copy/paste shortcut examples
   - bearer parsing and auth lookup live in `back/lib/auth.js` and `back/lib/tokens.js`
   - failed logins are rate-limited in `back/lib/login-rate-limit.js`
   - login outcomes are recorded in `login_events`
@@ -225,6 +233,19 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Queueing a scheduled-only Daymap task sets `mappedToday: true` before assigning `queuePosition`
 - When the last active task is removed from the table by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 - Canceling an active task is treated as an undo and does not auto-activate the next queued task
+- Quick action stop/next routes:
+  - `POST /api/quick/stop`
+    - requires a `tmq_live_*` shortcut token with `tasks:stop`
+    - marks all active tasks done for the token owner and starts nothing
+    - closed runs use `endingReason: 'done'`
+    - returns `message: "All active tasks marked done"`
+  - `POST /api/quick/next`
+    - requires a `tmq_live_*` shortcut token with `tasks:next`
+    - marks all active tasks done for the token owner, then activates the first queued Daymap task
+    - closed runs use `endingReason: 'done'`
+    - returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
+  - both actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+  - quick routes derive `userId` from the token record, not from request input
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`
 - Daymap lock is mainly meaningful for repeatable tasks because it controls whether `done` loops them back to the daymap

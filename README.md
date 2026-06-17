@@ -2,7 +2,7 @@
 
 Task Monster is a SvelteKit + Fastify + MongoDB productivity app built around a narrow task flow: choose work for today, run it in Active, finish it into Done, and review the result in Stats. The board is split into `inactive`, `daymap`, `active`, `done`, and `stats` so planning, execution, and history stay separate.
 
-The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, and panic tracking.
+The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, panic tracking, and limited shortcut tokens for iOS/Apple Watch quick actions.
 
 ## Screenshots
 
@@ -31,6 +31,7 @@ The current UI is easiest to recognize by the task board, active sessions, and s
   - `/stats`
   - `/add`
   - `/profile`
+  - `/quick-actions`
 - Frontend rendering is client-only
 - MongoDB is required for the backend runtime
 - There is no automated test suite yet
@@ -126,6 +127,23 @@ Auth/session routes:
 - `DELETE /sessions/:sessionId`
 - `POST /sessions/logout`
 - `GET /login-attempts`
+- `GET /quick-tokens`
+- `POST /quick-tokens`
+  - returns the raw shortcut token once; only the hash is stored
+- `DELETE /quick-tokens/:tokenId`
+
+Quick action routes:
+
+- `POST /api/quick/stop`
+  - requires a shortcut token with `tasks:stop`
+  - marks all active tasks done for the token owner and starts nothing
+  - returns `message: "All active tasks marked done"` for Shortcuts display
+  - appends `-- Ended with shortcut` to each completed run's instance note
+- `POST /api/quick/next`
+  - requires a shortcut token with `tasks:next`
+  - marks all active tasks done for the token owner and starts the first queued Day Map task if one exists
+  - returns `message: "Next Task: <title>"` or `message: "No next task queued"` for Shortcuts display
+  - appends `-- Ended with shortcut` to each completed run's instance note
 
 Task routes:
 

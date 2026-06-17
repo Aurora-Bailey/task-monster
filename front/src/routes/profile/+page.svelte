@@ -1,4 +1,5 @@
 <script>
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
@@ -381,6 +382,23 @@
 						<p>{passwordSuccess}</p>
 					</div>
 				{/if}
+			</section>
+
+			<section class="panel quick-actions-panel" aria-labelledby="quick-actions-heading">
+				<div class="panel-header">
+					<div>
+						<p class="section-label">Shortcuts</p>
+						<h2 id="quick-actions-heading">Quick action tokens</h2>
+					</div>
+					<span class="pill">iPhone + Watch</span>
+				</div>
+
+				<p class="password-copy">
+					Create limited tokens for iOS Shortcuts and Apple Watch controls. Tokens can only stop
+					active tasks or start the next queued task.
+				</p>
+
+				<a class="settings-link" href={resolve('/quick-actions')}>Manage quick actions</a>
 			</section>
 
 			<div class="section-grid">
@@ -945,7 +963,8 @@
 	}
 
 	.save-password-button,
-	.void-button {
+	.void-button,
+	.settings-link {
 		justify-self: start;
 		padding: 0.78rem 1rem;
 		border: 0;
@@ -958,6 +977,7 @@
 		text-transform: uppercase;
 		box-shadow: var(--surface-shadow);
 		cursor: pointer;
+		text-decoration: none;
 	}
 
 	.save-password-button {

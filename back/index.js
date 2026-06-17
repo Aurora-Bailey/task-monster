@@ -9,14 +9,31 @@ const { registerRoutes } = require('./lib/register-routes');
 
 loadRootEnv();
 
+function registerJsonParser(app) {
+	const defaultJsonParser = app.getDefaultJsonParser('error', 'error');
+
+	app.removeContentTypeParser('application/json');
+	app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
+		if (body.length === 0) {
+			done(null, {});
+			return;
+		}
+
+		defaultJsonParser(request, body, done);
+	});
+}
+
 async function buildServer() {
 	const config = loadConfig();
 	const app = Fastify({
 		logger: true
 	});
 
+	registerJsonParser(app);
+
 	app.decorate('config', config);
 	app.decorateRequest('auth', null);
+	app.decorateRequest('quick', null);
 
 	app.addHook('onRequest', async (request, reply) => {
 		reply.header('Access-Control-Allow-Origin', '*');

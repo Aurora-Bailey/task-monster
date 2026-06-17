@@ -37,6 +37,21 @@ async function ensureDatabaseIndexes(db) {
 		}
 	);
 
+	await db.collection('quick_action_tokens').createIndex(
+		{ tokenHash: 1 },
+		{
+			name: 'quick_action_tokens_tokenHash_unique',
+			unique: true
+		}
+	);
+
+	await db.collection('quick_action_tokens').createIndex(
+		{ userId: 1, revokedAt: 1, createdAt: -1 },
+		{
+			name: 'quick_action_tokens_userId_revokedAt_createdAt'
+		}
+	);
+
 	await db.collection('login_attempts').createIndex(
 		{ expireAt: 1 },
 		{
@@ -74,7 +89,13 @@ async function ensureDatabaseIndexes(db) {
 	);
 
 	await db.collection('tasks').createIndex(
-		{ userId: 1, archived: 1, mappedToday: 1, activeToday: 1, queuePosition: 1 },
+		{
+			userId: 1,
+			archived: 1,
+			mappedToday: 1,
+			activeToday: 1,
+			queuePosition: 1
+		},
 		{
 			name: 'tasks_userId_archived_mappedToday_activeToday_queuePosition'
 		}
@@ -121,7 +142,6 @@ async function ensureDatabaseIndexes(db) {
 			name: 'panic_runs_userId_day_endedAt_startedAt'
 		}
 	);
-
 }
 
 module.exports = {

@@ -8,6 +8,7 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 - task creation and task-state transitions
 - active run tracking in `task_runs`
 - panic logging in `panic_runs`
+- limited shortcut-token quick actions for iOS/Apple Watch
 - newest-to-oldest done feeds, daily stats summaries, and heatmap batches
 
 ## Commands
@@ -52,6 +53,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
 - `tasks`
 - `task_runs`
 - `panic_runs`
+- `quick_action_tokens`
 
 Indexes are created on startup in `lib/mongo.js`.
 
@@ -68,12 +70,23 @@ Indexes are created on startup in `lib/mongo.js`.
 - User preference route:
   - `PATCH /users/theme`
   - stores the selected theme on `users.theme`
+- Shortcut token management routes:
+  - `GET /quick-tokens`
+  - `POST /quick-tokens`
+  - `DELETE /quick-tokens/:tokenId`
+  - normal bearer-session auth is required
+- Quick action routes:
+  - `POST /api/quick/stop`
+  - `POST /api/quick/next`
+  - use `tmq_live_*` shortcut tokens only; normal session tokens are not accepted
 - Session verification:
   - `GET /whoami`
   - returns `id`, `username`, and `theme`
 - Passwords are hashed with salted `scrypt`
 - Session tokens are not stored raw
   - only SHA-256 token hashes are stored
+- Shortcut tokens are not stored raw
+  - only SHA-256 token hashes plus the token preview are stored
 - Account creation currently requires alpha code `gyarados`
 - Account creation also requires `acceptedLegalTerms === true`
 - New users currently store legal acceptance metadata on `users.legalAcceptance`:
@@ -164,6 +177,15 @@ Queue semantics:
 - queueing a scheduled-only Day Map task materializes it with `mappedToday: true` before assigning queue order
 - when the last active task is removed by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 - canceling an active task is treated as an undo and does not auto-activate the next queued task
+
+Quick action semantics:
+
+- quick stop marks all active task runs `done`, applies normal Done task-state updates, and starts nothing
+- quick next marks all active task runs `done`, applies normal Done task-state updates, then activates the first queued Day Map task by queue order
+- quick stop returns `message: "All active tasks marked done"`
+- quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
+- both actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+- both actions derive `userId` from the shortcut token, never from the request body
 
 ## Active runtime behavior
 
