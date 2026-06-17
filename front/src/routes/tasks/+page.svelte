@@ -1,4 +1,5 @@
 <script>
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
@@ -326,6 +327,10 @@
 		}
 	}
 
+	async function handleEdit(taskId) {
+		await goto(`${resolve('/add')}?edit=${encodeURIComponent(taskId)}`);
+	}
+
 	async function handleQueueToggle(task) {
 		actionError = '';
 		setBusy(task.id, task.queuePosition ? 'unqueue' : 'queue');
@@ -629,12 +634,14 @@
 								showActivateButton={true}
 								showScheduleControls={true}
 								showIntensityControl={true}
+								showEditButton={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
 								showArchiveButton={true}
 								onDaymapToggle={handleDaymapPinToggle}
 								onActivate={() => handleActivate(task.id)}
+								onEdit={handleEdit}
 								onArchive={handleArchive}
 								onScheduleChange={handleScheduleChange}
 								onIntensityChange={handleIntensityChange}

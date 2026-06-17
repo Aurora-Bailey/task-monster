@@ -185,6 +185,12 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Create task:
   - `POST /tasks`
   - creates an inactive task
+- Load one owned task:
+  - `GET /tasks/:taskId`
+  - supports refresh-safe task editing from `/add?edit=<taskId>`
+- Update task fields:
+  - `PATCH /tasks/:taskId`
+  - the Add page sends only changed fields while editing
 - Move to daymap:
   - `POST /tasks/:taskId/daymap`
 - Remove from daymap back to inactive:
@@ -390,12 +396,14 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - `/stats`
   - real minute-map stats from backend heatmap batches
 - `/add`
-  - task creation form
+  - task creation and inactive-task editing form
   - successful task creation navigates directly to `/tasks`; failed saves preserve the entered form
   - task colors are eight icon-only category controls on one row with the selected category description below
   - task notes are always visible on the form; there is no notes checkbox gate
   - Task Type, tracking mode, intensity, Auto Daymap weekdays, and tally configuration live in a collapsed `Task settings` disclosure below notes
   - Add defaults remain Repeatable and Time; invalid tally settings open the disclosure and are rejected before an API request
+  - `/add?edit=<taskId>` loads an owned task, changes the heading and submit label to Update, and keeps edits local until submission
+  - unchanged edit submissions return to `/tasks` without sending a patch
 - `/profile`
   - active sessions plus recent login attempt history
 
@@ -413,6 +421,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Inactive cards expose icon actions:
   - star pins the task to daymap
   - play activates directly
+  - wrench opens `/add?edit=<taskId>` for local form editing
   - archive hides inactive tasks
 - Account creation on `/auth` now requires:
   - alpha code entry
@@ -480,6 +489,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Add page:
   - `front/src/routes/add/+page.svelte`
   - repeatable tasks can choose automatic Daymap weekdays from the collapsed Task Settings panel
+  - edit mode loads through `GET /tasks/:taskId` and saves changed fields through `PATCH /tasks/:taskId`
 - Active page:
   - `front/src/routes/active/+page.svelte`
 - Tasks page:

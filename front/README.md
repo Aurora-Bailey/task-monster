@@ -49,9 +49,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/stats`
   - real minute-map heatmap derived from backend task-run data
 - `/add`
-  - compact task creation form that navigates to `/tasks` after a successful save
+  - compact task creation and editing form that navigates to `/tasks` after a successful save
   - eight icon-only color categories remain on one row
   - type, tracking, intensity, scheduling, and tally fields live in a collapsed Task Settings panel
+  - `/add?edit=<taskId>` reloads an owned task and submits only changed fields
 - `/profile`
   - active sessions and recent login attempts
 - `/quick-actions`
@@ -96,7 +97,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 ## Current UI behavior
 
 - `/tasks` uses compact cards and can fit up to three cards per row on desktop
-- Inactive task cards expose icon actions for moving to daymap, activating directly, and archiving
+- Inactive task cards expose icon actions for moving to daymap, activating directly, editing through `/add?edit=<taskId>`, and archiving
 - Account creation on `/auth` now requires:
   - prerelease alpha code
   - password confirmation
@@ -135,6 +136,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - task colors include Anima/Pink for soul-healing and divine-feminine activities
   - all eight color categories render as one icon-only row with accessible labels and a selected-category helper
   - successful saves navigate directly to `/tasks`; validation or API failures preserve the entered form
+  - edit mode uses `GET /tasks/:taskId`, labels the page and button Update, keeps changes local, and patches only changed fields
+  - submitting an unchanged edit performs no update request and returns to `/tasks`
 - Active tasks support:
   - inactivate
   - done

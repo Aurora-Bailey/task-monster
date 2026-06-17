@@ -1,6 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import {
 		ChevronDown,
 		Hammer,
@@ -13,9 +14,11 @@
 		SlidersHorizontal,
 		Sparkles
 	} from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	import { readApiError } from '$lib/api';
 	import { authorizedRequest } from '$lib/session';
+	import { loadTask, updateTask } from '$lib/tasks-client';
 
 	const taskColors = [
 		{
@@ -111,19 +114,106 @@
 	let note = $state('');
 	let intensity = $state(50);
 	let settingsOpen = $state(false);
+	let editTaskId = $state(page.url.searchParams.get('edit')?.trim() || null);
+	let initialFormState = $state(null);
+	let isLoadingTask = $state(Boolean(editTaskId));
+	let loadError = $state('');
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
+	const isEditMode = $derived(Boolean(editTaskId));
 	const selectedColorMeta = $derived(
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
 	);
-	const intensityValue = $derived(
-		Math.min(100, Math.max(1, Number.parseInt(String(intensity), 10) || 50))
-	);
+	const intensityValue = $derived(normalizeIntensity(intensity));
 	const settingsSummary = $derived(
 		`${taskMode === 'repeatable' ? 'Repeatable' : 'One-time'} · ${
 			trackingType === 'tally' ? 'Tally' : 'Time'
 		}`
 	);
+	const pageTitle = $derived(isEditMode ? 'Update Task' : 'Add Task');
+
+	function normalizeIntensity(value) {
+		return Math.min(100, Math.max(1, Number.parseInt(String(value), 10) || 50));
+	}
+
+	function normalizeWeekdays(value) {
+		if (!Array.isArray(value)) {
+			return [];
+		}
+
+		return [...new Set(value)]
+			.filter((weekday) => Number.isInteger(weekday) && weekday >= 0 && weekday <= 6)
+			.sort((left, right) => left - right);
+	}
+
+	function areArraysEqual(left, right) {
+		return left.length === right.length && left.every((value, index) => value === right[index]);
+	}
+
+	function getNormalizedFormState() {
+		const normalizedTallyTarget = Number(String(tallyTarget).trim());
+
+		return {
+			name: taskName.trim(),
+			color: selectedColor,
+			mode: taskMode,
+			trackingType,
+			tallyUnit: trackingType === 'tally' ? tallyUnit.trim() : null,
+			tallyTarget:
+				trackingType === 'tally' && Number.isInteger(normalizedTallyTarget)
+					? normalizedTallyTarget
+					: null,
+			daymapWeekdays: taskMode === 'repeatable' ? normalizeWeekdays(daymapWeekdays) : [],
+			note: note.trim() ? note : null,
+			intensity: normalizeIntensity(intensity)
+		};
+	}
+
+	function populateForm(task) {
+		taskName = task.name ?? '';
+		selectedColor = task.colorKey ?? taskColors[0].value;
+		taskMode = task.mode === 'one-time' ? 'one-time' : 'repeatable';
+		trackingType = task.trackingType === 'tally' ? 'tally' : 'time';
+		tallyUnit = task.tallyUnit ?? '';
+		tallyTarget = Number.isInteger(task.tallyTarget) ? String(task.tallyTarget) : '10';
+		daymapWeekdays = taskMode === 'repeatable' ? normalizeWeekdays(task.daymapWeekdays) : [];
+		note = task.note ?? '';
+		intensity = normalizeIntensity(task.intensity);
+		settingsOpen = false;
+		initialFormState = getNormalizedFormState();
+	}
+
+	function buildTaskChanges(nextFormState) {
+		const changes = {};
+
+		for (const field of ['name', 'color', 'mode', 'trackingType', 'note', 'intensity']) {
+			if (nextFormState[field] !== initialFormState[field]) {
+				changes[field] = nextFormState[field];
+			}
+		}
+
+		if (!areArraysEqual(nextFormState.daymapWeekdays, initialFormState.daymapWeekdays)) {
+			changes.daymapWeekdays = nextFormState.daymapWeekdays;
+		}
+
+		if (nextFormState.trackingType === 'tally') {
+			if (
+				initialFormState.trackingType !== 'tally' ||
+				nextFormState.tallyUnit !== initialFormState.tallyUnit
+			) {
+				changes.tallyUnit = nextFormState.tallyUnit;
+			}
+
+			if (
+				initialFormState.trackingType !== 'tally' ||
+				nextFormState.tallyTarget !== initialFormState.tallyTarget
+			) {
+				changes.tallyTarget = nextFormState.tallyTarget;
+			}
+		}
+
+		return changes;
+	}
 
 	function toggleWeekday(weekday) {
 		const nextWeekdays = new Set(daymapWeekdays);
@@ -137,55 +227,86 @@
 		daymapWeekdays = [...nextWeekdays].sort((left, right) => left - right);
 	}
 
+	onMount(async () => {
+		if (!editTaskId) {
+			return;
+		}
+
+		try {
+			const task = await loadTask(editTaskId);
+
+			if (!task) {
+				throw new Error('Task not found.');
+			}
+
+			populateForm(task);
+		} catch (error) {
+			loadError = error instanceof Error ? error.message : 'Unable to load the task.';
+		} finally {
+			isLoadingTask = false;
+		}
+	});
+
 	async function handleSubmit(event) {
 		event.preventDefault();
 		errorMessage = '';
 
-		const normalizedTallyUnit = tallyUnit.trim();
-		const normalizedTallyTarget = Number(String(tallyTarget).trim());
+		if (isLoadingTask || loadError) {
+			return;
+		}
 
-		if (trackingType === 'tally' && !normalizedTallyUnit) {
+		const nextFormState = getNormalizedFormState();
+
+		if (nextFormState.trackingType === 'tally' && !nextFormState.tallyUnit) {
 			settingsOpen = true;
 			errorMessage = 'Tally tasks need a unit label.';
 			return;
 		}
 
 		if (
-			trackingType === 'tally' &&
-			(!Number.isInteger(normalizedTallyTarget) ||
-				normalizedTallyTarget < 1 ||
-				normalizedTallyTarget > 100000)
+			nextFormState.trackingType === 'tally' &&
+			(!Number.isInteger(nextFormState.tallyTarget) ||
+				nextFormState.tallyTarget < 1 ||
+				nextFormState.tallyTarget > 100000)
 		) {
 			settingsOpen = true;
 			errorMessage = 'Tally target must be a whole number from 1 to 100,000.';
 			return;
 		}
 
+		if (isEditMode) {
+			const changes = buildTaskChanges(nextFormState);
+
+			if (Object.keys(changes).length === 0) {
+				await goto(resolve('/tasks'));
+				return;
+			}
+		}
+
 		isSubmitting = true;
 
 		try {
-			const response = await authorizedRequest('/tasks', {
-				method: 'POST',
-				body: {
-					name: taskName,
-					color: selectedColor,
-					mode: taskMode,
-					trackingType,
-					tallyUnit: trackingType === 'tally' ? normalizedTallyUnit : null,
-					tallyTarget: trackingType === 'tally' ? normalizedTallyTarget : null,
-					daymapWeekdays: taskMode === 'repeatable' ? daymapWeekdays : [],
-					note: note.trim() ? note : null,
-					intensity: intensityValue
-				}
-			});
+			if (isEditMode) {
+				await updateTask(editTaskId, buildTaskChanges(nextFormState));
+			} else {
+				const response = await authorizedRequest('/tasks', {
+					method: 'POST',
+					body: nextFormState
+				});
 
-			if (!response.ok) {
-				throw new Error(await readApiError(response, 'Unable to save the task.'));
+				if (!response.ok) {
+					throw new Error(await readApiError(response, 'Unable to save the task.'));
+				}
 			}
 
 			await goto(resolve('/tasks'));
 		} catch (error) {
-			errorMessage = error.message;
+			errorMessage =
+				error instanceof Error
+					? error.message
+					: isEditMode
+						? 'Unable to update the task.'
+						: 'Unable to save the task.';
 		} finally {
 			isSubmitting = false;
 		}
@@ -193,234 +314,251 @@
 </script>
 
 <svelte:head>
-	<title>Add Task</title>
-	<meta name="description" content="Add a task" />
+	<title>{pageTitle}</title>
+	<meta name="description" content={isEditMode ? 'Update a task' : 'Add a task'} />
 </svelte:head>
 
 <section class="add-page app-page">
 	<div class="section-divider section-divider--primary">
 		<span></span>
-		<h1>Add Task</h1>
+		<h1>{pageTitle}</h1>
 		<span></span>
 	</div>
 
 	<div class="paper">
-		<form class="task-form" onsubmit={handleSubmit}>
-			<label class="field-label" for="task-name">Name that task</label>
-			<input
-				id="task-name"
-				bind:value={taskName}
-				class="text-input"
-				type="text"
-				name="name"
-				placeholder="Wash dishes"
-				maxlength="120"
-				required
-			/>
+		{#if isLoadingTask}
+			<div class="page-loader page-loader--compact" aria-label="Loading task">
+				<span class="page-spinner" aria-hidden="true"></span>
+			</div>
+		{:else if loadError}
+			<div class="edit-load-failure">
+				<p class="form-message error-message">{loadError}</p>
+				<button class="submit-button" type="button" disabled>Update</button>
+			</div>
+		{:else}
+			<form class="task-form" onsubmit={handleSubmit}>
+				<label class="field-label" for="task-name">Name that task</label>
+				<input
+					id="task-name"
+					bind:value={taskName}
+					class="text-input"
+					type="text"
+					name="name"
+					placeholder="Wash dishes"
+					maxlength="120"
+					required
+				/>
 
-			<fieldset class="color-picker">
-				<legend class="field-label">Task color</legend>
-				<div class="color-options">
-					{#each taskColors as color}
-						{@const ColorIcon = color.icon}
-						<label
-							class="color-option"
-							style={`--swatch-color: ${color.hex};`}
-							title={`${color.category}: ${color.description}`}
-						>
-							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
-							<span class="color-choice">
-								<span class="swatch" aria-hidden="true">
-									<ColorIcon size={20} strokeWidth={2.2} />
+				<fieldset class="color-picker">
+					<legend class="field-label">Task color</legend>
+					<div class="color-options">
+						{#each taskColors as color}
+							{@const ColorIcon = color.icon}
+							<label
+								class="color-option"
+								style={`--swatch-color: ${color.hex};`}
+								title={`${color.category}: ${color.description}`}
+							>
+								<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
+								<span class="color-choice">
+									<span class="swatch" aria-hidden="true">
+										<ColorIcon size={20} strokeWidth={2.2} />
+									</span>
 								</span>
-							</span>
-							<span class="visually-hidden">{color.label} for {color.category} tasks</span>
-						</label>
-					{/each}
-				</div>
-				<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
-					<p class="color-helper__title">
-						<span class="color-helper__dot" aria-hidden="true"></span>
-						<strong>{selectedColorMeta.category}</strong>
-					</p>
-					<p class="color-helper__description">{selectedColorMeta.description}</p>
-				</div>
-			</fieldset>
-
-			<div class="notes-section">
-				<label class="field-label" for="task-notes">Task notepad</label>
-				<textarea
-					id="task-notes"
-					bind:value={note}
-					class="notes-input"
-					name="notes"
-					rows="4"
-					maxlength="2000"
-					placeholder="Extra context, reminders, or anything that makes this task easier to land."
-				></textarea>
-			</div>
-
-			<div class="task-settings">
-				<button
-					class="settings-trigger"
-					type="button"
-					aria-expanded={settingsOpen}
-					aria-controls="task-settings-panel"
-					onclick={() => (settingsOpen = !settingsOpen)}
-				>
-					<span class="settings-trigger__icon" aria-hidden="true">
-						<SlidersHorizontal size={19} strokeWidth={2.2} />
-					</span>
-					<span class="settings-trigger__copy">
-						<strong>Task settings</strong>
-						<span>{settingsSummary}</span>
-					</span>
-					<span
-						class:settings-trigger__chevron--open={settingsOpen}
-						class="settings-trigger__chevron"
-					>
-						<ChevronDown size={20} strokeWidth={2.2} aria-hidden="true" />
-					</span>
-				</button>
-
-				{#if settingsOpen}
-					<div class="settings-panel" id="task-settings-panel">
-						<fieldset class="task-mode">
-							<legend class="field-label">Task type</legend>
-							<div class="mode-slider">
-								<input
-									id="task-type-once"
-									class="mode-input"
-									type="radio"
-									name="taskType"
-									value="one-time"
-									bind:group={taskMode}
-								/>
-								<input
-									id="task-type-repeatable"
-									class="mode-input"
-									type="radio"
-									name="taskType"
-									value="repeatable"
-									bind:group={taskMode}
-								/>
-								<span class="mode-indicator" aria-hidden="true"></span>
-								<label class="mode-option mode-option-once" for="task-type-once"
-									>One-time task</label
-								>
-								<label class="mode-option mode-option-repeatable" for="task-type-repeatable"
-									>Repeatable task</label
-								>
-							</div>
-						</fieldset>
-
-						<fieldset class="task-mode">
-							<legend class="field-label">How it tracks</legend>
-							<div class="mode-slider">
-								<input
-									id="tracking-time"
-									class="mode-input"
-									type="radio"
-									name="trackingType"
-									value="time"
-									bind:group={trackingType}
-								/>
-								<input
-									id="tracking-tally"
-									class="mode-input"
-									type="radio"
-									name="trackingType"
-									value="tally"
-									bind:group={trackingType}
-								/>
-								<span class="mode-indicator" aria-hidden="true"></span>
-								<label class="mode-option mode-option-once" for="tracking-time">Clock time</label>
-								<label class="mode-option mode-option-repeatable" for="tracking-tally"
-									>Tallies</label
-								>
-							</div>
-						</fieldset>
-
-						<div class="intensity-section">
-							<label class="field-label" for="task-intensity">Intensity</label>
-							<input
-								id="task-intensity"
-								bind:value={intensity}
-								class="intensity-slider"
-								type="range"
-								name="intensity"
-								min="1"
-								max="100"
-								step="1"
-								aria-valuetext={`${intensityValue} out of 100`}
-							/>
-							<p class="intensity-readout">
-								Intensity <strong>{intensityValue}</strong>/100
-							</p>
-						</div>
-
-						{#if taskMode === 'repeatable'}
-							<fieldset class="weekday-picker">
-								<legend class="field-label">Auto daymap</legend>
-								<div
-									class="weekday-options"
-									aria-label="Automatically place this task on the daymap"
-								>
-									{#each weekdayOptions as weekday}
-										<button
-											class="weekday-option"
-											class:is-selected={daymapWeekdays.includes(weekday.value)}
-											type="button"
-											aria-pressed={daymapWeekdays.includes(weekday.value)}
-											title={weekday.label}
-											onclick={() => toggleWeekday(weekday.value)}
-										>
-											<span>{weekday.short}</span>
-										</button>
-									{/each}
-								</div>
-								<p class="weekday-help">Selected days automatically appear in the Day Map.</p>
-							</fieldset>
-						{/if}
-
-						{#if trackingType === 'tally'}
-							<div class="tally-fields">
-								<label class="field-label" for="task-tally-unit">Tally unit</label>
-								<input
-									id="task-tally-unit"
-									bind:value={tallyUnit}
-									class="text-input"
-									type="text"
-									name="tallyUnit"
-									placeholder="squats"
-									maxlength="60"
-								/>
-
-								<label class="field-label" for="task-tally-target">Target amount</label>
-								<input
-									id="task-tally-target"
-									bind:value={tallyTarget}
-									class="text-input"
-									type="number"
-									name="tallyTarget"
-									min="1"
-									max="100000"
-									step="1"
-								/>
-							</div>
-						{/if}
+								<span class="visually-hidden">{color.label} for {color.category} tasks</span>
+							</label>
+						{/each}
 					</div>
+					<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
+						<p class="color-helper__title">
+							<span class="color-helper__dot" aria-hidden="true"></span>
+							<strong>{selectedColorMeta.category}</strong>
+						</p>
+						<p class="color-helper__description">{selectedColorMeta.description}</p>
+					</div>
+				</fieldset>
+
+				<div class="notes-section">
+					<label class="field-label" for="task-notes">Task notepad</label>
+					<textarea
+						id="task-notes"
+						bind:value={note}
+						class="notes-input"
+						name="notes"
+						rows="4"
+						maxlength="2000"
+						placeholder="Extra context, reminders, or anything that makes this task easier to land."
+					></textarea>
+				</div>
+
+				<div class="task-settings">
+					<button
+						class="settings-trigger"
+						type="button"
+						aria-expanded={settingsOpen}
+						aria-controls="task-settings-panel"
+						onclick={() => (settingsOpen = !settingsOpen)}
+					>
+						<span class="settings-trigger__icon" aria-hidden="true">
+							<SlidersHorizontal size={19} strokeWidth={2.2} />
+						</span>
+						<span class="settings-trigger__copy">
+							<strong>Task settings</strong>
+							<span>{settingsSummary}</span>
+						</span>
+						<span
+							class:settings-trigger__chevron--open={settingsOpen}
+							class="settings-trigger__chevron"
+						>
+							<ChevronDown size={20} strokeWidth={2.2} aria-hidden="true" />
+						</span>
+					</button>
+
+					{#if settingsOpen}
+						<div class="settings-panel" id="task-settings-panel">
+							<fieldset class="task-mode">
+								<legend class="field-label">Task type</legend>
+								<div class="mode-slider">
+									<input
+										id="task-type-once"
+										class="mode-input"
+										type="radio"
+										name="taskType"
+										value="one-time"
+										bind:group={taskMode}
+									/>
+									<input
+										id="task-type-repeatable"
+										class="mode-input"
+										type="radio"
+										name="taskType"
+										value="repeatable"
+										bind:group={taskMode}
+									/>
+									<span class="mode-indicator" aria-hidden="true"></span>
+									<label class="mode-option mode-option-once" for="task-type-once"
+										>One-time task</label
+									>
+									<label class="mode-option mode-option-repeatable" for="task-type-repeatable"
+										>Repeatable task</label
+									>
+								</div>
+							</fieldset>
+
+							<fieldset class="task-mode">
+								<legend class="field-label">How it tracks</legend>
+								<div class="mode-slider">
+									<input
+										id="tracking-time"
+										class="mode-input"
+										type="radio"
+										name="trackingType"
+										value="time"
+										bind:group={trackingType}
+									/>
+									<input
+										id="tracking-tally"
+										class="mode-input"
+										type="radio"
+										name="trackingType"
+										value="tally"
+										bind:group={trackingType}
+									/>
+									<span class="mode-indicator" aria-hidden="true"></span>
+									<label class="mode-option mode-option-once" for="tracking-time">Clock time</label>
+									<label class="mode-option mode-option-repeatable" for="tracking-tally"
+										>Tallies</label
+									>
+								</div>
+							</fieldset>
+
+							<div class="intensity-section">
+								<label class="field-label" for="task-intensity">Intensity</label>
+								<input
+									id="task-intensity"
+									bind:value={intensity}
+									class="intensity-slider"
+									type="range"
+									name="intensity"
+									min="1"
+									max="100"
+									step="1"
+									aria-valuetext={`${intensityValue} out of 100`}
+								/>
+								<p class="intensity-readout">
+									Intensity <strong>{intensityValue}</strong>/100
+								</p>
+							</div>
+
+							{#if taskMode === 'repeatable'}
+								<fieldset class="weekday-picker">
+									<legend class="field-label">Auto daymap</legend>
+									<div
+										class="weekday-options"
+										aria-label="Automatically place this task on the daymap"
+									>
+										{#each weekdayOptions as weekday}
+											<button
+												class="weekday-option"
+												class:is-selected={daymapWeekdays.includes(weekday.value)}
+												type="button"
+												aria-pressed={daymapWeekdays.includes(weekday.value)}
+												title={weekday.label}
+												onclick={() => toggleWeekday(weekday.value)}
+											>
+												<span>{weekday.short}</span>
+											</button>
+										{/each}
+									</div>
+									<p class="weekday-help">Selected days automatically appear in the Day Map.</p>
+								</fieldset>
+							{/if}
+
+							{#if trackingType === 'tally'}
+								<div class="tally-fields">
+									<label class="field-label" for="task-tally-unit">Tally unit</label>
+									<input
+										id="task-tally-unit"
+										bind:value={tallyUnit}
+										class="text-input"
+										type="text"
+										name="tallyUnit"
+										placeholder="squats"
+										maxlength="60"
+									/>
+
+									<label class="field-label" for="task-tally-target">Target amount</label>
+									<input
+										id="task-tally-target"
+										bind:value={tallyTarget}
+										class="text-input"
+										type="number"
+										name="tallyTarget"
+										min="1"
+										max="100000"
+										step="1"
+									/>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				{#if errorMessage}
+					<p class="form-message error-message">{errorMessage}</p>
 				{/if}
-			</div>
 
-			{#if errorMessage}
-				<p class="form-message error-message">{errorMessage}</p>
-			{/if}
-
-			<button class="submit-button" type="submit" disabled={isSubmitting}>
-				{isSubmitting ? 'Saving...' : 'Add'}
-			</button>
-		</form>
+				<button class="submit-button" type="submit" disabled={isSubmitting}>
+					{isSubmitting
+						? isEditMode
+							? 'Updating...'
+							: 'Saving...'
+						: isEditMode
+							? 'Update'
+							: 'Add'}
+				</button>
+			</form>
+		{/if}
 	</div>
 </section>
 
@@ -441,6 +579,11 @@
 	}
 
 	.task-form {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.edit-load-failure {
 		display: grid;
 		gap: 1rem;
 	}

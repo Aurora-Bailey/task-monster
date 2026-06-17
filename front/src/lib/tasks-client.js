@@ -173,6 +173,17 @@ export function loadInactiveTasks() {
 	return loadTaskList(withLocalDayQuery('/tasks/inactive'));
 }
 
+export async function loadTask(taskId) {
+	const response = await authorizedRequest(`/tasks/${taskId}`);
+
+	if (!response.ok) {
+		throw new Error(await readApiError(response, 'Unable to load the task.'));
+	}
+
+	const body = await readApiBody(response);
+	return body?.task ?? null;
+}
+
 export function loadDoneTasks() {
 	return loadTaskList('/tasks/done');
 }

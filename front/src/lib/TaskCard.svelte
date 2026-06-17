@@ -1,5 +1,5 @@
 <script>
-	import { CalendarX, Star, Trash2 } from 'lucide-svelte';
+	import { CalendarX, Star, Trash2, Wrench } from 'lucide-svelte';
 	import { onDestroy, tick } from 'svelte';
 
 	import {
@@ -64,10 +64,12 @@
 		showDoneButton = false,
 		showScheduleControls = false,
 		showIntensityControl = false,
+		showEditButton = false,
 		showArchiveButton = false,
 		showEraseDoneButton = false,
 		onActivate = () => {},
 		onDaymapToggle = () => {},
+		onEdit = () => {},
 		onArchive = () => {},
 		onEraseDone = () => {},
 		onSkipDay = () => {},
@@ -98,6 +100,7 @@
 	const showsHeaderDaymapToggle = $derived(showDaymapToggle && (isInactiveCard || isDaymapCard));
 	const showsHeaderSkip = $derived(showSkipButton && isDaymapCard);
 	const showsHeaderActivate = $derived(showActivateButton && (isInactiveCard || isDaymapCard));
+	const showsHeaderEdit = $derived(showEditButton && isInactiveCard);
 	const showsHeaderCancel = $derived(showCancelButton && isBoardActiveCard);
 	const showsHeaderDone = $derived(showDoneButton && isBoardActiveCard);
 	const showsHeaderEraseDone = $derived(showEraseDoneButton && variant === 'done');
@@ -319,6 +322,16 @@
 		}
 
 		onArchive(task.id);
+	}
+
+	function handleEditClick(event) {
+		event.stopPropagation();
+
+		if (!showsHeaderEdit || busyAction !== null) {
+			return;
+		}
+
+		onEdit(task.id);
 	}
 
 	function handleQueueToggleClick(event) {
@@ -1146,6 +1159,21 @@
 							/>
 						</svg>
 					{/if}
+				</button>
+			{/if}
+
+			{#if showsHeaderEdit}
+				<button
+					class="task-card__icon-action edit-button"
+					type="button"
+					aria-label={`Edit ${task.name}`}
+					title="Edit task"
+					disabled={busyAction !== null}
+					onpointerdown={stopEventPropagation}
+					onclick={handleEditClick}
+					onkeydown={stopEventPropagation}
+				>
+					<Wrench size={18} strokeWidth={2.2} aria-hidden="true" />
 				</button>
 			{/if}
 
@@ -2214,6 +2242,15 @@
 			0 0 0 1px color-mix(in srgb, var(--color-theme-1) 9%, transparent);
 	}
 
+	.edit-button {
+		background: color-mix(in srgb, var(--color-accent-2) 12%, var(--surface-2));
+		border-color: color-mix(in srgb, var(--color-accent-2) 28%, var(--surface-border));
+		color: color-mix(in srgb, var(--color-accent-2) 78%, var(--color-heading));
+		box-shadow:
+			var(--surface-shadow),
+			0 0 0 1px color-mix(in srgb, var(--color-accent-2) 8%, transparent);
+	}
+
 	.done-icon-button {
 		background: color-mix(in srgb, var(--color-theme-2) 18%, var(--surface-2));
 		border-color: color-mix(in srgb, var(--color-theme-2) 42%, var(--surface-border));
@@ -2237,6 +2274,7 @@
 	.skip-day-button:hover,
 	.daymap-toggle-button:hover,
 	.activate-icon-button:hover,
+	.edit-button:hover,
 	.cancel-icon-button:hover,
 	.done-icon-button:hover,
 	.erase-done-button:hover {
@@ -2248,6 +2286,7 @@
 	.skip-day-button:disabled,
 	.daymap-toggle-button:disabled,
 	.activate-icon-button:disabled,
+	.edit-button:disabled,
 	.cancel-icon-button:disabled,
 	.done-icon-button:disabled,
 	.erase-done-button:disabled {
