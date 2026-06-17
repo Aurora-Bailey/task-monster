@@ -130,6 +130,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
   - next due opens an inline local datetime editor on tasks, active, and done cards
 - The add page exposes task color, mode, tracking type, auto-daymap weekdays, tally fields, and always-visible task notes
+  - task colors include Anima/Pink for soul-healing and divine-feminine activities
 - Active tasks support:
   - inactivate
   - done
@@ -139,6 +140,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - tally increment/decrement for tally tasks
 - The done page loads the 10 freshest completed runs first and uses an intersection observer to request older runs
 - The stats page loads 10 local days at a time from `GET /stats/heatmap`
+  - the color legend includes Anima/Pink after Becoming/Violet
   - each day renders a 60 x 24 minute grid
   - midnight starts at the bottom and the day moves upward
   - overlapping tasks render as two- or three-way horizontal split cells

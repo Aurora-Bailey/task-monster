@@ -27,7 +27,8 @@
 		{ key: 'green', label: 'Body', color: '#5f9b55' },
 		{ key: 'teal', label: 'Reset', color: '#3d9790' },
 		{ key: 'blue', label: 'Craft', color: '#4f6ed6' },
-		{ key: 'violet', label: 'Becoming', color: '#8a5bd1' }
+		{ key: 'violet', label: 'Becoming', color: '#8a5bd1' },
+		{ key: 'pink', label: 'Anima', color: '#d95f9f' }
 	];
 	const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
 		weekday: 'short',

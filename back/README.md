@@ -108,6 +108,9 @@ Tasks support:
 - tracking types:
   - `time`
   - `tally`
+- color keys:
+  - `red`, `orange`, `gold`, `green`, `teal`, `blue`, `violet`, `pink`
+  - `pink` maps to the Anima category for soul-healing and divine-feminine activities
 
 Important task-state fields:
 

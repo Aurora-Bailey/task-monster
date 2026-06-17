@@ -136,6 +136,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Tasks have two tracking types:
   - `time`
   - `tally`
+- Task color keys are `red`, `orange`, `gold`, `green`, `teal`, `blue`, `violet`, and `pink`; `pink` is the Anima category for soul-healing and divine-feminine activities
 - Tasks store `intensity` as an integer from `1` to `100`; missing legacy values default to `50` in serialization
 - Repeatable tasks can store automatic daymap weekdays:
   - `tasks.daymapWeekdays`

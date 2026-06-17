@@ -58,6 +58,14 @@
 			category: 'Becoming',
 			description:
 				'Vision, planning, and deeper arc work: daymaps, long-term goals, HW autobahn thinking, identity design, personal philosophy, dream notes, and future-self architecture.'
+		},
+		{
+			value: 'pink',
+			hex: '#d95f9f',
+			label: 'Pink',
+			category: 'Anima',
+			description:
+				'Soul healing and divine feminine care: anima work, softness practice, self-trust, grief tending, beauty rituals, embodiment, altar time, and inner safety.'
 		}
 	];
 	const weekdayOptions = [

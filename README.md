@@ -92,6 +92,7 @@ Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting
 
 - Tasks are either `one-time` or `repeatable`
 - Tasks track either by `time` or `tally`
+- Task color keys are `red`, `orange`, `gold`, `green`, `teal`, `blue`, `violet`, and `pink`; `pink` is the Anima category for soul-healing and divine-feminine activities
 - Time-tracked tasks record active runtime and history only
 - Repeatable tasks can be `daymapLocked`, which sends them back to the daymap after `done`
 - Repeatable tasks can also store `daymapWeekdays`; matching local weekdays are included in Day Map automatically

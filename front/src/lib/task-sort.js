@@ -1,4 +1,4 @@
-const TASK_COLOR_ORDER = ['red', 'orange', 'gold', 'green', 'teal', 'blue', 'violet'];
+const TASK_COLOR_ORDER = ['red', 'orange', 'gold', 'green', 'teal', 'blue', 'violet', 'pink'];
 const TASK_SORT_STORAGE_PREFIX = 'task-monster.sort.';
 
 const TASK_COLOR_RANKS = TASK_COLOR_ORDER.reduce((ranks, color, index) => {

@@ -10,7 +10,8 @@ const TASK_COLOR_MAP = Object.freeze({
 	green: '#5f9b55',
 	teal: '#3d9790',
 	blue: '#4f6ed6',
-	violet: '#8a5bd1'
+	violet: '#8a5bd1',
+	pink: '#d95f9f'
 });
 
 const TASK_MODE_VALUES = Object.freeze(['one-time', 'repeatable']);
