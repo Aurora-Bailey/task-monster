@@ -233,7 +233,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Queueing a scheduled-only Daymap task sets `mappedToday: true` before assigning `queuePosition`
 - When the last active task is removed from the table by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 - Canceling an active task is treated as an undo and does not auto-activate the next queued task
-- Quick action stop/next routes:
+- Quick action stop/next/start routes:
   - `POST /api/quick/stop`
     - requires a `tmq_live_*` shortcut token with `tasks:stop`
     - marks all active tasks done for the token owner and starts nothing
@@ -244,7 +244,13 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
     - marks all active tasks done for the token owner, then activates the first queued Daymap task
     - closed runs use `endingReason: 'done'`
     - returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
-  - both actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+  - `POST /api/quick/start`
+    - accepts JSON body `{ "taskId": "<task id>" }`
+    - requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
+    - marks other active tasks done for the token owner, then activates the requested task
+    - closed runs use `endingReason: 'done'`
+    - returns `message: "<title> active"`
+  - all quick actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
   - quick routes derive `userId` from the token record, not from request input
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`
@@ -416,6 +422,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - queue or unqueue
   - star toggles the daymap pin; for repeatable tasks, starring also makes done loop them back to Daymap until unstarred
   - skip today through a calendar-x icon, which fades the card without marking it done
+  - the original task id at the bottom of the card, clickable to copy with a brief copied state
   - scheduled-only cards use the weekday buttons to remove today's automatic Daymap membership
   - the shared `/tasks` sort menu includes `Queue`, which floats queued daymap tasks to the top in queue-number order
 - Task board pages now expose a shared right-side board control strip

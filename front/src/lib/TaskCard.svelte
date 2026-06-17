@@ -179,11 +179,13 @@
 	let doneEndedAtEditorOpen = $state(false);
 	let doneStartedAtInput = $state(null);
 	let doneEndedAtInput = $state(null);
+	let copiedTaskId = $state(false);
 
 	let pendingSaveTimer = null;
 	let noteRevision = 0;
 	let pendingInstanceNoteSaveTimer = null;
 	let instanceNoteRevision = 0;
+	let taskIdCopyTimer = null;
 
 	function clearPendingNoteSave() {
 		if (pendingSaveTimer !== null) {
@@ -234,6 +236,33 @@
 
 	function stopEventPropagation(event) {
 		event.stopPropagation();
+	}
+
+	function clearTaskIdCopyTimer() {
+		if (taskIdCopyTimer !== null) {
+			clearTimeout(taskIdCopyTimer);
+			taskIdCopyTimer = null;
+		}
+	}
+
+	async function handleTaskIdCopy(event) {
+		event.stopPropagation();
+
+		if (!isDaymapCard || !task.id || busyAction !== null) {
+			return;
+		}
+
+		try {
+			await navigator.clipboard.writeText(task.id);
+			copiedTaskId = true;
+			clearTaskIdCopyTimer();
+			taskIdCopyTimer = setTimeout(() => {
+				copiedTaskId = false;
+				taskIdCopyTimer = null;
+			}, 1400);
+		} catch {
+			copiedTaskId = false;
+		}
 	}
 
 	function normalizeTaskIntensity(value) {
@@ -953,6 +982,7 @@
 	onDestroy(() => {
 		clearPendingNoteSave();
 		clearPendingInstanceNoteSave();
+		clearTaskIdCopyTimer();
 	});
 </script>
 
@@ -1720,6 +1750,26 @@
 				</button>
 			{/if}
 		</div>
+	{/if}
+
+	{#if isDaymapCard}
+		<button
+			class="task-card__task-id task-card__interactive"
+			class:is-copied={copiedTaskId}
+			type="button"
+			aria-label={`Copy task id ${task.id}`}
+			title="Copy task id"
+			disabled={busyAction !== null}
+			onpointerdown={stopEventPropagation}
+			onclick={handleTaskIdCopy}
+			onkeydown={stopEventPropagation}
+		>
+			<span class="task-card__task-id-label">Task ID</span>
+			<code>{task.id}</code>
+			<span class="task-card__task-id-copied" aria-live="polite">
+				{copiedTaskId ? 'Copied' : 'Copy'}
+			</span>
+		</button>
 	{/if}
 </div>
 
@@ -2910,6 +2960,95 @@
 		background: var(--surface-muted);
 		color: var(--color-muted);
 		border: 1px solid var(--surface-border-strong);
+	}
+
+	.task-card__task-id {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.55rem;
+		width: 100%;
+		min-height: 2.35rem;
+		padding: 0.55rem 0.65rem;
+		border: 1px dashed color-mix(in srgb, var(--task-accent) 32%, var(--surface-border));
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--task-accent) 6%, var(--surface-2));
+		color: var(--color-muted);
+		cursor: pointer;
+		font: inherit;
+		text-align: left;
+	}
+
+	.task-card__task-id:disabled {
+		cursor: wait;
+		opacity: 0.68;
+	}
+
+	.task-card__task-id:focus-visible {
+		outline: 3px solid color-mix(in srgb, var(--task-accent) 36%, transparent);
+		outline-offset: 3px;
+	}
+
+	.task-card__task-id-label,
+	.task-card__task-id-copied {
+		font-size: 0.68rem;
+		font-weight: 900;
+		letter-spacing: 0;
+		text-transform: uppercase;
+	}
+
+	.task-card__task-id-label {
+		color: var(--color-soft);
+	}
+
+	.task-card__task-id code {
+		overflow: hidden;
+		color: var(--color-heading);
+		font-family:
+			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.task-card__task-id-copied {
+		min-width: 3.8rem;
+		padding: 0.3rem 0.45rem;
+		border-radius: 999px;
+		background: var(--surface-muted);
+		color: var(--color-soft);
+		text-align: center;
+		transition:
+			background 160ms ease,
+			color 160ms ease,
+			transform 160ms ease;
+	}
+
+	.task-card__task-id.is-copied {
+		border-color: color-mix(in srgb, var(--color-success) 42%, var(--surface-border));
+		background: color-mix(in srgb, var(--color-success) 10%, var(--surface-2));
+	}
+
+	.task-card__task-id.is-copied .task-card__task-id-copied {
+		background: color-mix(in srgb, var(--color-success) 18%, transparent);
+		color: var(--color-success);
+		animation: task-id-copied-pop 360ms ease both;
+	}
+
+	@keyframes task-id-copied-pop {
+		0% {
+			transform: scale(0.92);
+		}
+
+		55% {
+			transform: scale(1.06);
+		}
+
+		100% {
+			transform: scale(1);
+		}
 	}
 
 	.task-card__actions {

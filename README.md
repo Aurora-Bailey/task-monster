@@ -144,6 +144,11 @@ Quick action routes:
   - marks all active tasks done for the token owner and starts the first queued Day Map task if one exists
   - returns `message: "Next Task: <title>"` or `message: "No next task queued"` for Shortcuts display
   - appends `-- Ended with shortcut` to each completed run's instance note
+- `POST /api/quick/start`
+  - accepts JSON body `{ "taskId": "<task id>" }`
+  - requires a shortcut token with `tasks:start`; legacy `tasks:next` quick tokens are accepted for compatibility
+  - marks other active tasks done, starts the requested task, and returns `message: "<title> active"` for Shortcuts display
+  - appends `-- Ended with shortcut` to each completed run's instance note
 
 Task routes:
 

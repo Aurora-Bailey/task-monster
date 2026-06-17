@@ -114,7 +114,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - Tasks scheduled for the current local weekday appear in Day Map automatically and are excluded from Inactive
 - Weekday schedule toggles on `/tasks` hot-update the current board arrays instead of calling the full task loader, so the page does not flash through its loading state
 - Daymap/inactive cards fade to 50% opacity after the task has been started once in the current local day
-- Daymap task cards support activating, queueing, daymap locking, and toggling manually mapped tasks back to inactive
+- Daymap task cards support activating, queueing, daymap locking, toggling manually mapped tasks back to inactive, and copying the original task id from the card footer
 - The `/tasks` sort menu includes `Queue`
   - queued tasks rise to the top in queue-number order
   - unqueued tasks stay below them
@@ -146,7 +146,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - each grid is followed by a muted dot-separated list of distinct task names worked that day
   - scrolling near the bottom requests older day batches
 - Panic mode is controlled from the top nav, not from the active page itself
-- The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides copyable setup blocks for iPhone and Apple Watch, including displaying the response `message` field
+- The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides copyable setup blocks for iPhone and Apple Watch stop/next/start shortcuts, including displaying the response `message` field
   - generated raw shortcut tokens are cached in localStorage on that browser so copy examples can include the real bearer token
 - PWA behavior:
   - service worker registration is production-only

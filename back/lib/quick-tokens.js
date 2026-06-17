@@ -2,7 +2,10 @@ const { ObjectId } = require('mongodb');
 
 const { createQuickActionToken, hashAuthToken, parseBearerToken } = require('./tokens');
 
-const QUICK_TOKEN_SCOPES = Object.freeze(['tasks:stop', 'tasks:next']);
+const QUICK_TOKEN_SCOPES = Object.freeze(['tasks:stop', 'tasks:next', 'tasks:start']);
+const QUICK_TOKEN_LEGACY_SCOPE_ALIASES = Object.freeze({
+	'tasks:start': ['tasks:next']
+});
 
 function normalizeQuickTokenLabel(label) {
 	if (typeof label !== 'string') {
@@ -109,7 +112,13 @@ function requireQuickToken(requiredScopes = []) {
 		}
 
 		const scopes = Array.isArray(record.scopes) ? record.scopes : [];
-		const missingScope = requiredScopes.find((scope) => !scopes.includes(scope));
+		const missingScope = requiredScopes.find((scope) => {
+			if (scopes.includes(scope)) {
+				return false;
+			}
+
+			return !QUICK_TOKEN_LEGACY_SCOPE_ALIASES[scope]?.some((alias) => scopes.includes(alias));
+		});
 
 		if (missingScope) {
 			return reply.code(403).send({

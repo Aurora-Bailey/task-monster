@@ -1,5 +1,5 @@
 const { activateNextQueuedTask, collapseQueuePositionsAfter } = require('./task-queue');
-const { closeOpenTaskRun } = require('./task-runs');
+const { closeOpenTaskRun, openTaskRun } = require('./task-runs');
 const { serializeTask, toObjectId } = require('./tasks');
 
 const SHORTCUT_INSTANCE_NOTE = '-- Ended with shortcut';
@@ -10,14 +10,30 @@ function appendShortcutInstanceNote(instanceNote) {
 	return trimmedNote ? `${trimmedNote}\n\n${SHORTCUT_INSTANCE_NOTE}` : SHORTCUT_INSTANCE_NOTE;
 }
 
-async function completeAllActiveTasks(db, { userId, completedAt = new Date() } = {}) {
+function normalizeTaskIds(taskIds = []) {
+	return taskIds.filter(Boolean).map((taskId) => toObjectId(taskId));
+}
+
+async function completeAllActiveTasks(
+	db,
+	{ userId, completedAt = new Date(), excludeTaskIds = [] } = {}
+) {
+	const excludedTaskObjectIds = normalizeTaskIds(excludeTaskIds);
+	const activeTaskFilter = {
+		userId: toObjectId(userId),
+		archived: false,
+		activeToday: true
+	};
+
+	if (excludedTaskObjectIds.length > 0) {
+		activeTaskFilter._id = {
+			$nin: excludedTaskObjectIds
+		};
+	}
+
 	const activeTasks = await db
 		.collection('tasks')
-		.find({
-			userId: toObjectId(userId),
-			archived: false,
-			activeToday: true
-		})
+		.find(activeTaskFilter)
 		.sort({
 			activatedAt: -1,
 			createdAt: -1
@@ -113,6 +129,73 @@ async function startNextQueuedTask(db, { userId, startedAt = new Date() } = {}) 
 	return nextTask ? serializeTask(nextTask) : null;
 }
 
+async function startTaskById(db, { userId, taskId, startedAt = new Date() } = {}) {
+	const task = await db.collection('tasks').findOne({
+		_id: toObjectId(taskId),
+		userId: toObjectId(userId),
+		archived: false
+	});
+
+	if (!task) {
+		return null;
+	}
+
+	if (task.activeToday === true) {
+		return serializeTask(task);
+	}
+
+	const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
+	const activeTallyCount =
+		task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
+			? task.activeTallyCount
+			: 0;
+	const startedTask = await db.collection('tasks').findOneAndUpdate(
+		{
+			_id: task._id,
+			userId: task.userId,
+			archived: false,
+			activeToday: false
+		},
+		{
+			$set: {
+				mappedToday: true,
+				mappedAt: task.mappedAt || startedAt,
+				queuePosition: null,
+				activeToday: true,
+				activatedAt: startedAt,
+				lastStartedAt: startedAt,
+				activeTallyCount,
+				updatedAt: startedAt
+			}
+		},
+		{
+			returnDocument: 'after'
+		}
+	);
+
+	if (!startedTask) {
+		return null;
+	}
+
+	await collapseQueuePositionsAfter(db, {
+		userId,
+		queuePosition: previousQueuePosition
+	});
+
+	await openTaskRun(db, {
+		userId,
+		taskId: task._id,
+		startedAt,
+		trackingType: task.trackingType || 'time',
+		tallyUnit: task.tallyUnit ?? null,
+		tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
+		startTallyCount: task.trackingType === 'tally' ? activeTallyCount : null,
+		tallyCount: task.trackingType === 'tally' ? activeTallyCount : null
+	});
+
+	return serializeTask(startedTask);
+}
+
 async function runQuickStop(db, { userId, at = new Date() } = {}) {
 	return completeAllActiveTasks(db, {
 		userId,
@@ -138,11 +221,49 @@ async function runQuickNext(db, { userId, at = new Date() } = {}) {
 	};
 }
 
+async function runQuickStart(db, { userId, taskId, at = new Date() } = {}) {
+	const taskObjectId = toObjectId(taskId);
+	const task = await db.collection('tasks').findOne({
+		_id: taskObjectId,
+		userId: toObjectId(userId),
+		archived: false
+	});
+
+	if (!task) {
+		return null;
+	}
+
+	const completeResult = await completeAllActiveTasks(db, {
+		userId,
+		completedAt: at,
+		excludeTaskIds: [taskObjectId]
+	});
+	const startedTask = await startTaskById(db, {
+		userId,
+		taskId: taskObjectId,
+		startedAt: at
+	});
+
+	if (!startedTask) {
+		return null;
+	}
+
+	return {
+		previousTaskRunId: completeResult.previousTaskRunId,
+		stoppedCount: completeResult.stoppedCount,
+		taskId: startedTask.id,
+		taskTitle: startedTask.name,
+		task: startedTask
+	};
+}
+
 module.exports = {
 	SHORTCUT_INSTANCE_NOTE,
 	appendShortcutInstanceNote,
 	completeAllActiveTasks,
 	runQuickNext,
+	runQuickStart,
 	runQuickStop,
+	startTaskById,
 	startNextQueuedTask
 };

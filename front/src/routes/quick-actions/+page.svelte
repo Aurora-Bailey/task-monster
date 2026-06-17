@@ -73,6 +73,7 @@
 	$: docsTokenIsReal = docsToken !== placeholderToken;
 	$: stopUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/stop`;
 	$: nextUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/next`;
+	$: startUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/start`;
 	$: curlStop = `curl -X POST "${stopUrl}" \\
   -H "Authorization: Bearer ${docsToken}" \\
   -H "Content-Type: application/json" \\
@@ -81,6 +82,10 @@
   -H "Authorization: Bearer ${docsToken}" \\
   -H "Content-Type: application/json" \\
   --data '{}'`;
+	$: curlStart = `curl -X POST "${startUrl}" \\
+  -H "Authorization: Bearer ${docsToken}" \\
+  -H "Content-Type: application/json" \\
+  --data '{"taskId":"64f000000000000000000000"}'`;
 	$: shortcutHeaders = `Authorization: Bearer ${docsToken}
 Content-Type: application/json`;
 	$: messageKey = 'message';
@@ -91,6 +96,11 @@ Content-Type: application/json`;
 	$: nextBody = `{
   "source": "ios_shortcut",
   "action": "next"
+}`;
+	$: startBody = `{
+  "source": "ios_shortcut",
+  "action": "start",
+  "taskId": "64f000000000000000000000"
 }`;
 
 	function formatDateTime(value) {
@@ -277,9 +287,8 @@ Content-Type: application/json`;
 		<p class="section-label">Shortcut tokens</p>
 		<h1>One tap. One backend call.</h1>
 		<p class="lede">
-			Create a limited token for iOS Shortcuts and Apple Watch. The token can only call quick stop
-			and quick next. Both mark active tasks done, and the backend derives your account from the
-			token.
+			Create a limited token for iOS Shortcuts and Apple Watch. The token can only call quick stop,
+			quick next, and quick start. The backend derives your account from the token.
 		</p>
 	</div>
 
@@ -429,6 +438,7 @@ Content-Type: application/json`;
 						</p>
 						{@render copyBlock('curl-stop', 'tm stop curl', curlStop, copiedKey, copyText)}
 						{@render copyBlock('curl-next', 'tm next curl', curlNext, copiedKey, copyText)}
+						{@render copyBlock('curl-start', 'tm start curl', curlStart, copiedKey, copyText)}
 					</div>
 
 					<div class="doc-section">
@@ -468,6 +478,26 @@ Content-Type: application/json`;
 					</div>
 
 					<div class="doc-section">
+						<h3>iPhone shortcut: tm start</h3>
+						<ol>
+							<li>Create a shortcut named <strong>tm start</strong>.</li>
+							<li>Add Ask for Input and set the input type to Text.</li>
+							<li>Paste a task id copied from the bottom of a Day Map card when prompted.</li>
+							<li>Add URL and paste the start endpoint.</li>
+							<li>Add Get Contents of URL, set Method to POST, and add the headers.</li>
+							<li>Set Request Body to JSON with <strong>taskId</strong> from Provided Input.</li>
+							<li>
+								Add Get Dictionary Value for <strong>message</strong> from Contents of URL.
+							</li>
+							<li>Add Show Result using that dictionary value.</li>
+						</ol>
+						{@render copyBlock('start-url', 'URL', startUrl, copiedKey, copyText)}
+						{@render copyBlock('start-headers', 'Headers', shortcutHeaders, copiedKey, copyText)}
+						{@render copyBlock('start-body', 'JSON body', startBody, copiedKey, copyText)}
+						{@render copyBlock('start-message-key', 'Result key', messageKey, copiedKey, copyText)}
+					</div>
+
+					<div class="doc-section">
 						<h3>Watch result display</h3>
 						<ol>
 							<li>After Get Contents of URL, add Get Dictionary Value.</li>
@@ -477,7 +507,8 @@ Content-Type: application/json`;
 						</ol>
 						<p>
 							tm next shows <strong>Next Task: Dishes</strong> when a queued task starts, or
-							<strong>No next task queued</strong> when the queue is empty.
+							<strong>No next task queued</strong> when the queue is empty. tm start shows
+							<strong>Dishes active</strong> after it starts the requested task.
 						</p>
 					</div>
 
@@ -488,6 +519,9 @@ Content-Type: application/json`;
 							<li>
 								Add a Shortcuts Home Screen widget with <strong>tm stop</strong> and
 								<strong>tm next</strong>.
+							</li>
+							<li>
+								Use <strong>tm start</strong> when you want to jump directly to a copied task id.
 							</li>
 							<li>Add each shortcut to the Home Screen if you want direct icons.</li>
 							<li>Use Siri by saying the shortcut names.</li>

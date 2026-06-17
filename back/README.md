@@ -35,6 +35,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
   - default: `mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME`
   - default: `task-monster`
+
 ## Structure
 
 - `index.js`
@@ -78,6 +79,7 @@ Indexes are created on startup in `lib/mongo.js`.
 - Quick action routes:
   - `POST /api/quick/stop`
   - `POST /api/quick/next`
+  - `POST /api/quick/start`
   - use `tmq_live_*` shortcut tokens only; normal session tokens are not accepted
 - Session verification:
   - `GET /whoami`
@@ -182,10 +184,13 @@ Quick action semantics:
 
 - quick stop marks all active task runs `done`, applies normal Done task-state updates, and starts nothing
 - quick next marks all active task runs `done`, applies normal Done task-state updates, then activates the first queued Day Map task by queue order
+- quick start accepts `{ "taskId": "<task id>" }`, marks other active task runs `done`, then activates that task
 - quick stop returns `message: "All active tasks marked done"`
 - quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
-- both actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
-- both actions derive `userId` from the shortcut token, never from the request body
+- quick start returns `message: "<title> active"`
+- quick start requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
+- all quick actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+- all quick actions derive `userId` from the shortcut token, never from the request body
 
 ## Active runtime behavior
 
