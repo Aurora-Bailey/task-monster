@@ -391,8 +391,11 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - real minute-map stats from backend heatmap batches
 - `/add`
   - task creation form
+  - successful task creation navigates directly to `/tasks`; failed saves preserve the entered form
+  - task colors are eight icon-only category controls on one row with the selected category description below
   - task notes are always visible on the form; there is no notes checkbox gate
-  - intensity is selected with a `1` to `100` slider below the notes section
+  - Task Type, tracking mode, intensity, Auto Daymap weekdays, and tally configuration live in a collapsed `Task settings` disclosure below notes
+  - Add defaults remain Repeatable and Time; invalid tally settings open the disclosure and are rejected before an API request
 - `/profile`
   - active sessions plus recent login attempt history
 
@@ -476,7 +479,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `front/src/routes/layout.css`
 - Add page:
   - `front/src/routes/add/+page.svelte`
-  - repeatable tasks can choose automatic Daymap weekdays
+  - repeatable tasks can choose automatic Daymap weekdays from the collapsed Task Settings panel
 - Active page:
   - `front/src/routes/active/+page.svelte`
 - Tasks page:

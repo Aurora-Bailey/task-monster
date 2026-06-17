@@ -1,5 +1,20 @@
 <script>
-	import { readApiBody, readApiError } from '$lib/api';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import {
+		ChevronDown,
+		Hammer,
+		Heart,
+		HeartPulse,
+		House,
+		MapPin,
+		RotateCcw,
+		ShieldCheck,
+		SlidersHorizontal,
+		Sparkles
+	} from 'lucide-svelte';
+
+	import { readApiError } from '$lib/api';
 	import { authorizedRequest } from '$lib/session';
 
 	const taskColors = [
@@ -8,6 +23,7 @@
 			hex: '#c74a4a',
 			label: 'Red',
 			category: 'System',
+			icon: ShieldCheck,
 			description:
 				'The stuff that keeps life from drifting off the rails: bills, forms, insurance, lease, car upkeep, scheduling, paperwork, email, and account fixes.'
 		},
@@ -16,6 +32,7 @@
 			hex: '#de7d37',
 			label: 'Orange',
 			category: 'World',
+			icon: MapPin,
 			description:
 				'Outside-the-house motion: errands, pickups, shopping, pharmacy, post office, appointments, and travel across town.'
 		},
@@ -24,6 +41,7 @@
 			hex: '#d7b23d',
 			label: 'Yellow',
 			category: 'Home',
+			icon: House,
 			description:
 				'Physical upkeep of your space: dishes, laundry, trash, sweeping, kitchen reset, organizing, and apartment care.'
 		},
@@ -32,6 +50,7 @@
 			hex: '#5f9b55',
 			label: 'Green',
 			category: 'Body',
+			icon: HeartPulse,
 			description:
 				'Care of the organism: meals, hydration, hormones or meds, sleep support, shower, stretching, walks, and health appointments.'
 		},
@@ -40,6 +59,7 @@
 			hex: '#3d9790',
 			label: 'Teal',
 			category: 'Reset',
+			icon: RotateCcw,
 			description:
 				'Recovery and nervous-system maintenance: bath, tidy reset, journaling, room calming, digital cleanup, and getting back online after fog or overwhelm.'
 		},
@@ -48,6 +68,7 @@
 			hex: '#4f6ed6',
 			label: 'Blue',
 			category: 'Craft',
+			icon: Hammer,
 			description:
 				'Focused building and learning: coding, automation study, SLCC work, reading docs, writing, debugging, systems design, and skill-forging.'
 		},
@@ -56,6 +77,7 @@
 			hex: '#8a5bd1',
 			label: 'Purple',
 			category: 'Becoming',
+			icon: Sparkles,
 			description:
 				'Vision, planning, and deeper arc work: daymaps, long-term goals, HW autobahn thinking, identity design, personal philosophy, dream notes, and future-self architecture.'
 		},
@@ -64,6 +86,7 @@
 			hex: '#d95f9f',
 			label: 'Pink',
 			category: 'Anima',
+			icon: Heart,
 			description:
 				'Soul healing and divine feminine care: anima work, softness practice, self-trust, grief tending, beauty rituals, embodiment, altar time, and inner safety.'
 		}
@@ -87,8 +110,8 @@
 	let daymapWeekdays = $state([]);
 	let note = $state('');
 	let intensity = $state(50);
+	let settingsOpen = $state(false);
 	let isSubmitting = $state(false);
-	let successMessage = $state('');
 	let errorMessage = $state('');
 	const selectedColorMeta = $derived(
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
@@ -96,18 +119,11 @@
 	const intensityValue = $derived(
 		Math.min(100, Math.max(1, Number.parseInt(String(intensity), 10) || 50))
 	);
-
-	function resetForm() {
-		taskName = '';
-		selectedColor = taskColors[0].value;
-		taskMode = 'repeatable';
-		trackingType = 'time';
-		tallyUnit = '';
-		tallyTarget = '10';
-		daymapWeekdays = [];
-		note = '';
-		intensity = 50;
-	}
+	const settingsSummary = $derived(
+		`${taskMode === 'repeatable' ? 'Repeatable' : 'One-time'} · ${
+			trackingType === 'tally' ? 'Tally' : 'Time'
+		}`
+	);
 
 	function toggleWeekday(weekday) {
 		const nextWeekdays = new Set(daymapWeekdays);
@@ -123,8 +139,28 @@
 
 	async function handleSubmit(event) {
 		event.preventDefault();
-		successMessage = '';
 		errorMessage = '';
+
+		const normalizedTallyUnit = tallyUnit.trim();
+		const normalizedTallyTarget = Number(String(tallyTarget).trim());
+
+		if (trackingType === 'tally' && !normalizedTallyUnit) {
+			settingsOpen = true;
+			errorMessage = 'Tally tasks need a unit label.';
+			return;
+		}
+
+		if (
+			trackingType === 'tally' &&
+			(!Number.isInteger(normalizedTallyTarget) ||
+				normalizedTallyTarget < 1 ||
+				normalizedTallyTarget > 100000)
+		) {
+			settingsOpen = true;
+			errorMessage = 'Tally target must be a whole number from 1 to 100,000.';
+			return;
+		}
+
 		isSubmitting = true;
 
 		try {
@@ -135,8 +171,8 @@
 					color: selectedColor,
 					mode: taskMode,
 					trackingType,
-					tallyUnit: trackingType === 'tally' ? tallyUnit : null,
-					tallyTarget: trackingType === 'tally' ? Number.parseInt(tallyTarget, 10) || null : null,
+					tallyUnit: trackingType === 'tally' ? normalizedTallyUnit : null,
+					tallyTarget: trackingType === 'tally' ? normalizedTallyTarget : null,
 					daymapWeekdays: taskMode === 'repeatable' ? daymapWeekdays : [],
 					note: note.trim() ? note : null,
 					intensity: intensityValue
@@ -147,9 +183,7 @@
 				throw new Error(await readApiError(response, 'Unable to save the task.'));
 			}
 
-			const body = await readApiBody(response);
-			successMessage = `Saved "${body.task.name}" to your task list.`;
-			resetForm();
+			await goto(resolve('/tasks'));
 		} catch (error) {
 			errorMessage = error.message;
 		} finally {
@@ -188,11 +222,17 @@
 				<legend class="field-label">Task color</legend>
 				<div class="color-options">
 					{#each taskColors as color}
-						<label class="color-option" style={`--swatch-color: ${color.hex};`}>
+						{@const ColorIcon = color.icon}
+						<label
+							class="color-option"
+							style={`--swatch-color: ${color.hex};`}
+							title={`${color.category}: ${color.description}`}
+						>
 							<input type="radio" name="color" value={color.value} bind:group={selectedColor} />
 							<span class="color-choice">
-								<span class="swatch" aria-hidden="true"></span>
-								<span class="color-caption">{color.category}</span>
+								<span class="swatch" aria-hidden="true">
+									<ColorIcon size={20} strokeWidth={2.2} />
+								</span>
 							</span>
 							<span class="visually-hidden">{color.label} for {color.category} tasks</span>
 						</label>
@@ -207,108 +247,6 @@
 				</div>
 			</fieldset>
 
-			<fieldset class="task-mode">
-				<legend class="field-label">Task type</legend>
-				<div class="mode-slider">
-					<input
-						id="task-type-once"
-						class="mode-input"
-						type="radio"
-						name="taskType"
-						value="one-time"
-						bind:group={taskMode}
-					/>
-					<input
-						id="task-type-repeatable"
-						class="mode-input"
-						type="radio"
-						name="taskType"
-						value="repeatable"
-						bind:group={taskMode}
-					/>
-					<span class="mode-indicator" aria-hidden="true"></span>
-					<label class="mode-option mode-option-once" for="task-type-once">One-time task</label>
-					<label class="mode-option mode-option-repeatable" for="task-type-repeatable"
-						>Repeatable task</label
-					>
-				</div>
-			</fieldset>
-
-			<fieldset class="task-mode">
-				<legend class="field-label">How it tracks</legend>
-				<div class="mode-slider">
-					<input
-						id="tracking-time"
-						class="mode-input"
-						type="radio"
-						name="trackingType"
-						value="time"
-						bind:group={trackingType}
-					/>
-					<input
-						id="tracking-tally"
-						class="mode-input"
-						type="radio"
-						name="trackingType"
-						value="tally"
-						bind:group={trackingType}
-					/>
-					<span class="mode-indicator" aria-hidden="true"></span>
-					<label class="mode-option mode-option-once" for="tracking-time">Clock time</label>
-					<label class="mode-option mode-option-repeatable" for="tracking-tally">Tallies</label>
-				</div>
-			</fieldset>
-
-			{#if taskMode === 'repeatable'}
-				<fieldset class="weekday-picker">
-					<legend class="field-label">Auto daymap</legend>
-					<div class="weekday-options" aria-label="Automatically place this task on the daymap">
-						{#each weekdayOptions as weekday}
-							<button
-								class="weekday-option"
-								class:is-selected={daymapWeekdays.includes(weekday.value)}
-								type="button"
-								aria-pressed={daymapWeekdays.includes(weekday.value)}
-								title={weekday.label}
-								onclick={() => toggleWeekday(weekday.value)}
-							>
-								<span>{weekday.short}</span>
-							</button>
-						{/each}
-					</div>
-					<p class="weekday-help">Selected days automatically appear in the Day Map.</p>
-				</fieldset>
-			{/if}
-
-			{#if trackingType === 'tally'}
-				<div class="tally-fields">
-					<label class="field-label" for="task-tally-unit">Tally unit</label>
-					<input
-						id="task-tally-unit"
-						bind:value={tallyUnit}
-						class="text-input"
-						type="text"
-						name="tallyUnit"
-						placeholder="squats"
-						maxlength="60"
-						required={trackingType === 'tally'}
-					/>
-
-					<label class="field-label" for="task-tally-target">Target amount</label>
-					<input
-						id="task-tally-target"
-						bind:value={tallyTarget}
-						class="text-input"
-						type="number"
-						name="tallyTarget"
-						min="1"
-						max="100000"
-						step="1"
-						required={trackingType === 'tally'}
-					/>
-				</div>
-			{/if}
-
 			<div class="notes-section">
 				<label class="field-label" for="task-notes">Task notepad</label>
 				<textarea
@@ -322,33 +260,164 @@
 				></textarea>
 			</div>
 
-			<div class="intensity-section">
-				<label class="field-label" for="task-intensity">Intensity</label>
-				<input
-					id="task-intensity"
-					bind:value={intensity}
-					class="intensity-slider"
-					type="range"
-					name="intensity"
-					min="1"
-					max="100"
-					step="1"
-					aria-valuetext={`${intensityValue} out of 100`}
-				/>
-				<p class="intensity-readout">
-					Intensity <strong>{intensityValue}</strong>/100
-				</p>
+			<div class="task-settings">
+				<button
+					class="settings-trigger"
+					type="button"
+					aria-expanded={settingsOpen}
+					aria-controls="task-settings-panel"
+					onclick={() => (settingsOpen = !settingsOpen)}
+				>
+					<span class="settings-trigger__icon" aria-hidden="true">
+						<SlidersHorizontal size={19} strokeWidth={2.2} />
+					</span>
+					<span class="settings-trigger__copy">
+						<strong>Task settings</strong>
+						<span>{settingsSummary}</span>
+					</span>
+					<span
+						class:settings-trigger__chevron--open={settingsOpen}
+						class="settings-trigger__chevron"
+					>
+						<ChevronDown size={20} strokeWidth={2.2} aria-hidden="true" />
+					</span>
+				</button>
+
+				{#if settingsOpen}
+					<div class="settings-panel" id="task-settings-panel">
+						<fieldset class="task-mode">
+							<legend class="field-label">Task type</legend>
+							<div class="mode-slider">
+								<input
+									id="task-type-once"
+									class="mode-input"
+									type="radio"
+									name="taskType"
+									value="one-time"
+									bind:group={taskMode}
+								/>
+								<input
+									id="task-type-repeatable"
+									class="mode-input"
+									type="radio"
+									name="taskType"
+									value="repeatable"
+									bind:group={taskMode}
+								/>
+								<span class="mode-indicator" aria-hidden="true"></span>
+								<label class="mode-option mode-option-once" for="task-type-once"
+									>One-time task</label
+								>
+								<label class="mode-option mode-option-repeatable" for="task-type-repeatable"
+									>Repeatable task</label
+								>
+							</div>
+						</fieldset>
+
+						<fieldset class="task-mode">
+							<legend class="field-label">How it tracks</legend>
+							<div class="mode-slider">
+								<input
+									id="tracking-time"
+									class="mode-input"
+									type="radio"
+									name="trackingType"
+									value="time"
+									bind:group={trackingType}
+								/>
+								<input
+									id="tracking-tally"
+									class="mode-input"
+									type="radio"
+									name="trackingType"
+									value="tally"
+									bind:group={trackingType}
+								/>
+								<span class="mode-indicator" aria-hidden="true"></span>
+								<label class="mode-option mode-option-once" for="tracking-time">Clock time</label>
+								<label class="mode-option mode-option-repeatable" for="tracking-tally"
+									>Tallies</label
+								>
+							</div>
+						</fieldset>
+
+						<div class="intensity-section">
+							<label class="field-label" for="task-intensity">Intensity</label>
+							<input
+								id="task-intensity"
+								bind:value={intensity}
+								class="intensity-slider"
+								type="range"
+								name="intensity"
+								min="1"
+								max="100"
+								step="1"
+								aria-valuetext={`${intensityValue} out of 100`}
+							/>
+							<p class="intensity-readout">
+								Intensity <strong>{intensityValue}</strong>/100
+							</p>
+						</div>
+
+						{#if taskMode === 'repeatable'}
+							<fieldset class="weekday-picker">
+								<legend class="field-label">Auto daymap</legend>
+								<div
+									class="weekday-options"
+									aria-label="Automatically place this task on the daymap"
+								>
+									{#each weekdayOptions as weekday}
+										<button
+											class="weekday-option"
+											class:is-selected={daymapWeekdays.includes(weekday.value)}
+											type="button"
+											aria-pressed={daymapWeekdays.includes(weekday.value)}
+											title={weekday.label}
+											onclick={() => toggleWeekday(weekday.value)}
+										>
+											<span>{weekday.short}</span>
+										</button>
+									{/each}
+								</div>
+								<p class="weekday-help">Selected days automatically appear in the Day Map.</p>
+							</fieldset>
+						{/if}
+
+						{#if trackingType === 'tally'}
+							<div class="tally-fields">
+								<label class="field-label" for="task-tally-unit">Tally unit</label>
+								<input
+									id="task-tally-unit"
+									bind:value={tallyUnit}
+									class="text-input"
+									type="text"
+									name="tallyUnit"
+									placeholder="squats"
+									maxlength="60"
+								/>
+
+								<label class="field-label" for="task-tally-target">Target amount</label>
+								<input
+									id="task-tally-target"
+									bind:value={tallyTarget}
+									class="text-input"
+									type="number"
+									name="tallyTarget"
+									min="1"
+									max="100000"
+									step="1"
+								/>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
 			{#if errorMessage}
 				<p class="form-message error-message">{errorMessage}</p>
 			{/if}
 
-			{#if successMessage}
-				<p class="form-message success-message">{successMessage}</p>
-			{/if}
-
-			<button type="submit" disabled={isSubmitting}>
+			<button class="submit-button" type="submit" disabled={isSubmitting}>
 				{isSubmitting ? 'Saving...' : 'Add'}
 			</button>
 		</form>
@@ -417,8 +486,8 @@
 
 	.color-options {
 		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
-		gap: 0.6rem;
+		grid-template-columns: repeat(8, minmax(0, 1fr));
+		gap: 0.35rem;
 	}
 
 	.color-helper {
@@ -474,17 +543,18 @@
 	}
 
 	.color-choice {
-		display: grid;
-		justify-items: center;
-		gap: 0.45rem;
+		display: block;
 	}
 
 	.swatch {
+		display: grid;
+		place-items: center;
 		width: 2.35rem;
 		height: 2.35rem;
 		border-radius: 999px;
 		background: var(--swatch-color);
 		border: 2px solid var(--surface-3);
+		color: rgba(255, 255, 255, 0.96);
 		box-shadow:
 			0 0 0 1px var(--surface-border-strong),
 			0 8px 18px color-mix(in srgb, var(--color-heading) 14%, transparent);
@@ -492,6 +562,10 @@
 			transform 0.16s ease,
 			box-shadow 0.16s ease,
 			outline-color 0.16s ease;
+	}
+
+	.swatch :global(svg) {
+		filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 	}
 
 	.color-option:hover .swatch {
@@ -506,25 +580,6 @@
 			0 12px 20px color-mix(in srgb, var(--color-heading) 18%, transparent);
 	}
 
-	.color-caption {
-		max-width: 4.8rem;
-		text-align: center;
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		line-height: 1.2;
-		color: var(--color-soft);
-		transition:
-			color 0.16s ease,
-			transform 0.16s ease;
-	}
-
-	.color-option input:checked + .color-choice .color-caption {
-		color: var(--color-heading);
-		transform: translateY(-1px);
-	}
-
 	.color-option:focus-within .color-choice .swatch {
 		outline: 3px solid var(--focus-ring);
 		outline-offset: 3px;
@@ -534,6 +589,72 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
+	}
+
+	.task-settings {
+		overflow: hidden;
+		border: 1px solid var(--surface-border);
+		border-radius: 16px;
+		background: var(--surface-2);
+		box-shadow: var(--surface-shadow);
+	}
+
+	.settings-trigger {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 0.75rem;
+		width: 100%;
+		padding: 0.9rem 1rem;
+		border: 0;
+		background: transparent;
+		color: var(--color-heading);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.settings-trigger:hover {
+		background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+	}
+
+	.settings-trigger__icon {
+		display: grid;
+		place-items: center;
+		color: var(--color-theme-2);
+	}
+
+	.settings-trigger__copy {
+		display: grid;
+		gap: 0.14rem;
+		min-width: 0;
+	}
+
+	.settings-trigger__copy strong {
+		font-size: 0.92rem;
+	}
+
+	.settings-trigger__copy span {
+		font-size: 0.78rem;
+		color: var(--color-muted);
+	}
+
+	.settings-trigger__chevron {
+		display: grid;
+		place-items: center;
+		color: var(--color-muted);
+		transition: transform 0.18s ease;
+	}
+
+	.settings-trigger__chevron--open {
+		transform: rotate(180deg);
+	}
+
+	.settings-panel {
+		display: grid;
+		gap: 1rem;
+		padding: 0.25rem 1rem 1rem;
+		border-top: 1px solid var(--surface-border);
 	}
 
 	.weekday-picker {
@@ -730,19 +851,13 @@
 		font-weight: 700;
 	}
 
-	.success-message {
-		background: color-mix(in srgb, var(--color-success) 14%, var(--surface-1));
-		color: var(--color-success);
-		border: 1px solid color-mix(in srgb, var(--color-success) 22%, var(--surface-border));
-	}
-
 	.error-message {
 		background: color-mix(in srgb, var(--color-danger) 12%, var(--surface-1));
 		color: var(--color-danger);
 		border: 1px solid color-mix(in srgb, var(--color-danger) 22%, var(--surface-border));
 	}
 
-	button {
+	.submit-button {
 		width: 100%;
 		padding: 0.9rem 1rem;
 		border: 0;
@@ -756,18 +871,40 @@
 		cursor: pointer;
 	}
 
-	button:hover {
+	.submit-button:hover {
 		filter: brightness(1.04);
 	}
 
-	button:disabled {
+	.submit-button:disabled {
 		cursor: wait;
 		opacity: 0.72;
 		filter: none;
 	}
 
-	button:focus-visible {
+	.submit-button:focus-visible,
+	.settings-trigger:focus-visible,
+	.weekday-option:focus-visible {
 		outline: 3px solid var(--focus-ring);
 		outline-offset: 3px;
+	}
+
+	@media (max-width: 420px) {
+		.paper {
+			padding: 1.15rem;
+		}
+
+		.color-options {
+			gap: 0.2rem;
+		}
+
+		.swatch {
+			width: 1.9rem;
+			height: 1.9rem;
+		}
+
+		.swatch :global(svg) {
+			width: 1rem;
+			height: 1rem;
+		}
 	}
 </style>

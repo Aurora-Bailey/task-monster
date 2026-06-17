@@ -49,7 +49,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/stats`
   - real minute-map heatmap derived from backend task-run data
 - `/add`
-  - task creation form
+  - compact task creation form that navigates to `/tasks` after a successful save
+  - eight icon-only color categories remain on one row
+  - type, tracking, intensity, scheduling, and tally fields live in a collapsed Task Settings panel
 - `/profile`
   - active sessions and recent login attempts
 - `/quick-actions`
@@ -129,8 +131,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - right side: next due, themed from the primary color
   - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
   - next due opens an inline local datetime editor on tasks, active, and done cards
-- The add page exposes task color, mode, tracking type, auto-daymap weekdays, tally fields, and always-visible task notes
+- The add page keeps task notes visible while mode, tracking type, intensity, auto-daymap weekdays, and tally fields live in a collapsed Task Settings panel
   - task colors include Anima/Pink for soul-healing and divine-feminine activities
+  - all eight color categories render as one icon-only row with accessible labels and a selected-category helper
+  - successful saves navigate directly to `/tasks`; validation or API failures preserve the entered form
 - Active tasks support:
   - inactivate
   - done
