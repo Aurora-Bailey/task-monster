@@ -17,6 +17,7 @@
 	import { onMount } from 'svelte';
 
 	import { readApiError } from '$lib/api';
+	import { getHueShiftColor, getHueShiftOffset, normalizeHueShift } from '$lib/hue-shift-colors';
 	import { authorizedRequest } from '$lib/session';
 	import { loadTask, updateTask } from '$lib/tasks-client';
 
@@ -112,7 +113,7 @@
 	let tallyTarget = $state('10');
 	let daymapWeekdays = $state([]);
 	let note = $state('');
-	let intensity = $state(50);
+	let hueShift = $state(50);
 	let settingsOpen = $state(false);
 	let editTaskId = $state(page.url.searchParams.get('edit')?.trim() || null);
 	let initialFormState = $state(null);
@@ -124,7 +125,12 @@
 	const selectedColorMeta = $derived(
 		taskColors.find((color) => color.value === selectedColor) ?? taskColors[0]
 	);
-	const intensityValue = $derived(normalizeIntensity(intensity));
+	const hueShiftValue = $derived(normalizeFormHueShift(hueShift));
+	const hueShiftOffset = $derived(Number(getHueShiftOffset(hueShiftValue).toFixed(1)));
+	const hueShiftOffsetLabel = $derived(
+		hueShiftOffset > 0 ? `+${hueShiftOffset}` : String(hueShiftOffset)
+	);
+	const selectedHueShiftColor = $derived(getHueShiftColor(selectedColorMeta.hex, hueShiftValue));
 	const settingsSummary = $derived(
 		`${taskMode === 'repeatable' ? 'Repeatable' : 'One-time'} · ${
 			trackingType === 'tally' ? 'Tally' : 'Time'
@@ -132,8 +138,8 @@
 	);
 	const pageTitle = $derived(isEditMode ? 'Update Task' : 'Add Task');
 
-	function normalizeIntensity(value) {
-		return Math.min(100, Math.max(1, Number.parseInt(String(value), 10) || 50));
+	function normalizeFormHueShift(value) {
+		return Math.round(normalizeHueShift(value));
 	}
 
 	function normalizeWeekdays(value) {
@@ -165,7 +171,7 @@
 					: null,
 			daymapWeekdays: taskMode === 'repeatable' ? normalizeWeekdays(daymapWeekdays) : [],
 			note: note.trim() ? note : null,
-			intensity: normalizeIntensity(intensity)
+			hueShift: normalizeFormHueShift(hueShift)
 		};
 	}
 
@@ -178,7 +184,7 @@
 		tallyTarget = Number.isInteger(task.tallyTarget) ? String(task.tallyTarget) : '10';
 		daymapWeekdays = taskMode === 'repeatable' ? normalizeWeekdays(task.daymapWeekdays) : [];
 		note = task.note ?? '';
-		intensity = normalizeIntensity(task.intensity);
+		hueShift = normalizeFormHueShift(task.hueShift);
 		settingsOpen = false;
 		initialFormState = getNormalizedFormState();
 	}
@@ -186,7 +192,7 @@
 	function buildTaskChanges(nextFormState) {
 		const changes = {};
 
-		for (const field of ['name', 'color', 'mode', 'trackingType', 'note', 'intensity']) {
+		for (const field of ['name', 'color', 'mode', 'trackingType', 'note', 'hueShift']) {
 			if (nextFormState[field] !== initialFormState[field]) {
 				changes[field] = nextFormState[field];
 			}
@@ -369,7 +375,7 @@
 							</label>
 						{/each}
 					</div>
-					<div class="color-helper" style={`--selected-color: ${selectedColorMeta.hex};`}>
+					<div class="color-helper" style={`--selected-color: ${selectedHueShiftColor};`}>
 						<p class="color-helper__title">
 							<span class="color-helper__dot" aria-hidden="true"></span>
 							<strong>{selectedColorMeta.category}</strong>
@@ -472,21 +478,23 @@
 								</div>
 							</fieldset>
 
-							<div class="intensity-section">
-								<label class="field-label" for="task-intensity">Intensity</label>
+							<div class="hue-shift-section">
+								<label class="field-label" for="task-hue-shift">Hue Shift</label>
 								<input
-									id="task-intensity"
-									bind:value={intensity}
-									class="intensity-slider"
+									id="task-hue-shift"
+									bind:value={hueShift}
+									class="hue-shift-slider"
 									type="range"
-									name="intensity"
-									min="1"
+									name="hueShift"
+									min="0"
 									max="100"
 									step="1"
-									aria-valuetext={`${intensityValue} out of 100`}
+									style={`--hue-shift-color: ${selectedHueShiftColor};`}
+									aria-valuetext={`${hueShiftValue} out of 100; hue ${hueShiftOffsetLabel} degrees; saturation ${hueShiftOffsetLabel} percentage points; lightness ${hueShiftOffsetLabel} percentage points`}
 								/>
-								<p class="intensity-readout">
-									Intensity <strong>{intensityValue}</strong>/100
+								<p class="hue-shift-readout">
+									Hue Shift <strong>{hueShiftValue}</strong>/100 · H {hueShiftOffsetLabel}° · S
+									{hueShiftOffsetLabel} · L {hueShiftOffsetLabel}
 								</p>
 							</div>
 
@@ -918,7 +926,7 @@
 		gap: 0.55rem;
 	}
 
-	.intensity-section {
+	.hue-shift-section {
 		display: grid;
 		gap: 0.55rem;
 		padding: 0.95rem 1rem;
@@ -928,26 +936,26 @@
 		box-shadow: var(--surface-inset);
 	}
 
-	.intensity-slider {
+	.hue-shift-slider {
 		width: 100%;
-		accent-color: var(--color-theme-2);
+		accent-color: var(--hue-shift-color);
 		cursor: pointer;
 	}
 
-	.intensity-slider:focus-visible {
+	.hue-shift-slider:focus-visible {
 		outline: 3px solid var(--focus-ring);
 		outline-offset: 4px;
 		border-radius: 999px;
 	}
 
-	.intensity-readout {
+	.hue-shift-readout {
 		margin: 0;
 		font-size: 0.9rem;
 		font-weight: 700;
 		color: var(--color-muted);
 	}
 
-	.intensity-readout strong {
+	.hue-shift-readout strong {
 		color: var(--color-heading);
 	}
 

@@ -24,7 +24,7 @@
 		loadDaymapTasks,
 		loadInactiveTasks,
 		updateActiveTaskStartedAt,
-		updateTaskIntensity,
+		updateTaskHueShift,
 		updateTaskInstanceNote,
 		updateTaskNextDue,
 		updateTaskTally,
@@ -259,8 +259,8 @@
 		return updatedTask;
 	}
 
-	async function handleIntensityChange(taskId, intensity) {
-		const updatedTask = await updateTaskIntensity(taskId, intensity);
+	async function handleHueShiftChange(taskId, hueShift) {
+		const updatedTask = await updateTaskHueShift(taskId, hueShift);
 		mergeTaskUpdate(taskId, updatedTask, {
 			preservePanic: true,
 			preserveInstanceNote: true
@@ -385,11 +385,11 @@
 							panicDurationLabel={getPanicDurationLabel(task)}
 							effectiveDurationLabel={getEffectiveDurationLabel(task)}
 							onSaveInstanceNote={handleSaveInstanceNote}
-							showIntensityControl={true}
+							showHueShiftControl={true}
 							busyAction={getBusyAction(task.id)}
 							onDone={handleDone}
 							onInactivate={handleCancelActive}
-							onIntensityChange={handleIntensityChange}
+							onHueShiftChange={handleHueShiftChange}
 							onSaveActiveStartedAt={handleSaveActiveStartedAt}
 							onSaveNote={handleSaveNote}
 							onSaveNextDue={handleSaveNextDue}

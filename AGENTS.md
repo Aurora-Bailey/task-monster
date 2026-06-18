@@ -74,6 +74,9 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Route files are auto-registered from `back/routes/` by `back/lib/register-routes.js`
 - Authentication is enforced by a global `preHandler` hook in `back/index.js`
 - Mongo indexes are created on startup in `back/lib/mongo.js`
+- idempotent task data migrations run before indexes, route registration, and normal traffic
+  - `back/lib/task-migrations.js` migrates legacy `tasks.intensity` values to `tasks.hueShift`
+  - valid integers are clamped to `0`–`100`, invalid or missing values default to `50`, and `intensity` is removed
 - Main collections currently used:
   - `users`
   - `sessions`
@@ -137,7 +140,12 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - `time`
   - `tally`
 - Task color keys are `red`, `orange`, `gold`, `green`, `teal`, `blue`, `violet`, and `pink`; `pink` is the Anima category for soul-healing and divine-feminine activities
-- Tasks store `intensity` as an integer from `1` to `100`; missing legacy values default to `50` in serialization
+- Tasks store `hueShift` as an integer from `0` to `100`; missing or invalid values default to `50`
+- Hue Shift applies one linear offset to the base category's HSL channels:
+  - `0` is hue `−10°`, saturation `−10` percentage points, and lightness `−10` percentage points
+  - `50` is the exact unchanged category color
+  - `100` is hue `+10°`, saturation `+10` percentage points, and lightness `+10` percentage points
+  - hue wraps around the color wheel; saturation and lightness clamp to `0%`–`100%`
 - Repeatable tasks can store automatic daymap weekdays:
   - `tasks.daymapWeekdays`
   - integer values use JavaScript weekday numbering: `0` Sunday through `6` Saturday
@@ -400,7 +408,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - successful task creation navigates directly to `/tasks`; failed saves preserve the entered form
   - task colors are eight icon-only category controls on one row with the selected category description below
   - task notes are always visible on the form; there is no notes checkbox gate
-  - Task Type, tracking mode, intensity, Auto Daymap weekdays, and tally configuration live in a collapsed `Task settings` disclosure below notes
+  - Task Type, tracking mode, Hue Shift, Auto Daymap weekdays, and tally configuration live in a collapsed `Task settings` disclosure below notes
   - Add defaults remain Repeatable and Time; invalid tally settings open the disclosure and are rejected before an API request
   - `/add?edit=<taskId>` loads an owned task, changes the heading and submit label to Update, and keeps edits local until submission
   - unchanged edit submissions return to `/tasks` without sending a patch
@@ -411,9 +419,14 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 
 - `/` is a minimalist public landing page, not a redirect anymore
 - `/tasks` uses compact task cards to fit up to three cards per row on desktop
-- `/tasks`, `/active`, and `/done` task cards expose a shared left-edge coin intensity slider from `TaskCard.svelte` that persists on release
-- Task-card accent bars use a reusable intensity color formula: `--task-accent-strong` for the saturated/bright top and `--task-accent-pastel` for the softer bottom; reuse that relationship for future stats/header task cells
-- `/stats` and the header current-hour trace receive task intensity from `GET /stats/heatmap`; task-cell opacity maps intensity from 25% at `0` to 100% at `100`, and panic overlap is marked with a small solid red dot in the top-right of each affected cell
+- `/tasks`, `/active`, and `/done` task cards expose a shared left-edge Hue Shift slider from `TaskCard.svelte` that persists on release; the thumb is a plain theme-colored circle
+- shared hue-shift color functions live in `front/src/lib/hue-shift-colors.js`
+  - `normalizeHueShift`, `getHueShiftOffset`, `getHueShiftColor`, and `buildHueShiftSplitFill` are the canonical frontend interfaces
+  - task cards use the shifted color as `--task-accent`, including borders, controls, accent bars, and derived gradients
+- `/stats` and the header current-hour trace receive task `hueShift` from `GET /stats/heatmap`
+  - cells, overlap segments, glows, and stats activity underlines use the same fully opaque shifted task color
+  - the category legend stays on the base category colors
+  - panic overlap is marked with a small solid red dot in the top-right of each affected cell
 - The task activity row under each `/stats` day grid underlines each task in its task color and shows its day-clipped active duration as a compact minute label
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes

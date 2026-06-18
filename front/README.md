@@ -51,7 +51,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/add`
   - compact task creation and editing form that navigates to `/tasks` after a successful save
   - eight icon-only color categories remain on one row
-  - type, tracking, intensity, scheduling, and tally fields live in a collapsed Task Settings panel
+  - type, tracking, Hue Shift, scheduling, and tally fields live in a collapsed Task Settings panel
   - `/add?edit=<taskId>` reloads an owned task and submits only changed fields
 - `/profile`
   - active sessions and recent login attempts
@@ -71,6 +71,10 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - low-level fetch wrapper
 - `src/lib/tasks-client.js`
   - task API wrapper
+  - card updates persist through `updateTaskHueShift(taskId, hueShift)`
+- `src/lib/hue-shift-colors.js`
+  - canonical Hue Shift normalization, combined HSL adjustment, and split-fill helpers
+  - exports `normalizeHueShift`, `getHueShiftOffset`, `getHueShiftColor`, and `buildHueShiftSplitFill`
 - `src/lib/stats-client.js`
   - daily stats and heatmap API wrapper
 - `src/lib/panic-client.js`
@@ -132,7 +136,13 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - right side: next due, themed from the primary color
   - visible labels are intentionally omitted; hover/title and aria text carry `Last done` and `Next due`
   - next due opens an inline local datetime editor on tasks, active, and done cards
-- The add page keeps task notes visible while mode, tracking type, intensity, auto-daymap weekdays, and tally fields live in a collapsed Task Settings panel
+- The add page keeps task notes visible while mode, tracking type, Hue Shift, auto-daymap weekdays, and tally fields live in a collapsed Task Settings panel
+  - Hue Shift accepts `0`–`100`: `0` applies `−10` to hue, saturation, and lightness; `50` preserves the exact category color; and `100` applies `+10`
+  - hue uses degrees, saturation and lightness use absolute percentage points, and saturation/lightness clamp to `0%`–`100%`
+  - the selected-category helper and range track preview the shifted color
+  - the readout exposes the shared hue, saturation, and lightness offset
+  - task create/update requests and responses use `hueShift`; the legacy `intensity` interface is not accepted or returned
+  - backend startup migrates legacy stored `intensity` values to `hueShift`, defaults invalid or missing values to `50`, and removes the old field
   - task colors include Anima/Pink for soul-healing and divine-feminine activities
   - all eight color categories render as one icon-only row with accessible labels and a selected-category helper
   - successful saves navigate directly to `/tasks`; validation or API failures preserve the entered form
@@ -151,7 +161,9 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - each day renders a 60 x 24 minute grid
   - midnight starts at the bottom and the day moves upward
   - overlapping tasks render as two- or three-way horizontal split cells
-  - task-cell opacity is driven by task intensity, and panic overlap is marked with a small red dot
+  - task cells, overlap segments, glows, and activity underlines use the fully opaque shifted task color
+  - the header current-hour trace uses the same shifted color and split-fill logic
+  - panic overlap is marked with a small red dot
   - each grid is followed by a muted dot-separated list of distinct task names worked that day
   - scrolling near the bottom requests older day batches
 - Panic mode is controlled from the top nav, not from the active page itself

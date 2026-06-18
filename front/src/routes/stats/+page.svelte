@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
-	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
+	import { buildHueShiftSplitFill, getHueShiftColor } from '$lib/hue-shift-colors';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import { formatElapsedDuration } from '$lib/task-format';
@@ -164,9 +164,9 @@
 
 			return {
 				active: true,
-				fill: buildIntensitySplitFill(uniqueTaskSessions),
+				fill: buildHueShiftSplitFill(uniqueTaskSessions),
 				glow: firstTaskSession
-					? getIntensityCellColor(firstTaskSession.color, firstTaskSession.intensity)
+					? getHueShiftColor(firstTaskSession.color, firstTaskSession.hueShift)
 					: '',
 				label: `${formatMinuteLabel(day.day, minuteIndex)}: ${labelParts.join(' + ')}`,
 				panic: hasPanic
@@ -234,7 +234,10 @@
 			taskActivity.set(key, {
 				key,
 				name,
-				color: typeof session.color === 'string' ? session.color : '',
+				color:
+					typeof session.color === 'string'
+						? getHueShiftColor(session.color, session.hueShift)
+						: '',
 				milliseconds: getTaskSessionMilliseconds(session)
 			});
 		}

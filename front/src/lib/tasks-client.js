@@ -347,9 +347,9 @@ export async function updateTaskDaymapWeekdays(taskId, daymapWeekdays) {
 	return body?.task ?? null;
 }
 
-export async function updateTaskIntensity(taskId, intensity) {
+export async function updateTaskHueShift(taskId, hueShift) {
 	const body = await updateTask(taskId, {
-		intensity
+		hueShift
 	});
 
 	return body?.task ?? null;

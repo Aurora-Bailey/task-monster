@@ -28,7 +28,7 @@
 		updateTaskDaymapPin,
 		updateTaskDaySkip,
 		updateTaskDaymapWeekdays,
-		updateTaskIntensity,
+		updateTaskHueShift,
 		updateTaskInstanceNote,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -423,13 +423,13 @@
 		return updatedTask;
 	}
 
-	async function handleIntensityChange(taskId, intensity) {
+	async function handleHueShiftChange(taskId, hueShift) {
 		actionError = '';
 
 		try {
-			const updatedTask = await updateTaskIntensity(taskId, intensity);
+			const updatedTask = await updateTaskHueShift(taskId, hueShift);
 			replaceTask(taskId, {
-				intensity: updatedTask?.intensity
+				hueShift: updatedTask?.hueShift
 			});
 			return updatedTask;
 		} catch (error) {
@@ -555,14 +555,14 @@
 									showCancelButton={true}
 									showDoneButton={true}
 									showScheduleControls={true}
-									showIntensityControl={true}
+									showHueShiftControl={true}
 									showNextDueTiming={false}
 									lastDonePlacement="schedule"
 									busyAction={busyTasks[task.id] || null}
 									onInactivate={handleCancelActive}
 									onDone={handleDone}
 									onScheduleChange={handleScheduleChange}
-									onIntensityChange={handleIntensityChange}
+									onHueShiftChange={handleHueShiftChange}
 									onSaveInstanceNote={handleSaveInstanceNote}
 									onSaveNote={handleSaveNote}
 								/>
@@ -595,7 +595,7 @@
 								showSkipButton={true}
 								showActivateButton={true}
 								showScheduleControls={true}
-								showIntensityControl={true}
+								showHueShiftControl={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
 								busyAction={busyTasks[task.id] || null}
@@ -604,7 +604,7 @@
 								onSkipDay={handleDaySkipToggle}
 								onQueueToggle={handleQueueToggle}
 								onScheduleChange={handleScheduleChange}
-								onIntensityChange={handleIntensityChange}
+								onHueShiftChange={handleHueShiftChange}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}
@@ -633,7 +633,7 @@
 								showDaymapToggle={true}
 								showActivateButton={true}
 								showScheduleControls={true}
-								showIntensityControl={true}
+								showHueShiftControl={true}
 								showEditButton={true}
 								showNextDueTiming={false}
 								lastDonePlacement="schedule"
@@ -644,7 +644,7 @@
 								onEdit={handleEdit}
 								onArchive={handleArchive}
 								onScheduleChange={handleScheduleChange}
-								onIntensityChange={handleIntensityChange}
+								onHueShiftChange={handleHueShiftChange}
 								onSaveNote={handleSaveNote}
 							/>
 						{/each}

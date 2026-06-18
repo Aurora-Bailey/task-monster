@@ -21,7 +21,7 @@
 		loadInactiveTasks,
 		eraseDoneRun,
 		updateDoneRunTimes,
-		updateTaskIntensity,
+		updateTaskHueShift,
 		updateTaskNextDue,
 		updateTaskNote
 	} from '$lib/tasks-client';
@@ -260,13 +260,13 @@
 		return updatedTask;
 	}
 
-	async function handleIntensityChange(taskId, intensity) {
-		const updatedTask = await updateTaskIntensity(taskId, intensity);
+	async function handleHueShiftChange(taskId, hueShift) {
+		const updatedTask = await updateTaskHueShift(taskId, hueShift);
 		tasks = tasks.map((task) =>
 			task.taskId === taskId
 				? {
 						...task,
-						intensity: updatedTask.intensity
+						hueShift: updatedTask.hueShift
 					}
 				: task
 		);
@@ -414,11 +414,11 @@
 										effectiveDurationLabel={formatEffectiveDuration(task)}
 										completedAtLabel={formatCompletedAt(task.completedAt)}
 										busyAction={getBusyAction(task.id)}
-										showIntensityControl={true}
+										showHueShiftControl={true}
 										showEraseDoneButton={true}
 										onEraseDone={handleEraseDoneRun}
 										onSaveDoneRunTimes={handleSaveDoneRunTimes}
-										onIntensityChange={handleIntensityChange}
+										onHueShiftChange={handleHueShiftChange}
 										onSaveNote={handleSaveNote}
 										onSaveNextDue={handleSaveNextDue}
 									/>

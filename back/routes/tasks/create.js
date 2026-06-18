@@ -1,7 +1,7 @@
 const { ObjectId } = require('mongodb');
 
 const {
-	DEFAULT_TASK_INTENSITY,
+	DEFAULT_TASK_HUE_SHIFT,
 	TASK_COLOR_MAP,
 	TASK_MODE_VALUES,
 	TASK_TRACKING_TYPE_VALUES,
@@ -50,9 +50,9 @@ const createTaskSchema = {
 				type: ['string', 'null'],
 				maxLength: 2000
 			},
-			intensity: {
+			hueShift: {
 				type: 'integer',
-				minimum: 1,
+				minimum: 0,
 				maximum: 100
 			},
 			nextDueAt: {
@@ -95,9 +95,9 @@ async function createTaskRoute(app) {
 			const mode = request.body.mode;
 			const trackingType = request.body.trackingType || 'time';
 			const note = typeof request.body.note === 'string' ? request.body.note : null;
-			const intensity = Number.isInteger(request.body.intensity)
-				? request.body.intensity
-				: DEFAULT_TASK_INTENSITY;
+			const hueShift = Number.isInteger(request.body.hueShift)
+				? request.body.hueShift
+				: DEFAULT_TASK_HUE_SHIFT;
 			const nextDueAtInput = request.body.nextDueAt;
 			const daymapWeekdays = normalizeTaskWeekdays(request.body.daymapWeekdays);
 
@@ -172,7 +172,7 @@ async function createTaskRoute(app) {
 				lastCompletedTallyCount: null,
 				nextDueAt,
 				note,
-				intensity,
+				hueShift,
 				daymapLocked: false,
 				daymapWeekdays,
 				mappedToday: false,

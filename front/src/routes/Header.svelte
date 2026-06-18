@@ -16,7 +16,7 @@
 	import { onMount, tick } from 'svelte';
 
 	import { APP_REFRESH_EVENT, dispatchAppRefresh } from '$lib/app-events';
-	import { buildIntensitySplitFill, getIntensityCellColor } from '$lib/intensity-cells';
+	import { buildHueShiftSplitFill, getHueShiftColor } from '$lib/hue-shift-colors';
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
@@ -356,9 +356,9 @@
 
 			return {
 				active: true,
-				fill: buildIntensitySplitFill(uniqueTaskSessions),
+				fill: buildHueShiftSplitFill(uniqueTaskSessions),
 				glow: firstTaskSession
-					? getIntensityCellColor(firstTaskSession.color, firstTaskSession.intensity)
+					? getHueShiftColor(firstTaskSession.color, firstTaskSession.hueShift)
 					: '',
 				label: `${minuteLabel}: ${uniqueTaskNames.join(' + ')}${panicking ? ' + Panic' : ''}`,
 				panicking

@@ -10,7 +10,7 @@ const {
   buildPanicLogItemsForWindow,
   loadPanicRunsOverlappingWindow,
 } = require("../../lib/panic");
-const { normalizeTaskIntensity } = require("../../lib/tasks");
+const { normalizeTaskHueShift } = require("../../lib/tasks");
 
 const DEFAULT_DAY_COUNT = 10;
 const MAX_DAY_COUNT = 31;
@@ -46,7 +46,7 @@ function getFallbackTask(taskId) {
     name: "Unknown task",
     color: "#6f7d8b",
     colorKey: "unknown",
-    intensity: 50,
+    hueShift: 50,
   };
 }
 
@@ -90,7 +90,7 @@ const heatmapStatsSchema = {
                     "name",
                     "color",
                     "colorKey",
-                    "intensity",
+                    "hueShift",
                     "startedAt",
                     "endedAt",
                   ],
@@ -100,9 +100,9 @@ const heatmapStatsSchema = {
                     name: { type: "string" },
                     color: { type: "string" },
                     colorKey: { type: "string" },
-                    intensity: {
+                    hueShift: {
                       type: "integer",
-                      minimum: 1,
+                      minimum: 0,
                       maximum: 100,
                     },
                     startedAt: { type: "string" },
@@ -246,7 +246,7 @@ async function heatmapStatsRoute(app) {
               typeof task.colorKey === "string" && task.colorKey
                 ? task.colorKey
                 : "unknown",
-            intensity: normalizeTaskIntensity(task.intensity),
+            hueShift: normalizeTaskHueShift(task.hueShift),
           },
         ]),
       );
@@ -281,7 +281,7 @@ async function heatmapStatsRoute(app) {
             name: task.name,
             color: task.color,
             colorKey: task.colorKey,
-            intensity: task.intensity,
+            hueShift: task.hueShift,
             startedAt: effectiveStartedAt.toISOString(),
             endedAt: effectiveEndedAt.toISOString(),
           });

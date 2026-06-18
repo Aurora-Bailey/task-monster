@@ -9,6 +9,7 @@
 		formatTallyCount,
 		formatTallyProgress
 	} from '$lib/task-format';
+	import { getHueShiftColor, normalizeHueShift } from '$lib/hue-shift-colors';
 
 	const NOTE_SAVE_DEBOUNCE_MS = 1000;
 	const panicTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -56,14 +57,14 @@
 		onSaveInstanceNote = null,
 		onSaveNextDue = null,
 		onScheduleChange = null,
-		onIntensityChange = null,
+		onHueShiftChange = null,
 		showDaymapToggle = false,
 		showSkipButton = false,
 		showActivateButton = false,
 		showCancelButton = false,
 		showDoneButton = false,
 		showScheduleControls = false,
-		showIntensityControl = false,
+		showHueShiftControl = false,
 		showEditButton = false,
 		showArchiveButton = false,
 		showEraseDoneButton = false,
@@ -82,10 +83,11 @@
 		onSaveDoneRunTimes = null
 	} = $props();
 
-	let draftIntensity = $state(50);
-	let lastCommittedIntensity = $state(50);
-	let intensitySaveStatus = $state('idle');
-	let intensitySaveError = $state('');
+	let draftHueShift = $state(50);
+	let lastCommittedHueShift = $state(50);
+	let hasDraftHueShift = $state(false);
+	let hueShiftSaveStatus = $state('idle');
+	let hueShiftSaveError = $state('');
 
 	const isTallyTask = $derived(task.trackingType === 'tally');
 	const isInactiveCard = $derived(variant === 'inactive');
@@ -121,15 +123,21 @@
 		(variant === 'active' || isBoardActiveCard) && Boolean(editableTaskId && onSaveInstanceNote)
 	);
 	const canEditNextDue = $derived(showNextDueTiming && Boolean(editableTaskId && onSaveNextDue));
-	const canEditIntensity = $derived(
-		showIntensityControl && Boolean(editableTaskId && onIntensityChange)
+	const canEditHueShift = $derived(
+		showHueShiftControl && Boolean(editableTaskId && onHueShiftChange)
 	);
 	const canEditActiveStartedAt = $derived(variant === 'active' && Boolean(onSaveActiveStartedAt));
 	const canEditDoneRunTimes = $derived(variant === 'done' && Boolean(onSaveDoneRunTimes));
 	const showsNextDueTiming = $derived(
 		showNextDueTiming && (canEditNextDue || Boolean(task.nextDueAt))
 	);
-	const intensityControlValue = $derived(normalizeTaskIntensity(draftIntensity));
+	const hueShiftControlValue = $derived(normalizeTaskHueShift(draftHueShift));
+	const taskAccentColor = $derived(
+		getHueShiftColor(
+			task.color,
+			canEditHueShift && hasDraftHueShift ? hueShiftControlValue : task.hueShift
+		)
+	);
 	const showsTimingRow = $derived(showsTimingLastDone || showsNextDueTiming);
 	const showsInstanceNote = $derived(Boolean(task.instanceNote) || canEditInstanceNote);
 	const taskPanicLog = $derived(Array.isArray(task.taskPanicLog) ? task.taskPanicLog : []);
@@ -268,14 +276,8 @@
 		}
 	}
 
-	function normalizeTaskIntensity(value) {
-		const parsedIntensity = Number.parseInt(String(value), 10);
-
-		if (!Number.isInteger(parsedIntensity)) {
-			return 50;
-		}
-
-		return Math.min(100, Math.max(1, parsedIntensity));
+	function normalizeTaskHueShift(value) {
+		return Math.round(normalizeHueShift(value));
 	}
 
 	function padDateTimePart(value) {
@@ -443,47 +445,51 @@
 		onTally(task.id, delta);
 	}
 
-	function handleIntensityInput(event) {
-		draftIntensity = normalizeTaskIntensity(event.currentTarget.value);
+	function handleHueShiftInput(event) {
+		draftHueShift = normalizeTaskHueShift(event.currentTarget.value);
+		hasDraftHueShift = true;
 
-		if (intensitySaveStatus === 'error') {
-			intensitySaveStatus = 'idle';
-			intensitySaveError = '';
+		if (hueShiftSaveStatus === 'error') {
+			hueShiftSaveStatus = 'idle';
+			hueShiftSaveError = '';
 		}
 	}
 
-	async function commitIntensityChange(event) {
+	async function commitHueShiftChange(event) {
 		event?.stopPropagation();
 
-		if (!canEditIntensity || intensitySaveStatus === 'saving') {
+		if (!canEditHueShift || hueShiftSaveStatus === 'saving') {
 			return;
 		}
 
-		const nextIntensity = normalizeTaskIntensity(event?.currentTarget?.value ?? draftIntensity);
-		draftIntensity = nextIntensity;
+		const nextHueShift = normalizeTaskHueShift(event?.currentTarget?.value ?? draftHueShift);
+		draftHueShift = nextHueShift;
 
-		if (nextIntensity === lastCommittedIntensity) {
+		if (nextHueShift === lastCommittedHueShift) {
+			hasDraftHueShift = false;
 			return;
 		}
 
-		intensitySaveStatus = 'saving';
-		intensitySaveError = '';
+		hueShiftSaveStatus = 'saving';
+		hueShiftSaveError = '';
 
 		try {
-			const updatedTask = await onIntensityChange(editableTaskId, nextIntensity);
-			const committedIntensity = normalizeTaskIntensity(updatedTask?.intensity ?? nextIntensity);
+			const updatedTask = await onHueShiftChange(editableTaskId, nextHueShift);
+			const committedHueShift = normalizeTaskHueShift(updatedTask?.hueShift ?? nextHueShift);
 
-			lastCommittedIntensity = committedIntensity;
-			draftIntensity = committedIntensity;
-			intensitySaveStatus = 'saved';
+			lastCommittedHueShift = committedHueShift;
+			draftHueShift = committedHueShift;
+			hasDraftHueShift = false;
+			hueShiftSaveStatus = 'saved';
 		} catch (error) {
-			draftIntensity = lastCommittedIntensity;
-			intensitySaveStatus = 'error';
-			intensitySaveError = error.message;
+			draftHueShift = lastCommittedHueShift;
+			hasDraftHueShift = false;
+			hueShiftSaveStatus = 'error';
+			hueShiftSaveError = error.message;
 		}
 	}
 
-	function handleIntensityKeyup(event) {
+	function handleHueShiftKeyup(event) {
 		event.stopPropagation();
 
 		if (
@@ -498,7 +504,7 @@
 				'PageDown'
 			].includes(event.key)
 		) {
-			void commitIntensityChange(event);
+			void commitHueShiftChange(event);
 		}
 	}
 
@@ -979,16 +985,16 @@
 	});
 
 	$effect(() => {
-		const incomingIntensity = normalizeTaskIntensity(task.intensity);
+		const incomingHueShift = normalizeTaskHueShift(task.hueShift);
 
-		if (incomingIntensity === lastCommittedIntensity) {
+		if (incomingHueShift === lastCommittedHueShift) {
 			return;
 		}
 
-		lastCommittedIntensity = incomingIntensity;
+		lastCommittedHueShift = incomingHueShift;
 
-		if (intensitySaveStatus !== 'saving') {
-			draftIntensity = incomingIntensity;
+		if (hueShiftSaveStatus !== 'saving') {
+			draftHueShift = incomingHueShift;
 		}
 	});
 
@@ -1008,9 +1014,9 @@
 	class:is-compact={compact}
 	class:is-board-active={isBoardActiveCard}
 	class:is-dimmed-today={isDimmedForToday}
-	class:has-intensity-control={canEditIntensity}
+	class:has-hue-shift-control={canEditHueShift}
 	class:uses-card-click={usesInactiveCardClick}
-	style={`--task-accent: ${task.color};`}
+	style={`--task-accent: ${taskAccentColor};`}
 	role={usesInactiveCardClick ? 'button' : undefined}
 	tabindex={usesInactiveCardClick ? 0 : undefined}
 	aria-label={usesInactiveCardClick ? `${clickActionLabel} ${task.name}` : undefined}
@@ -1018,35 +1024,35 @@
 	onclick={usesInactiveCardClick ? handleInactiveActivate : undefined}
 	onkeydown={usesInactiveCardClick ? handleInactiveKeydown : undefined}
 >
-	{#if canEditIntensity}
+	{#if canEditHueShift}
 		<label
-			class="task-card__intensity-control task-card__interactive"
-			class:has-save-error={intensitySaveStatus === 'error'}
-			style={`--intensity-y: ${100 - intensityControlValue}%; --intensity-gold-mix: ${intensityControlValue}%; --intensity-glow-alpha: ${Math.min(0.72, 0.16 + intensityControlValue / 155).toFixed(2)};`}
-			title={`Intensity ${intensityControlValue}/100`}
+			class="task-card__hue-shift-control task-card__interactive"
+			class:has-save-error={hueShiftSaveStatus === 'error'}
+			style={`--hue-shift-y: ${100 - hueShiftControlValue}%;`}
+			title={`Hue Shift ${hueShiftControlValue}/100`}
 		>
-			<span class="visually-hidden">Intensity for {task.name}: {intensityControlValue}/100</span>
+			<span class="visually-hidden">Hue Shift for {task.name}: {hueShiftControlValue}/100</span>
 			<input
-				class="task-card__intensity-input"
+				class="task-card__hue-shift-input"
 				type="range"
-				min="1"
+				min="0"
 				max="100"
 				step="1"
-				value={draftIntensity}
-				aria-label={`Intensity for ${task.name}`}
-				aria-valuetext={`${intensityControlValue} out of 100`}
-				disabled={intensitySaveStatus === 'saving'}
+				value={draftHueShift}
+				aria-label={`Hue Shift for ${task.name}`}
+				aria-valuetext={`${hueShiftControlValue} out of 100`}
+				disabled={hueShiftSaveStatus === 'saving'}
 				onpointerdown={stopEventPropagation}
 				onclick={stopEventPropagation}
 				onkeydown={stopEventPropagation}
-				onkeyup={handleIntensityKeyup}
-				oninput={handleIntensityInput}
-				onchange={commitIntensityChange}
-				onblur={commitIntensityChange}
+				onkeyup={handleHueShiftKeyup}
+				oninput={handleHueShiftInput}
+				onchange={commitHueShiftChange}
+				onblur={commitHueShiftChange}
 			/>
-			<span class="task-card__intensity-star" aria-hidden="true"></span>
-			{#if intensitySaveStatus === 'error' && intensitySaveError}
-				<span class="visually-hidden" aria-live="polite">{intensitySaveError}</span>
+			<span class="task-card__hue-shift-thumb" aria-hidden="true"></span>
+			{#if hueShiftSaveStatus === 'error' && hueShiftSaveError}
+				<span class="visually-hidden" aria-live="polite">{hueShiftSaveError}</span>
 			{/if}
 		</label>
 	{/if}
@@ -1825,12 +1831,12 @@
 		overflow: hidden;
 	}
 
-	.task-card.has-intensity-control {
+	.task-card.has-hue-shift-control {
 		overflow: visible;
 		padding-left: 2.24rem;
 	}
 
-	.task-card__intensity-control {
+	.task-card__hue-shift-control {
 		position: absolute;
 		top: 0.32rem;
 		bottom: 0.66rem;
@@ -1840,18 +1846,18 @@
 		cursor: ns-resize;
 	}
 
-	.task-card.is-compact.has-intensity-control {
+	.task-card.is-compact.has-hue-shift-control {
 		padding-left: 1.9rem;
 	}
 
-	.task-card.is-compact .task-card__intensity-control {
+	.task-card.is-compact .task-card__hue-shift-control {
 		top: 0.24rem;
 		bottom: 0.52rem;
 		left: -0.08rem;
 		width: 1.2rem;
 	}
 
-	.task-card__intensity-input {
+	.task-card__hue-shift-input {
 		position: absolute;
 		inset: 0;
 		width: 100%;
@@ -1863,83 +1869,40 @@
 		direction: rtl;
 	}
 
-	.task-card__intensity-input:disabled {
+	.task-card__hue-shift-input:disabled {
 		cursor: wait;
 	}
 
-	.task-card__intensity-star {
-		--intensity-coin-color: color-mix(in oklch, #f6c84c var(--intensity-gold-mix), #c8ced8);
+	.task-card__hue-shift-thumb {
 		position: absolute;
-		top: var(--intensity-y);
+		top: var(--hue-shift-y);
 		left: 0;
 		display: block;
 		width: 1.48rem;
 		height: 1.48rem;
 		border-radius: 999px;
-		background:
-			radial-gradient(
-				circle at 34% 28%,
-				color-mix(in oklch, white 56%, var(--intensity-coin-color)) 0 18%,
-				transparent 40%
-			),
-			linear-gradient(
-				145deg,
-				color-mix(in oklch, white 24%, var(--intensity-coin-color)),
-				var(--intensity-coin-color) 54%,
-				color-mix(in oklch, #8f6500 32%, var(--intensity-coin-color))
-			);
-		box-shadow:
-			inset 0 1px 0 color-mix(in srgb, white 62%, transparent),
-			inset 0 -1px 1px color-mix(in srgb, #4f3600 22%, transparent),
-			0 0 0.24rem rgb(246 200 76 / var(--intensity-glow-alpha)),
-			0 0.1rem 0.18rem color-mix(in srgb, #8f6500 32%, transparent);
+		background: var(--color-theme-1);
+		border: 2px solid color-mix(in srgb, var(--color-theme-1) 74%, var(--surface-1));
+		box-shadow: 0 0.1rem 0.18rem color-mix(in srgb, var(--color-theme-1) 35%, transparent);
 		pointer-events: none;
 		transform: translateY(-50%);
 		transition:
-			background-color 0.16s ease,
 			box-shadow 0.16s ease,
 			opacity 0.16s ease;
 	}
 
-	.task-card__intensity-star::after {
-		content: '';
-		position: absolute;
-		inset: 0.31rem;
-		background: color-mix(in oklch, var(--surface-1) 74%, white 26%);
-		clip-path: polygon(
-			50% 0,
-			61% 34%,
-			98% 34%,
-			68% 55%,
-			79% 91%,
-			50% 69%,
-			21% 91%,
-			32% 55%,
-			2% 34%,
-			39% 34%
-		);
-		filter: drop-shadow(0 1px 0 color-mix(in srgb, #4f3600 24%, transparent));
-	}
-
-	.task-card.is-compact .task-card__intensity-star {
+	.task-card.is-compact .task-card__hue-shift-thumb {
 		width: 1.18rem;
 		height: 1.18rem;
 	}
 
-	.task-card.is-compact .task-card__intensity-star::after {
-		inset: 0.25rem;
-	}
-
-	.task-card__intensity-input:focus-visible + .task-card__intensity-star {
+	.task-card__hue-shift-input:focus-visible + .task-card__hue-shift-thumb {
 		box-shadow:
-			inset 0 1px 0 color-mix(in srgb, white 62%, transparent),
-			inset 0 -1px 1px color-mix(in srgb, #4f3600 22%, transparent),
 			0 0 0 3px color-mix(in srgb, var(--focus-ring) 82%, transparent),
-			0 0 0.26rem rgb(246 200 76 / var(--intensity-glow-alpha)),
-			0 0.1rem 0.18rem color-mix(in srgb, #8f6500 32%, transparent);
+			0 0.1rem 0.18rem color-mix(in srgb, var(--color-theme-1) 35%, transparent);
 	}
 
-	.task-card__intensity-input:disabled + .task-card__intensity-star {
+	.task-card__hue-shift-input:disabled + .task-card__hue-shift-thumb {
 		opacity: 0.62;
 	}
 

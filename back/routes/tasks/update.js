@@ -8,7 +8,7 @@ const {
 	TASK_WEEKDAY_VALUES,
 	areTaskWeekdaysEqual,
 	findOwnedTask,
-	normalizeTaskIntensity,
+	normalizeTaskHueShift,
 	normalizeTaskWeekdays,
 	serializedTaskJsonSchema,
 	serializeTask
@@ -61,9 +61,9 @@ const updateTaskSchema = {
 				type: ['string', 'null'],
 				maxLength: 2000
 			},
-			intensity: {
+			hueShift: {
 				type: 'integer',
-				minimum: 1,
+				minimum: 0,
 				maximum: 100
 			},
 			nextDueAt: {
@@ -147,12 +147,12 @@ async function updateTaskRoute(app) {
 			const updatedAt = new Date();
 			const nextTask = {
 				...task,
-				intensity: normalizeTaskIntensity(task.intensity)
+				hueShift: normalizeTaskHueShift(task.hueShift)
 			};
 			const providedTallyUnit = Object.hasOwn(request.body, 'tallyUnit');
 			const providedTallyTarget = Object.hasOwn(request.body, 'tallyTarget');
 			const providedActiveTallyCount = Object.hasOwn(request.body, 'activeTallyCount');
-			const providedIntensity = Object.hasOwn(request.body, 'intensity');
+			const providedHueShift = Object.hasOwn(request.body, 'hueShift');
 			const providedNextDueAt = Object.hasOwn(request.body, 'nextDueAt');
 			const providedDaymapWeekdays = Object.hasOwn(request.body, 'daymapWeekdays');
 
@@ -203,15 +203,15 @@ async function updateTaskRoute(app) {
 				});
 			}
 
-			if (providedIntensity) {
-				const nextIntensity = normalizeTaskIntensity(request.body.intensity);
+			if (providedHueShift) {
+				const nextHueShift = normalizeTaskHueShift(request.body.hueShift);
 
-				if (nextIntensity !== normalizeTaskIntensity(task.intensity)) {
-					nextTask.intensity = nextIntensity;
+				if (nextHueShift !== normalizeTaskHueShift(task.hueShift)) {
+					nextTask.hueShift = nextHueShift;
 					changes.push({
-						field: 'intensity',
-						label: 'Changed: intensity',
-						value: String(nextIntensity)
+						field: 'hue shift',
+						label: 'Changed: hue shift',
+						value: String(nextHueShift)
 					});
 				}
 			}
@@ -396,7 +396,7 @@ async function updateTaskRoute(app) {
 				tallyTarget: nextTask.tallyTarget,
 				activeTallyCount: nextTask.activeTallyCount,
 				note: nextTask.note ?? null,
-				intensity: normalizeTaskIntensity(nextTask.intensity),
+				hueShift: normalizeTaskHueShift(nextTask.hueShift),
 				nextDueAt: nextTask.nextDueAt ?? null,
 				daymapLocked: nextTask.daymapLocked === true,
 				daymapWeekdays: normalizeTaskWeekdays(nextTask.daymapWeekdays),

@@ -6,6 +6,7 @@ const { loadConfig } = require('./lib/config');
 const { loadRootEnv } = require('./lib/load-env');
 const { connectToMongo, ensureDatabaseIndexes } = require('./lib/mongo');
 const { registerRoutes } = require('./lib/register-routes');
+const { migrateTaskHueShift } = require('./lib/task-migrations');
 
 loadRootEnv();
 
@@ -57,6 +58,11 @@ async function buildServer() {
 		await mongo.client.close();
 	});
 
+	const hueShiftMigration = await migrateTaskHueShift(mongo.db);
+	app.log.info(
+		hueShiftMigration,
+		'Task hue shift migration completed before route registration'
+	);
 	await ensureDatabaseIndexes(mongo.db);
 	app.addHook('preHandler', async (request, reply) => {
 		return authenticateRequest(app, request, reply);
