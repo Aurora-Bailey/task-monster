@@ -1,5 +1,5 @@
 <script>
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -146,11 +146,15 @@
 	}
 
 	function handleSearchChange(nextSearchQuery) {
-		replaceState(
+		void goto(
 			buildTasksHref({
 				search: nextSearchQuery
 			}),
-			{}
+			{
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			}
 		);
 	}
 
