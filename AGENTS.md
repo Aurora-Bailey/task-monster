@@ -403,7 +403,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - `/done`
   - completed-task history as a newest-to-oldest infinite feed
   - loaded done cards are grouped under chronological day dividers in the feed
-  - done cards expose autosaving start/end datetime editors and an erase button for the completed run
+  - done cards expose start/end datetime editors that save when the field loses focus, plus an erase button for the completed run
   - done card titles link to the source task's exact `/tasks?task=<taskId>` filter
 - `/stats`
   - real minute-map stats from backend heatmap batches
@@ -473,7 +473,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - tally increment and decrement controls
   - cancel control that unstages an active task back to Daymap without logging an inactive run
   - a compact inline start datetime editor on each active task card
-  - start defaults to the activation time and autosaves to the active task run when changed
+  - start defaults to the activation time and saves to the active task run when the field loses focus
   - Done completes active tasks at the current time; end-time corrections live on `/done`
 - Header supports left and right arrow-key navigation across the main board pages when focus is not inside an input
 - The top nav exposes an icon-only `Panic` control plus a theme-colored account switcher

@@ -1616,7 +1616,7 @@
 								onclick={stopEventPropagation}
 								onkeydown={stopEventPropagation}
 								oninput={handleActiveStartedAtInput}
-								onchange={persistActiveStartedAt}
+								onblur={persistActiveStartedAt}
 							/>
 						</label>
 					{/if}
@@ -1672,7 +1672,7 @@
 							onclick={stopEventPropagation}
 							onkeydown={stopEventPropagation}
 							oninput={handleDoneStartedAtInput}
-							onchange={persistDoneRunTimes}
+							onblur={persistDoneRunTimes}
 						/>
 					</label>
 				{/if}
@@ -1703,7 +1703,7 @@
 							onclick={stopEventPropagation}
 							onkeydown={stopEventPropagation}
 							oninput={handleDoneEndedAtInput}
-							onchange={persistDoneRunTimes}
+							onblur={persistDoneRunTimes}
 						/>
 					</label>
 				{/if}
