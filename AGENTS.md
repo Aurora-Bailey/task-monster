@@ -391,6 +391,9 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - `/tasks`
   - combined task board with a Day Map section above an Inactive section
   - one shared search/sort control filters both sections, but tasks stay in their section
+  - `/tasks?task=<taskId>` selects exactly one owned task by id
+  - `/tasks?search=<query>` restores ordinary board text search
+  - exact links to archived or otherwise absent tasks resolve to an unavailable explanation
 - `/inactive`
   - redirects to `/tasks`
 - `/daymap`
@@ -401,11 +404,12 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - completed-task history as a newest-to-oldest infinite feed
   - loaded done cards are grouped under chronological day dividers in the feed
   - done cards expose autosaving start/end datetime editors and an erase button for the completed run
+  - done card titles link to the source task's exact `/tasks?task=<taskId>` filter
 - `/stats`
   - real minute-map stats from backend heatmap batches
 - `/add`
   - task creation and inactive-task editing form
-  - successful task creation navigates directly to `/tasks`; failed saves preserve the entered form
+  - successful task creation navigates to `/tasks?task=<createdTaskId>`; failed saves preserve the entered form
   - task colors are eight icon-only category controls on one row with the selected category description below
   - task notes are always visible on the form; there is no notes checkbox gate
   - Task Type, tracking mode, Hue Shift, Auto Daymap weekdays, and tally configuration live in a collapsed `Task settings` disclosure below notes
@@ -428,6 +432,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - the category legend stays on the base category colors
   - panic overlap is marked with a small solid red dot in the top-right of each affected cell
 - The task activity row under each `/stats` day grid underlines each task in its task color and shows its day-clipped active duration as a compact minute label
+  - each task name/duration entry links to that task's exact `/tasks?task=<taskId>` filter
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
 - `/tasks` updates weekday schedule toggles in place instead of reloading the whole board; the card is moved between Day Map and Inactive only when today's local weekday membership changes
 - Cards in Daymap/Inactive fade to 50% opacity once the task has a run started during the current local day or has been skipped for the current local day
@@ -453,6 +458,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - the shared `/tasks` sort menu includes `Queue`, which floats queued daymap tasks to the top in queue-number order
 - Task board pages now expose a shared right-side board control strip
   - search opens from a search icon, filters the loaded task list, and can be cleared with the inline `x`
+  - `/tasks` keeps exact and text filters in the URL; editing an exact filter converts it to ordinary text search
   - sort opens from a sort icon into a dropdown menu with `Date`, `Color`, `A-Z`, `Next`, and `Last`
   - `/tasks` also exposes `Queue`
   - `Next` sorts tasks with a `nextDueAt` first by soonest due time

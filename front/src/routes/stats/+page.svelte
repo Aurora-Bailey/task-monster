@@ -5,6 +5,7 @@
 	import { buildHueShiftSplitFill, getHueShiftColor } from '$lib/hue-shift-colors';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
+	import { buildTasksHref } from '$lib/routing';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { loadStatsHeatmap } from '$lib/stats-client';
 	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
@@ -233,6 +234,7 @@
 
 			taskActivity.set(key, {
 				key,
+				taskId: typeof session.taskId === 'string' ? session.taskId : '',
 				name,
 				color:
 					typeof session.color === 'string'
@@ -243,6 +245,12 @@
 		}
 
 		return [...taskActivity.values()];
+	}
+
+	function getTaskHref(taskId) {
+		return buildTasksHref({
+			taskId
+		});
 	}
 
 	function formatTaskActivityDuration(milliseconds) {
@@ -474,13 +482,25 @@
 									{#if taskIndex > 0}
 										<span class="day-card__activity-dot" aria-hidden="true"></span>
 									{/if}
-									<span
-										class="day-card__activity-task"
-										style={task.color ? `--task-activity-color: ${task.color};` : ''}
-									>
-										<span>{task.name}</span>
-										<small>{formatTaskActivityDuration(task.milliseconds)}</small>
-									</span>
+									{#if task.taskId}
+										<a
+											class="day-card__activity-task"
+											href={getTaskHref(task.taskId)}
+											style={task.color ? `--task-activity-color: ${task.color};` : ''}
+											aria-label={`View ${task.name} on Tasks, ${formatTaskActivityDuration(task.milliseconds)}`}
+										>
+											<span>{task.name}</span>
+											<small>{formatTaskActivityDuration(task.milliseconds)}</small>
+										</a>
+									{:else}
+										<span
+											class="day-card__activity-task"
+											style={task.color ? `--task-activity-color: ${task.color};` : ''}
+										>
+											<span>{task.name}</span>
+											<small>{formatTaskActivityDuration(task.milliseconds)}</small>
+										</span>
+									{/if}
 								{/each}
 							</p>
 						{/if}
@@ -667,6 +687,8 @@
 		gap: 0.18rem;
 		min-width: 0;
 		padding-bottom: 0.32rem;
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.day-card__activity-task::after {
@@ -678,6 +700,16 @@
 		border-radius: 999px;
 		background: var(--task-activity-color, currentColor);
 		content: '';
+	}
+
+	a.day-card__activity-task:hover {
+		color: var(--color-heading);
+	}
+
+	a.day-card__activity-task:focus-visible {
+		border-radius: 0.2rem;
+		outline: 3px solid color-mix(in srgb, var(--task-activity-color) 36%, transparent);
+		outline-offset: 3px;
 	}
 
 	.day-card__activity-task small {

@@ -1,10 +1,12 @@
 <script>
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
+	import { buildTasksHref } from '$lib/routing';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
 	import {
@@ -23,6 +25,7 @@
 		loadActiveTasks,
 		loadDaymapTasks,
 		loadInactiveTasks,
+		loadTask,
 		queueTask,
 		unqueueTask,
 		updateTaskDaymapPin,
@@ -41,7 +44,26 @@
 	let actionError = $state('');
 	let busyTasks = $state({});
 	let sortMode = $state(DEFAULT_TASK_SORT_MODE);
-	let searchQuery = $state('');
+	let resolvedExactTask = $state(null);
+	let resolvedExactTaskId = $state('');
+	let resolvingExactTaskId = $state('');
+	let exactFilterStatus = $state('idle');
+	let exactFilterError = $state('');
+	let exactResolveRevision = 0;
+	const exactTaskId = $derived(page.url.searchParams.get('task')?.trim() || '');
+	const textSearchQuery = $derived(exactTaskId ? '' : page.url.searchParams.get('search') || '');
+	const allBoardTasks = $derived([...activeTasks, ...daymapTasks, ...inactiveTasks]);
+	const exactBoardTask = $derived(
+		exactTaskId ? (allBoardTasks.find((task) => task.id === exactTaskId) ?? null) : null
+	);
+	const taskFilterSearchValue = $derived(
+		exactTaskId
+			? exactBoardTask?.name ||
+					(resolvedExactTaskId === exactTaskId ? resolvedExactTask?.name : '') ||
+					exactTaskId
+			: textSearchQuery
+	);
+	const isExactTaskFilter = $derived(Boolean(exactTaskId));
 
 	function setBusy(taskId, action) {
 		busyTasks = {
@@ -75,6 +97,61 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	async function resolveExactTask(taskId) {
+		const revision = ++exactResolveRevision;
+		resolvingExactTaskId = taskId;
+		exactFilterStatus = 'loading';
+		exactFilterError = '';
+
+		try {
+			const task = await loadTask(taskId);
+
+			if (revision !== exactResolveRevision || taskId !== exactTaskId) {
+				return;
+			}
+
+			resolvedExactTask = task;
+			resolvedExactTaskId = taskId;
+			exactFilterStatus = 'unavailable';
+		} catch (error) {
+			if (revision !== exactResolveRevision || taskId !== exactTaskId) {
+				return;
+			}
+
+			resolvedExactTask = null;
+			resolvedExactTaskId = taskId;
+
+			if (error?.status === 400 || error?.status === 404) {
+				exactFilterStatus = 'not-found';
+				exactFilterError = '';
+			} else {
+				exactFilterStatus = 'error';
+				exactFilterError = error instanceof Error ? error.message : 'Unable to load that task.';
+			}
+		} finally {
+			if (revision === exactResolveRevision && resolvingExactTaskId === taskId) {
+				resolvingExactTaskId = '';
+			}
+		}
+	}
+
+	function filterBoardTasks(tasks) {
+		if (exactTaskId) {
+			return tasks.filter((task) => task.id === exactTaskId);
+		}
+
+		return filterTasks(tasks, textSearchQuery);
+	}
+
+	function handleSearchChange(nextSearchQuery) {
+		replaceState(
+			buildTasksHref({
+				search: nextSearchQuery
+			}),
+			{}
+		);
 	}
 
 	function replaceTask(taskId, updatedTask) {
@@ -438,6 +515,55 @@
 		}
 	}
 
+	$effect(() => {
+		const taskId = exactTaskId;
+		const boardTask = exactBoardTask;
+
+		if (!taskId) {
+			exactResolveRevision += 1;
+			resolvedExactTask = null;
+			resolvedExactTaskId = '';
+			resolvingExactTaskId = '';
+			exactFilterStatus = 'idle';
+			exactFilterError = '';
+			return;
+		}
+
+		if (isLoading) {
+			exactFilterStatus = 'loading';
+			return;
+		}
+
+		if (loadError) {
+			exactFilterStatus = 'error';
+			exactFilterError = loadError;
+			return;
+		}
+
+		if (boardTask) {
+			exactResolveRevision += 1;
+			resolvedExactTask = boardTask;
+			resolvedExactTaskId = taskId;
+			resolvingExactTaskId = '';
+			exactFilterStatus = 'available';
+			exactFilterError = '';
+			return;
+		}
+
+		if (resolvingExactTaskId === taskId) {
+			return;
+		}
+
+		if (
+			resolvedExactTaskId === taskId &&
+			['unavailable', 'not-found', 'error'].includes(exactFilterStatus)
+		) {
+			return;
+		}
+
+		void resolveExactTask(taskId);
+	});
+
 	onMount(() => {
 		sortMode = loadStoredTaskSort('tasks', DAYMAP_TASK_SORT_OPTIONS);
 		void loadTasks();
@@ -462,13 +588,13 @@
 	});
 
 	const sortedActiveTasks = $derived(
-		sortTasks(filterTasks(activeTasks, searchQuery), { mode: sortMode, variant: 'active' })
+		sortTasks(filterBoardTasks(activeTasks), { mode: sortMode, variant: 'active' })
 	);
 	const sortedDaymapTasks = $derived(
-		sortTasks(filterTasks(daymapTasks, searchQuery), { mode: sortMode, variant: 'daymap' })
+		sortTasks(filterBoardTasks(daymapTasks), { mode: sortMode, variant: 'daymap' })
 	);
 	const sortedInactiveTasks = $derived(
-		sortTasks(filterTasks(inactiveTasks, searchQuery), { mode: sortMode, variant: 'inactive' })
+		sortTasks(filterBoardTasks(inactiveTasks), { mode: sortMode, variant: 'inactive' })
 	);
 	const hasAnyTasks = $derived(activeTasks.length + daymapTasks.length + inactiveTasks.length > 0);
 	const hasAnyMatches = $derived(
@@ -513,15 +639,34 @@
 						sortMode = nextSortMode;
 						storeTaskSort('tasks', nextSortMode, DAYMAP_TASK_SORT_OPTIONS);
 					}}
-					searchValue={searchQuery}
+					searchValue={taskFilterSearchValue}
 					searchPlaceholder="Search board"
-					onSearchChange={(nextSearchQuery) => {
-						searchQuery = nextSearchQuery;
-					}}
+					onSearchChange={handleSearchChange}
 				/>
 			</div>
 
-			{#if !hasAnyTasks}
+			{#if isExactTaskFilter && !hasAnyMatches}
+				<div class="message-card">
+					{#if exactFilterStatus === 'loading' || exactFilterStatus === 'idle'}
+						<strong>Finding task</strong>
+						<p>Checking where this task lives on the board.</p>
+					{:else if exactFilterStatus === 'unavailable'}
+						<strong>Task unavailable on board</strong>
+						<p>
+							{resolvedExactTask?.name
+								? `${resolvedExactTask.name} is archived or otherwise unavailable on Tasks.`
+								: 'This task is archived or otherwise unavailable on Tasks.'}
+							Clear the search to return to the full board.
+						</p>
+					{:else if exactFilterStatus === 'not-found'}
+						<strong>Task not found</strong>
+						<p>No task exists for this link. Clear the search to return to the full board.</p>
+					{:else}
+						<strong>Could not load linked task</strong>
+						<p>{exactFilterError || 'Unable to resolve this task right now.'}</p>
+					{/if}
+				</div>
+			{:else if !hasAnyTasks}
 				<p class="machine-inscription">
 					<span>No task backlog installed. <a href={resolve('/add')}>Add the first task</a>.</span>
 				</p>
@@ -532,7 +677,7 @@
 				</div>
 			{/if}
 
-			{#if activeTasks.length > 0}
+			{#if (isExactTaskFilter && sortedActiveTasks.length > 0) || (!isExactTaskFilter && activeTasks.length > 0)}
 				<section class="task-section task-section-active" aria-labelledby="tasks-active-heading">
 					<div class="section-divider section-divider--primary">
 						<span></span>
@@ -572,85 +717,91 @@
 				</section>
 			{/if}
 
-			<section class="task-section" aria-labelledby="tasks-daymap-heading">
-				<div class="section-divider">
-					<span></span>
-					<h2 id="tasks-daymap-heading">Day Map</h2>
-					<span></span>
-				</div>
+			{#if !isExactTaskFilter || sortedDaymapTasks.length > 0}
+				<section class="task-section" aria-labelledby="tasks-daymap-heading">
+					<div class="section-divider">
+						<span></span>
+						<h2 id="tasks-daymap-heading">Day Map</h2>
+						<span></span>
+					</div>
 
-				{#if sortedDaymapTasks.length === 0}
-					<div class="section-empty">
-						<p>{searchQuery ? 'No daymap matches.' : 'No tasks on the daymap yet.'}</p>
-					</div>
-				{:else}
-					<div class="task-grid">
-						{#each sortedDaymapTasks as task}
-							<TaskCard
-								{task}
-								variant="daymap"
-								editableTaskId={task.id}
-								compact={true}
-								showDaymapToggle={true}
-								showSkipButton={true}
-								showActivateButton={true}
-								showScheduleControls={true}
-								showHueShiftControl={true}
-								showNextDueTiming={false}
-								lastDonePlacement="schedule"
-								busyAction={busyTasks[task.id] || null}
-								onDaymapToggle={handleDaymapPinToggle}
-								onActivate={() => handleActivate(task.id)}
-								onSkipDay={handleDaySkipToggle}
-								onQueueToggle={handleQueueToggle}
-								onScheduleChange={handleScheduleChange}
-								onHueShiftChange={handleHueShiftChange}
-								onSaveNote={handleSaveNote}
-							/>
-						{/each}
-					</div>
-				{/if}
-			</section>
+					{#if sortedDaymapTasks.length === 0}
+						<div class="section-empty">
+							<p>{textSearchQuery ? 'No daymap matches.' : 'No tasks on the daymap yet.'}</p>
+						</div>
+					{:else}
+						<div class="task-grid">
+							{#each sortedDaymapTasks as task}
+								<TaskCard
+									{task}
+									variant="daymap"
+									editableTaskId={task.id}
+									compact={true}
+									showDaymapToggle={true}
+									showSkipButton={true}
+									showActivateButton={true}
+									showScheduleControls={true}
+									showHueShiftControl={true}
+									showNextDueTiming={false}
+									lastDonePlacement="schedule"
+									busyAction={busyTasks[task.id] || null}
+									onDaymapToggle={handleDaymapPinToggle}
+									onActivate={() => handleActivate(task.id)}
+									onSkipDay={handleDaySkipToggle}
+									onQueueToggle={handleQueueToggle}
+									onScheduleChange={handleScheduleChange}
+									onHueShiftChange={handleHueShiftChange}
+									onSaveNote={handleSaveNote}
+								/>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
 
-			<section class="task-section" aria-labelledby="tasks-inactive-heading">
-				<div class="section-divider">
-					<span></span>
-					<h2 id="tasks-inactive-heading">Inactive</h2>
-					<span></span>
-				</div>
+			{#if !isExactTaskFilter || sortedInactiveTasks.length > 0}
+				<section class="task-section" aria-labelledby="tasks-inactive-heading">
+					<div class="section-divider">
+						<span></span>
+						<h2 id="tasks-inactive-heading">Inactive</h2>
+						<span></span>
+					</div>
 
-				{#if sortedInactiveTasks.length === 0}
-					<div class="section-empty">
-						<p>{searchQuery ? 'No inactive matches.' : 'No inactive tasks waiting in reserve.'}</p>
-					</div>
-				{:else}
-					<div class="task-grid">
-						{#each sortedInactiveTasks as task}
-							<TaskCard
-								{task}
-								editableTaskId={task.id}
-								compact={true}
-								showDaymapToggle={true}
-								showActivateButton={true}
-								showScheduleControls={true}
-								showHueShiftControl={true}
-								showEditButton={true}
-								showNextDueTiming={false}
-								lastDonePlacement="schedule"
-								busyAction={busyTasks[task.id] || null}
-								showArchiveButton={true}
-								onDaymapToggle={handleDaymapPinToggle}
-								onActivate={() => handleActivate(task.id)}
-								onEdit={handleEdit}
-								onArchive={handleArchive}
-								onScheduleChange={handleScheduleChange}
-								onHueShiftChange={handleHueShiftChange}
-								onSaveNote={handleSaveNote}
-							/>
-						{/each}
-					</div>
-				{/if}
-			</section>
+					{#if sortedInactiveTasks.length === 0}
+						<div class="section-empty">
+							<p>
+								{textSearchQuery ? 'No inactive matches.' : 'No inactive tasks waiting in reserve.'}
+							</p>
+						</div>
+					{:else}
+						<div class="task-grid">
+							{#each sortedInactiveTasks as task}
+								<TaskCard
+									{task}
+									editableTaskId={task.id}
+									compact={true}
+									showDaymapToggle={true}
+									showActivateButton={true}
+									showScheduleControls={true}
+									showHueShiftControl={true}
+									showEditButton={true}
+									showNextDueTiming={false}
+									lastDonePlacement="schedule"
+									busyAction={busyTasks[task.id] || null}
+									showArchiveButton={true}
+									onDaymapToggle={handleDaymapPinToggle}
+									onActivate={() => handleActivate(task.id)}
+									onEdit={handleEdit}
+									onArchive={handleArchive}
+									onScheduleChange={handleScheduleChange}
+									onHueShiftChange={handleHueShiftChange}
+									onSaveNote={handleSaveNote}
+								/>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
 		</PageContentReveal>
 	{/if}
 </section>

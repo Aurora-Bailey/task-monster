@@ -177,7 +177,9 @@ export async function loadTask(taskId) {
 	const response = await authorizedRequest(`/tasks/${taskId}`);
 
 	if (!response.ok) {
-		throw new Error(await readApiError(response, 'Unable to load the task.'));
+		const error = new Error(await readApiError(response, 'Unable to load the task.'));
+		error.status = response.status;
+		throw error;
 	}
 
 	const body = await readApiBody(response);

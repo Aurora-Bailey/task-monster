@@ -16,8 +16,9 @@
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
-	import { readApiError } from '$lib/api';
+	import { readApiBody, readApiError } from '$lib/api';
 	import { getHueShiftColor, getHueShiftOffset, normalizeHueShift } from '$lib/hue-shift-colors';
+	import { buildTasksHref } from '$lib/routing';
 	import { authorizedRequest } from '$lib/session';
 	import { loadTask, updateTask } from '$lib/tasks-client';
 
@@ -292,6 +293,8 @@
 		isSubmitting = true;
 
 		try {
+			let destination = buildTasksHref();
+
 			if (isEditMode) {
 				await updateTask(editTaskId, buildTaskChanges(nextFormState));
 			} else {
@@ -303,9 +306,18 @@
 				if (!response.ok) {
 					throw new Error(await readApiError(response, 'Unable to save the task.'));
 				}
+
+				const body = await readApiBody(response);
+				const createdTaskId = typeof body?.task?.id === 'string' ? body.task.id : '';
+
+				if (createdTaskId) {
+					destination = buildTasksHref({
+						taskId: createdTaskId
+					});
+				}
 			}
 
-			await goto(resolve('/tasks'));
+			await goto(destination);
 		} catch (error) {
 			errorMessage =
 				error instanceof Error

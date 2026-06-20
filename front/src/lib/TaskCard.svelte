@@ -50,6 +50,7 @@
 		doneDurationLabel = '',
 		doneTallyCount = null,
 		completedAtLabel = '',
+		titleHref = null,
 		showNextDueTiming = true,
 		lastDonePlacement = 'timing',
 		busyAction = null,
@@ -1060,7 +1061,15 @@
 	<div class="task-card__header">
 		<div class="task-card__header-main">
 			<div class="task-card__title-block">
-				<h2>{task.name}</h2>
+				<h2>
+					{#if titleHref}
+						<a href={titleHref} aria-label={`View ${task.name} on Tasks`}>
+							{task.name}
+						</a>
+					{:else}
+						{task.name}
+					{/if}
+				</h2>
 
 				{#if visibleTitleChips.length > 0}
 					<div class="task-card__title-chips">
@@ -2293,6 +2302,23 @@
 		font-weight: 700;
 		letter-spacing: -0.02em;
 		color: var(--color-heading);
+	}
+
+	h2 a {
+		color: inherit;
+		text-decoration-color: color-mix(in srgb, var(--task-accent) 70%, transparent);
+		text-decoration-thickness: 0.12em;
+		text-underline-offset: 0.16em;
+	}
+
+	h2 a:hover {
+		text-decoration-line: underline;
+	}
+
+	h2 a:focus-visible {
+		border-radius: 0.18em;
+		outline: 3px solid color-mix(in srgb, var(--task-accent) 36%, transparent);
+		outline-offset: 3px;
 	}
 
 	.task-card.is-compact h2 {

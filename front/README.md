@@ -38,6 +38,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - `/tasks`
   - combined task board with Day Map above Inactive
   - one shared search/sort control filters both sections without moving tasks between sections
+  - `/tasks?task=<taskId>` selects one exact task; `/tasks?search=<query>` restores ordinary text search
 - `/inactive`
   - redirects to `/tasks`
 - `/daymap`
@@ -46,10 +47,11 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - current active tasks
 - `/done`
   - newest-to-oldest completed-task feed with infinite scroll
+  - task titles deep-link to the exact source-task filter on `/tasks`
 - `/stats`
   - real minute-map heatmap derived from backend task-run data
 - `/add`
-  - compact task creation and editing form that navigates to `/tasks` after a successful save
+  - compact task creation and editing form; newly created tasks navigate to their exact `/tasks?task=<taskId>` filter
   - eight icon-only color categories remain on one row
   - type, tracking, Hue Shift, scheduling, and tally fields live in a collapsed Task Settings panel
   - `/add?edit=<taskId>` reloads an owned task and submits only changed fields
@@ -127,6 +129,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - unqueued tasks stay below them
 - Task board pages share a right-side board control strip
   - search opens from a search icon, filters the loaded tasks, and clears/closes from the inline `x`
+  - `/tasks` keeps exact and text filters in the URL so links, refresh, and browser navigation preserve them
   - sort opens from a sort icon into a dropdown with `Date`, `Color`, `A-Z`, `Next`, and `Last`
   - `Next` sorts by the optional `nextDueAt` timestamp, with undated tasks below dated ones
   - `Last` sorts by the most recent completed time
@@ -145,7 +148,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - backend startup migrates legacy stored `intensity` values to `hueShift`, defaults invalid or missing values to `50`, and removes the old field
   - task colors include Anima/Pink for soul-healing and divine-feminine activities
   - all eight color categories render as one icon-only row with accessible labels and a selected-category helper
-  - successful saves navigate directly to `/tasks`; validation or API failures preserve the entered form
+  - successful creates navigate to the new task's exact filter; successful edits return to `/tasks`; validation or API failures preserve the entered form
   - edit mode uses `GET /tasks/:taskId`, labels the page and button Update, keeps changes local, and patches only changed fields
   - submitting an unchanged edit performs no update request and returns to `/tasks`
 - Active tasks support:
@@ -156,6 +159,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - effective runtime for time tasks
   - tally increment/decrement for tally tasks
 - The done page loads the 10 freshest completed runs first and uses an intersection observer to request older runs
+  - each task title links to the source task's exact filter on `/tasks`
 - The stats page loads 10 local days at a time from `GET /stats/heatmap`
   - the color legend includes Anima/Pink after Becoming/Violet
   - each day renders a 60 x 24 minute grid
@@ -165,6 +169,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - the header current-hour trace uses the same shifted color and split-fill logic
   - panic overlap is marked with a small red dot
   - each grid is followed by a muted dot-separated list of distinct task names worked that day
+  - each task name/duration entry links to that task's exact filter on `/tasks`
   - scrolling near the bottom requests older day batches
 - Panic mode is controlled from the top nav, not from the active page itself
 - The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides copyable setup blocks for iPhone and Apple Watch stop/next/start shortcuts, including displaying the response `message` field

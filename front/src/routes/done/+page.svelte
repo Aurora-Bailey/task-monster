@@ -4,6 +4,7 @@
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
+	import { buildTasksHref } from '$lib/routing';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { formatElapsedDuration, formatTallyCount } from '$lib/task-format';
 	import TaskSortBar from '$lib/TaskSortBar.svelte';
@@ -56,6 +57,12 @@
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
+	}
+
+	function getTaskHref(taskId) {
+		return buildTasksHref({
+			taskId
+		});
 	}
 
 	function formatDoneMeasure(task) {
@@ -408,6 +415,7 @@
 										{task}
 										variant="done"
 										editableTaskId={task.taskId}
+										titleHref={getTaskHref(task.taskId)}
 										doneDurationLabel={formatDoneMeasure(task)}
 										doneTallyCount={task.tallyCount}
 										panicDurationLabel={formatPanicDuration(task)}
