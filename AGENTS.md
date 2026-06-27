@@ -20,7 +20,7 @@ The repo is an npm workspace (`front` + `back`); prefer the root commands.
 - Frontend build check: `npm run build`
 - Frontend lint: `npm run lint`
 - Backend start: `npm run start`
-- Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.aurora-bailey.dev npm run build`
+- Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`
 
 Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) still work.
 
@@ -31,7 +31,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - most route-level `+page.js` files explicitly set `csr = true`; the global layout keeps the app client-rendered even where a page has no route-level module
 - Frontend production hosting is Cloudflare Tunnel at `taskmonster.aurora-bailey.dev`.
   - `.github/workflows/deploy-frontend.yml` can build and deploy `front/` from the `production` branch if needed
-  - production frontend API calls point at `https://api.taskmonster.aurora-bailey.dev`
+  - production frontend API calls point at `https://taskmonster-api.aurora-bailey.dev`
   - `front/svelte.config.js` uses `@sveltejs/adapter-static` with `fallback: '404.html'` for SPA route refreshes
 - Frontend PWA support is manual static-file support.
   - app metadata lives in `front/static/manifest.webmanifest`
@@ -535,7 +535,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Cheap smoke checks that match current workflow:
   - `npm run lint`
   - `npm run build`
-  - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.aurora-bailey.dev npm run build`
+  - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`
   - boot the backend against a reachable Mongo instance
 - `db/` should not be treated as the source of truth for runtime behavior
 - If docs and code disagree, prefer the code and then update this file

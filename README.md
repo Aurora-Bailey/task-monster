@@ -86,7 +86,7 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 - `MONGO_URL=mongodb://127.0.0.1:27017`
 - `MONGO_DB_NAME=task-monster`
 
-Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to `https://api.taskmonster.aurora-bailey.dev`.
+Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to `https://taskmonster-api.aurora-bailey.dev`.
 
 ## Core runtime model
 
@@ -198,5 +198,5 @@ Current cheap smoke checks:
 
 - `npm run lint` (frontend prettier check)
 - `npm run build` (frontend build)
-- `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://api.taskmonster.aurora-bailey.dev npm run build`
+- `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`
 - boot the backend against a reachable Mongo instance

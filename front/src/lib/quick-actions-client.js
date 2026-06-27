@@ -3,7 +3,7 @@ import { authorizedRequest } from './session';
 
 export const QUICK_ACTIONS_DOCS_API_BASE_URL =
 	API_BASE_URL.includes('127.0.0.1') || API_BASE_URL.includes('localhost')
-		? 'https://api.taskmonster.aurora-bailey.dev'
+		? 'https://taskmonster-api.aurora-bailey.dev'
 		: API_BASE_URL.replace(/\/$/, '');
 
 function normalizeQuickToken(token) {
