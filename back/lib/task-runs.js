@@ -11,10 +11,11 @@ async function openTaskRun(
 		tallyTarget = null,
 		startTallyCount = null,
 		tallyCount = null,
-		instanceNote = null
+		instanceNote = null,
+		quickActionId = null
 	}
 ) {
-	await db.collection('task_runs').insertOne({
+	const taskRun = {
 		userId: toObjectId(userId),
 		taskId: toObjectId(taskId),
 		trackingType,
@@ -28,7 +29,18 @@ async function openTaskRun(
 		endingReason: null,
 		createdAt: startedAt,
 		updatedAt: startedAt
-	});
+	};
+
+	if (typeof quickActionId === 'string' && quickActionId) {
+		taskRun.quickActionId = quickActionId;
+	}
+
+	const result = await db.collection('task_runs').insertOne(taskRun);
+
+	return {
+		...taskRun,
+		_id: result.insertedId
+	};
 }
 
 async function closeOpenTaskRun(
@@ -36,11 +48,13 @@ async function closeOpenTaskRun(
 	{
 		userId,
 		taskId,
+		runId,
 		startedAt,
 		endedAt = new Date(),
 		endingReason = 'inactive',
 		tallyCount,
-		instanceNote
+		instanceNote,
+		quickActionId
 	}
 ) {
 	const update = {
@@ -61,12 +75,22 @@ async function closeOpenTaskRun(
 		update.startedAt = startedAt;
 	}
 
+	if (typeof quickActionId === 'string' && quickActionId) {
+		update.quickActionId = quickActionId;
+	}
+
+	const filter = {
+		userId: toObjectId(userId),
+		taskId: toObjectId(taskId),
+		endedAt: null
+	};
+
+	if (runId) {
+		filter._id = toObjectId(runId);
+	}
+
 	return db.collection('task_runs').findOneAndUpdate(
-		{
-			userId: toObjectId(userId),
-			taskId: toObjectId(taskId),
-			endedAt: null
-		},
+		filter,
 		{
 			$set: update
 		},

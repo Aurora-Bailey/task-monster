@@ -20,6 +20,7 @@ The repo is an npm workspace (`front` + `back`); prefer the root commands.
 - Frontend build check: `npm run build`
 - Frontend lint: `npm run lint`
 - Backend start: `npm run start`
+- Backend integration tests: `TEST_MONGO_URL=<mongodb url> npm run test:back`
 - Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`
 
 Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) still work.
@@ -59,6 +60,8 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - `/` is now a minimalist public marketing landing page that uses current product screenshots
 - Frontend API base URL comes from `PUBLIC_API_BASE_URL`
   - default: `http://127.0.0.1:3001`
+- Frontend Vite dev-server tunnel access comes from `PUBLIC_FRONTEND_HOST`
+  - use a hostname without a URL scheme, such as `taskmonster.aurora-bailey.dev`
 - Backend config is in `back/lib/config.js`
   - `HOST` default: `127.0.0.1`
   - `PORT` default: `3001`
@@ -165,6 +168,8 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - stored on the open or closed `task_runs` record
   - editable only while active
 - Exact active spans are recorded in `task_runs`
+- quick-action task transitions use `tasks.quickActionTransition` as a recoverable per-task operation lock
+- startup recovers interrupted quick transitions, reconciles orphaned or duplicate open runs, and enforces one open `task_runs` record per user/task with a partial unique index
 - Tally changes during an active tally task update both the task document and the open run
 
 ## Task lifecycle
@@ -545,7 +550,8 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 
 ## Verification and gaps
 
-- There is no automated test suite yet
+- Backend quick-action concurrency has a Mongo-backed integration regression test in `back/test/quick-actions.integration.test.js`
+  - it only runs when `TEST_MONGO_URL` is explicitly supplied and uses a disposable database name
 - Cheap smoke checks that match current workflow:
   - `npm run lint`
   - `npm run build`

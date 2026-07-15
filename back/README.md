@@ -16,6 +16,7 @@ The backend is a Fastify server backed by MongoDB. It owns the real business log
 - Install: `npm install`
 - Dev: `npm run dev`
 - Start: `npm start`
+- Mongo integration test: `TEST_MONGO_URL=<mongodb url> npm run test:integration`
 
 ## Config
 
@@ -56,7 +57,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
 - `panic_runs`
 - `quick_action_tokens`
 
-Indexes are created on startup in `lib/mongo.js`.
+Indexes are created on startup in `lib/mongo.js`. Before index creation, startup recovers interrupted quick-action transitions and reconciles orphaned, duplicate, or missing open task runs. A partial unique index enforces at most one open `task_runs` record per user/task.
 
 ## Auth and sessions
 
@@ -193,6 +194,7 @@ Quick action semantics:
 - quick add task accepts a task id, activates that owned task without ending other active tasks, removes it from the queue when needed, and does not duplicate an already-open run
 - quick stop task accepts a task id, marks only that active task `done`, applies the same tally/pin/archive updates as quick stop, and never activates the queue
 - quick add task and quick stop task accept optional `source` and `action` string metadata alongside the required `taskId`; both are retry-safe
+- targeted activation and completion use a recoverable per-task transition token so overlapping add/stop requests cannot publish an active task without a run or leave an open run on an inactive task
 - quick stop returns `message: "All active tasks marked done"`
 - quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
 - quick start returns `message: "<title> active"`

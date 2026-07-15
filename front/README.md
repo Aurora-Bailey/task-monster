@@ -24,6 +24,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - tracked template: `../.env.example`
 - frontend values should not be duplicated inside `front/`
 - public browser-facing env vars must still use the `PUBLIC_` prefix
+- `PUBLIC_FRONTEND_HOST` optionally allows one hostname in the Vite dev server; use a hostname without a scheme, such as `taskmonster.aurora-bailey.dev`
 
 ## Main routes
 

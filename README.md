@@ -88,6 +88,8 @@ Backend defaults come from the root `.env`, with fallback defaults defined in `b
 
 Frontend API requests use `PUBLIC_API_BASE_URL` from the root `.env`, defaulting to `http://127.0.0.1:3001` if unset. The production GitHub Pages build sets this to `https://taskmonster-api.aurora-bailey.dev`.
 
+Vite dev-server tunnel access uses `PUBLIC_FRONTEND_HOST`. Set it to a hostname without a URL scheme, such as `taskmonster.aurora-bailey.dev`; when present, Vite adds that hostname to its allowed-host list.
+
 ## Core runtime model
 
 - Tasks are either `one-time` or `repeatable`
@@ -206,6 +208,7 @@ Panic and stats routes:
 
 Current cheap smoke checks:
 
+- `TEST_MONGO_URL=<mongodb url> npm run test:back` (Mongo-backed quick-action concurrency regression)
 - `npm run lint` (frontend prettier check)
 - `npm run build` (frontend build)
 - `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`

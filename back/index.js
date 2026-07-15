@@ -5,8 +5,10 @@ const { authenticateRequest } = require('./lib/auth');
 const { loadConfig } = require('./lib/config');
 const { loadRootEnv } = require('./lib/load-env');
 const { connectToMongo, ensureDatabaseIndexes } = require('./lib/mongo');
+const { recoverQuickActionTransitions } = require('./lib/quick-actions');
 const { registerRoutes } = require('./lib/register-routes');
 const { migrateTaskHueShift } = require('./lib/task-migrations');
+const { reconcileOpenTaskRuns } = require('./lib/task-run-reconciliation');
 
 loadRootEnv();
 
@@ -63,6 +65,10 @@ async function buildServer() {
 		hueShiftMigration,
 		'Task hue shift migration completed before route registration'
 	);
+	const quickActionRecovery = await recoverQuickActionTransitions(mongo.db);
+	app.log.info(quickActionRecovery, 'Quick action transition recovery completed');
+	const taskRunReconciliation = await reconcileOpenTaskRuns(mongo.db);
+	app.log.info(taskRunReconciliation, 'Open task run reconciliation completed');
 	await ensureDatabaseIndexes(mongo.db);
 	app.addHook('preHandler', async (request, reply) => {
 		return authenticateRequest(app, request, reply);
