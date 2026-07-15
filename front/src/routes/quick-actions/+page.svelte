@@ -74,6 +74,8 @@
 	$: stopUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/stop`;
 	$: nextUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/next`;
 	$: startUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/start`;
+	$: addTaskUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/add-task`;
+	$: stopTaskUrl = `${QUICK_ACTIONS_DOCS_API_BASE_URL}/api/quick/stop-task`;
 	$: curlStop = `curl -X POST "${stopUrl}" \\
   -H "Authorization: Bearer ${docsToken}" \\
   -H "Content-Type: application/json" \\
@@ -86,6 +88,14 @@
   -H "Authorization: Bearer ${docsToken}" \\
   -H "Content-Type: application/json" \\
   --data '{"taskId":"64f000000000000000000000"}'`;
+	$: curlAddTask = `curl -X POST "${addTaskUrl}" \\
+  -H "Authorization: Bearer ${docsToken}" \\
+  -H "Content-Type: application/json" \\
+  --data '{"source":"ios_shortcut","action":"add-task","taskId":"64f000000000000000000000"}'`;
+	$: curlStopTask = `curl -X POST "${stopTaskUrl}" \\
+  -H "Authorization: Bearer ${docsToken}" \\
+  -H "Content-Type: application/json" \\
+  --data '{"source":"ios_shortcut","action":"stop-task","taskId":"64f000000000000000000000"}'`;
 	$: shortcutHeaders = `Authorization: Bearer ${docsToken}
 Content-Type: application/json`;
 	$: messageKey = 'message';
@@ -100,6 +110,16 @@ Content-Type: application/json`;
 	$: startBody = `{
   "source": "ios_shortcut",
   "action": "start",
+  "taskId": "64f000000000000000000000"
+}`;
+	$: addTaskBody = `{
+  "source": "ios_shortcut",
+  "action": "add-task",
+  "taskId": "64f000000000000000000000"
+}`;
+	$: stopTaskBody = `{
+  "source": "ios_shortcut",
+  "action": "stop-task",
   "taskId": "64f000000000000000000000"
 }`;
 
@@ -287,8 +307,9 @@ Content-Type: application/json`;
 		<p class="section-label">Shortcut tokens</p>
 		<h1>One tap. One backend call.</h1>
 		<p class="lede">
-			Create a limited token for iOS Shortcuts and Apple Watch. The token can only call quick stop,
-			quick next, and quick start. The backend derives your account from the token.
+			Create a limited token for iOS Shortcuts and Apple Watch. Use five focused actions to stop
+			everything, move to the queue's next task, switch tasks, add one active task, or stop one
+			selected task. The backend derives your account from the token.
 		</p>
 	</div>
 
@@ -439,6 +460,29 @@ Content-Type: application/json`;
 						{@render copyBlock('curl-stop', 'tm stop curl', curlStop, copiedKey, copyText)}
 						{@render copyBlock('curl-next', 'tm next curl', curlNext, copiedKey, copyText)}
 						{@render copyBlock('curl-start', 'tm start curl', curlStart, copiedKey, copyText)}
+						{@render copyBlock(
+							'curl-add-task',
+							'tm add task curl',
+							curlAddTask,
+							copiedKey,
+							copyText
+						)}
+						{@render copyBlock(
+							'curl-stop-task',
+							'tm stop task curl',
+							curlStopTask,
+							copiedKey,
+							copyText
+						)}
+					</div>
+
+					<div class="doc-section">
+						<h3>Using a task id</h3>
+						<p>
+							Both targeted actions use the original task id copied from the small pill at the
+							bottom-right of a Day Map card. The same id keeps working when that task moves between
+							Day Map, Active, and Inactive.
+						</p>
 					</div>
 
 					<div class="doc-section">
@@ -480,7 +524,10 @@ Content-Type: application/json`;
 					<div class="doc-section">
 						<h3>iPhone shortcut: tm start</h3>
 						<ol>
-							<li>Create a shortcut named <strong>tm start</strong>.</li>
+							<li>
+								Create a shortcut named <strong>tm start</strong> to switch away from every other active
+								task.
+							</li>
 							<li>Add Ask for Input and set the input type to Text.</li>
 							<li>Paste a task id copied from the bottom of a Day Map card when prompted.</li>
 							<li>Add URL and paste the start endpoint.</li>
@@ -498,6 +545,68 @@ Content-Type: application/json`;
 					</div>
 
 					<div class="doc-section">
+						<h3>iPhone + Watch shortcut: tm add task</h3>
+						<ol>
+							<li>Create a shortcut named <strong>tm add task</strong>.</li>
+							<li>Add Ask for Input and set the input type to Text.</li>
+							<li>Paste a task id copied from a Day Map card when prompted.</li>
+							<li>Add URL and paste the add-task endpoint.</li>
+							<li>Add Get Contents of URL, set Method to POST, and add the headers.</li>
+							<li>Use the JSON body below with <strong>taskId</strong> from Provided Input.</li>
+							<li>Show the response's <strong>message</strong> value as the result.</li>
+							<li>Enable Show on Apple Watch to run it from the Watch app or a complication.</li>
+						</ol>
+						<p>
+							This activates the selected task alongside anything already active. Retrying it leaves
+							the existing run open instead of creating another one.
+						</p>
+						{@render copyBlock('add-task-url', 'URL', addTaskUrl, copiedKey, copyText)}
+						{@render copyBlock('add-task-headers', 'Headers', shortcutHeaders, copiedKey, copyText)}
+						{@render copyBlock('add-task-body', 'JSON body', addTaskBody, copiedKey, copyText)}
+						{@render copyBlock(
+							'add-task-message-key',
+							'Result key',
+							messageKey,
+							copiedKey,
+							copyText
+						)}
+					</div>
+
+					<div class="doc-section">
+						<h3>iPhone + Watch shortcut: tm stop task</h3>
+						<ol>
+							<li>Create a shortcut named <strong>tm stop task</strong>.</li>
+							<li>Add Ask for Input and set the input type to Text.</li>
+							<li>Paste a task id copied from a Day Map card when prompted.</li>
+							<li>Add URL and paste the stop-task endpoint.</li>
+							<li>Add Get Contents of URL, set Method to POST, and add the headers.</li>
+							<li>Use the JSON body below with <strong>taskId</strong> from Provided Input.</li>
+							<li>Show the response's <strong>message</strong> value as the result.</li>
+							<li>Enable Show on Apple Watch to run it from the Watch app or a complication.</li>
+						</ol>
+						<p>
+							This marks only the selected active task Done. It leaves other tasks running, never
+							starts the queue, and is safe to retry after the task has stopped.
+						</p>
+						{@render copyBlock('stop-task-url', 'URL', stopTaskUrl, copiedKey, copyText)}
+						{@render copyBlock(
+							'stop-task-headers',
+							'Headers',
+							shortcutHeaders,
+							copiedKey,
+							copyText
+						)}
+						{@render copyBlock('stop-task-body', 'JSON body', stopTaskBody, copiedKey, copyText)}
+						{@render copyBlock(
+							'stop-task-message-key',
+							'Result key',
+							messageKey,
+							copiedKey,
+							copyText
+						)}
+					</div>
+
+					<div class="doc-section">
 						<h3>Watch result display</h3>
 						<ol>
 							<li>After Get Contents of URL, add Get Dictionary Value.</li>
@@ -505,11 +614,19 @@ Content-Type: application/json`;
 							<li>Set the input dictionary to <strong>Contents of URL</strong>.</li>
 							<li>Add Show Result and pass it the dictionary value.</li>
 						</ol>
-						<p>
-							tm next shows <strong>Next Task: Dishes</strong> when a queued task starts, or
-							<strong>No next task queued</strong> when the queue is empty. tm start shows
-							<strong>Dishes active</strong> after it starts the requested task.
-						</p>
+						<ul>
+							<li>tm stop: <strong>All active tasks marked done</strong></li>
+							<li>
+								tm next: <strong>Next Task: Dishes</strong> or
+								<strong>No next task queued</strong>
+							</li>
+							<li>tm start: <strong>Dishes active</strong></li>
+							<li>tm add task: <strong>Dishes active</strong></li>
+							<li>
+								tm stop task: <strong>Dishes marked done</strong> or
+								<strong>Dishes already stopped</strong> on a retry
+							</li>
+						</ul>
 					</div>
 
 					<div class="doc-section">
@@ -522,6 +639,10 @@ Content-Type: application/json`;
 							</li>
 							<li>
 								Use <strong>tm start</strong> when you want to jump directly to a copied task id.
+							</li>
+							<li>
+								Keep <strong>tm add task</strong> and <strong>tm stop task</strong> on Apple Watch for
+								targeted control without disturbing your other active work.
 							</li>
 							<li>Add each shortcut to the Home Screen if you want direct icons.</li>
 							<li>Use Siri by saying the shortcut names.</li>

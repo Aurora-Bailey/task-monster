@@ -247,7 +247,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Queueing a scheduled-only Daymap task sets `mappedToday: true` before assigning `queuePosition`
 - When the last active task is removed from the table by `done` or `inactivate`, the backend auto-activates the next queued daymap task if one exists
 - Canceling an active task is treated as an undo and does not auto-activate the next queued task
-- Quick action stop/next/start routes:
+- Quick action stop/next/start/add-task/stop-task routes:
   - `POST /api/quick/stop`
     - requires a `tmq_live_*` shortcut token with `tasks:stop`
     - marks all active tasks done for the token owner and starts nothing
@@ -264,7 +264,21 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
     - marks other active tasks done for the token owner, then activates the requested task
     - closed runs use `endingReason: 'done'`
     - returns `message: "<title> active"`
-  - all quick actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+  - `POST /api/quick/add-task`
+    - accepts required `taskId` plus optional `source` and `action` string metadata
+    - requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
+    - activates the requested inactive, Daymap, scheduled, or queued task without ending any other active task
+    - already-active retries return success without creating a duplicate open run
+    - returns `message: "<title> active"`
+  - `POST /api/quick/stop-task`
+    - accepts required `taskId` plus optional `source` and `action` string metadata
+    - requires `tasks:stop`
+    - marks only the selected active task done, applying the same tally, repeatable pin, and one-time archival behavior as quick stop
+    - leaves other active tasks untouched and never starts a queued task
+    - active transitions return `stoppedCount: 1`; inactive or archived retries return `stoppedCount: 0` without creating history
+    - returns `message: "<title> marked done"` or `message: "<title> already stopped"`
+  - targeted actions return `400 invalid_task_id` for malformed ids and `404 task_not_found` for missing or foreign-owned tasks
+  - quick actions append `-- Ended with shortcut` to the bottom of each run they complete
   - quick routes derive `userId` from the token record, not from request input
 - Daymap lock route:
   - `PATCH /tasks/:taskId/daymap-lock`

@@ -394,8 +394,8 @@
 				</div>
 
 				<p class="password-copy">
-					Create limited tokens for iOS Shortcuts and Apple Watch controls. Tokens can only stop
-					active tasks or start the next queued task.
+					Create limited tokens for five iOS Shortcuts and Apple Watch controls: stop all, start the
+					next queued task, switch tasks, add one active task, or stop one selected task.
 				</p>
 
 				<a class="settings-link" href={resolve('/quick-actions')}>Manage quick actions</a>

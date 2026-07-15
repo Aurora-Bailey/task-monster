@@ -2,7 +2,7 @@
 
 Task Monster is a SvelteKit + Fastify + MongoDB productivity app built around a narrow task flow: choose work for today, run it in Active, finish it into Done, and review the result in Stats. The board is split into `inactive`, `daymap`, `active`, `done`, and `stats` so planning, execution, and history stay separate.
 
-The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, panic tracking, and limited shortcut tokens for iOS/Apple Watch quick actions.
+The app also supports timed tasks, tally tasks, multiple local account sessions, account-backed themes, panic tracking, and limited shortcut tokens for five iOS/Apple Watch quick actions.
 
 ## Screenshots
 
@@ -150,6 +150,16 @@ Quick action routes:
   - requires a shortcut token with `tasks:start`; legacy `tasks:next` quick tokens are accepted for compatibility
   - marks other active tasks done, starts the requested task, and returns `message: "<title> active"` for Shortcuts display
   - appends `-- Ended with shortcut` to each completed run's instance note
+- `POST /api/quick/add-task`
+  - accepts JSON body `{ "source": "ios_shortcut", "action": "add-task", "taskId": "<task id>" }`; `source` and `action` are optional
+  - requires a shortcut token with `tasks:start`; legacy `tasks:next` quick tokens are accepted for compatibility
+  - activates the selected owned task without ending any other active task; queued tasks leave the queue when activated
+  - retries are safe and return `message: "<title> active"` without opening a duplicate run
+- `POST /api/quick/stop-task`
+  - accepts JSON body `{ "source": "ios_shortcut", "action": "stop-task", "taskId": "<task id>" }`; `source` and `action` are optional
+  - requires a shortcut token with `tasks:stop`
+  - marks only the selected active task Done, appends `-- Ended with shortcut`, leaves other active tasks untouched, and never starts the queue
+  - retries return `stoppedCount: 0` with `message: "<title> already stopped"` and create no additional history
 
 Task routes:
 

@@ -14,6 +14,93 @@ function normalizeTaskIds(taskIds = []) {
 	return taskIds.filter(Boolean).map((taskId) => toObjectId(taskId));
 }
 
+async function completeActiveTask(db, { userId, task, completedAt = new Date() } = {}) {
+	if (!task || task.archived === true || task.activeToday !== true) {
+		return {
+			stoppedCount: 0,
+			previousTaskRunId: null,
+			task: null
+		};
+	}
+
+	const openTaskRun = await db
+		.collection('task_runs')
+		.find({
+			userId: task.userId,
+			taskId: task._id,
+			endedAt: null
+		})
+		.sort({
+			startedAt: -1
+		})
+		.limit(1)
+		.next();
+	const startedAt = openTaskRun?.startedAt instanceof Date ? openTaskRun.startedAt : completedAt;
+	const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
+	const completedTallyCount =
+		task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
+			? task.activeTallyCount
+			: null;
+	const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
+	const updatedTask = await db.collection('tasks').findOneAndUpdate(
+		{
+			_id: task._id,
+			userId: toObjectId(userId),
+			archived: false,
+			activeToday: true
+		},
+		{
+			$set: {
+				mappedToday: remapToDaymap,
+				mappedAt: remapToDaymap ? completedAt : null,
+				queuePosition: null,
+				activeToday: false,
+				activatedAt: null,
+				activeTallyCount: 0,
+				lastCompletedTallyCount: completedTallyCount,
+				lastCompletedAt: completedAt,
+				lastStartedAt: startedAt,
+				lastInactivatedAt: completedAt,
+				nextDueAt: task.mode === 'repeatable' ? (task.nextDueAt ?? null) : null,
+				archived: task.mode === 'one-time',
+				updatedAt: completedAt
+			}
+		},
+		{
+			returnDocument: 'after'
+		}
+	);
+
+	if (!updatedTask) {
+		return {
+			stoppedCount: 0,
+			previousTaskRunId: null,
+			task: null
+		};
+	}
+
+	await collapseQueuePositionsAfter(db, {
+		userId,
+		queuePosition: previousQueuePosition
+	});
+
+	const closedRun = await closeOpenTaskRun(db, {
+		userId,
+		taskId: task._id,
+		startedAt,
+		endedAt: completedAt,
+		endingReason: 'done',
+		tallyCount: completedTallyCount ?? undefined,
+		instanceNote: appendShortcutInstanceNote(openTaskRun?.instanceNote)
+	});
+
+	return {
+		stoppedCount: 1,
+		previousTaskRunId: closedRun?._id?.toString() ?? null,
+		task: updatedTask
+	};
+}
+
 async function completeAllActiveTasks(
 	db,
 	{ userId, completedAt = new Date(), excludeTaskIds = [] } = {}
@@ -39,84 +126,27 @@ async function completeAllActiveTasks(
 			createdAt: -1
 		})
 		.toArray();
-	const closedRuns = [];
+	let stoppedCount = 0;
+	let previousTaskRunId = null;
 
 	for (const task of activeTasks) {
-		const openTaskRun = await db
-			.collection('task_runs')
-			.find({
-				userId: task.userId,
-				taskId: task._id,
-				endedAt: null
-			})
-			.sort({
-				startedAt: -1
-			})
-			.limit(1)
-			.next();
-		const startedAt = openTaskRun?.startedAt instanceof Date ? openTaskRun.startedAt : completedAt;
-		const remapToDaymap = task.mode === 'repeatable' && task.daymapLocked === true;
-		const completedTallyCount =
-			task.trackingType === 'tally' && Number.isInteger(task.activeTallyCount)
-				? task.activeTallyCount
-				: null;
-		const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
-		const updatedTask = await db.collection('tasks').findOneAndUpdate(
-			{
-				_id: task._id,
-				userId: task.userId,
-				archived: false,
-				activeToday: true
-			},
-			{
-				$set: {
-					mappedToday: remapToDaymap,
-					mappedAt: remapToDaymap ? completedAt : null,
-					queuePosition: null,
-					activeToday: false,
-					activatedAt: null,
-					activeTallyCount: 0,
-					lastCompletedTallyCount: completedTallyCount,
-					lastCompletedAt: completedAt,
-					lastStartedAt: startedAt,
-					lastInactivatedAt: completedAt,
-					nextDueAt: task.mode === 'repeatable' ? (task.nextDueAt ?? null) : null,
-					archived: task.mode === 'one-time',
-					updatedAt: completedAt
-				}
-			},
-			{
-				returnDocument: 'after'
-			}
-		);
-
-		if (!updatedTask) {
-			continue;
-		}
-
-		await collapseQueuePositionsAfter(db, {
+		const result = await completeActiveTask(db, {
 			userId,
-			queuePosition: previousQueuePosition
+			task,
+			completedAt
 		});
 
-		const closedRun = await closeOpenTaskRun(db, {
-			userId,
-			taskId: task._id,
-			startedAt,
-			endedAt: completedAt,
-			endingReason: 'done',
-			tallyCount: completedTallyCount ?? undefined,
-			instanceNote: appendShortcutInstanceNote(openTaskRun?.instanceNote)
-		});
+		// Preserve the existing stop/next count: it represents runs that were actually closed.
+		stoppedCount += result.previousTaskRunId ? 1 : 0;
 
-		if (closedRun) {
-			closedRuns.push(closedRun);
+		if (!previousTaskRunId && result.previousTaskRunId) {
+			previousTaskRunId = result.previousTaskRunId;
 		}
 	}
 
 	return {
-		stoppedCount: closedRuns.length,
-		previousTaskRunId: closedRuns[0]?._id?.toString() ?? null
+		stoppedCount,
+		previousTaskRunId
 	};
 }
 
@@ -174,7 +204,14 @@ async function startTaskById(db, { userId, taskId, startedAt = new Date() } = {}
 	);
 
 	if (!startedTask) {
-		return null;
+		const activeTask = await db.collection('tasks').findOne({
+			_id: task._id,
+			userId: task.userId,
+			archived: false,
+			activeToday: true
+		});
+
+		return activeTask ? serializeTask(activeTask) : null;
 	}
 
 	await collapseQueuePositionsAfter(db, {
@@ -201,6 +238,48 @@ async function runQuickStop(db, { userId, at = new Date() } = {}) {
 		userId,
 		completedAt: at
 	});
+}
+
+async function runQuickAddTask(db, { userId, taskId, at = new Date() } = {}) {
+	const task = await startTaskById(db, {
+		userId,
+		taskId,
+		startedAt: at
+	});
+
+	if (!task) {
+		return null;
+	}
+
+	return {
+		taskId: task.id,
+		taskTitle: task.name,
+		task
+	};
+}
+
+async function runQuickStopTask(db, { userId, taskId, at = new Date() } = {}) {
+	const task = await db.collection('tasks').findOne({
+		_id: toObjectId(taskId),
+		userId: toObjectId(userId)
+	});
+
+	if (!task) {
+		return null;
+	}
+
+	const completeResult = await completeActiveTask(db, {
+		userId,
+		task,
+		completedAt: at
+	});
+
+	return {
+		previousTaskRunId: completeResult.previousTaskRunId,
+		stoppedCount: completeResult.stoppedCount,
+		taskId: task._id.toString(),
+		taskTitle: task.name
+	};
 }
 
 async function runQuickNext(db, { userId, at = new Date() } = {}) {
@@ -261,9 +340,12 @@ module.exports = {
 	SHORTCUT_INSTANCE_NOTE,
 	appendShortcutInstanceNote,
 	completeAllActiveTasks,
+	completeActiveTask,
+	runQuickAddTask,
 	runQuickNext,
 	runQuickStart,
 	runQuickStop,
+	runQuickStopTask,
 	startTaskById,
 	startNextQueuedTask
 };

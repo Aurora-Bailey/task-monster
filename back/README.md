@@ -80,6 +80,8 @@ Indexes are created on startup in `lib/mongo.js`.
   - `POST /api/quick/stop`
   - `POST /api/quick/next`
   - `POST /api/quick/start`
+  - `POST /api/quick/add-task`
+  - `POST /api/quick/stop-task`
   - use `tmq_live_*` shortcut tokens only; normal session tokens are not accepted
 - Session verification:
   - `GET /whoami`
@@ -188,11 +190,17 @@ Quick action semantics:
 - quick stop marks all active task runs `done`, applies normal Done task-state updates, and starts nothing
 - quick next marks all active task runs `done`, applies normal Done task-state updates, then activates the first queued Day Map task by queue order
 - quick start accepts `{ "taskId": "<task id>" }`, marks other active task runs `done`, then activates that task
+- quick add task accepts a task id, activates that owned task without ending other active tasks, removes it from the queue when needed, and does not duplicate an already-open run
+- quick stop task accepts a task id, marks only that active task `done`, applies the same tally/pin/archive updates as quick stop, and never activates the queue
+- quick add task and quick stop task accept optional `source` and `action` string metadata alongside the required `taskId`; both are retry-safe
 - quick stop returns `message: "All active tasks marked done"`
 - quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
 - quick start returns `message: "<title> active"`
-- quick start requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
-- all quick actions append `-- Ended with shortcut` to the bottom of each completed run's instance note
+- quick add task returns `message: "<title> active"`
+- quick stop task returns `stoppedCount: 1` and `message: "<title> marked done"`, or retry-safe `stoppedCount: 0` and `message: "<title> already stopped"`
+- quick start and quick add task require `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
+- quick stop and quick stop task require `tasks:stop`; quick next requires `tasks:next`
+- quick actions append `-- Ended with shortcut` to the bottom of every run they complete
 - all quick actions derive `userId` from the shortcut token, never from the request body
 
 ## Active runtime behavior
