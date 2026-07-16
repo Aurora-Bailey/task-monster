@@ -34,7 +34,8 @@ The current UI is easiest to recognize by the task board, active sessions, and s
   - `/quick-actions`
 - Frontend rendering is client-only
 - MongoDB is required for the backend runtime
-- There is no automated test suite yet
+- Focused frontend state-reconciliation tests run with `npm run test:front`; backend quick-action integration tests run with an explicit disposable MongoDB URL through `npm run test:back`
+- Authenticated tabs share a visibility-aware live activity synchronizer: active tasks refresh every 30 seconds while visible, today’s heatmap refreshes at minute boundaries, and focus/reconnect triggers an immediate check
 - Account creation is gated by the prerelease alpha code and a required legal-acceptance checkbox
 - Production PWA caching is handled by `front/static/sw.js`; dev builds unregister Task Monster service workers and clear local PWA caches
 - Theme selection is account-backed through `users.theme`, with a boot-time local cache to avoid a default-theme flash

@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
+	import { liveActivity } from '$lib/live-activity';
+	import { mergeDoneSnapshots } from '$lib/live-activity-state';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { buildTasksHref } from '$lib/routing';
 	import TaskCard from '$lib/TaskCard.svelte';
@@ -54,6 +56,11 @@
 	let sentinel = $state(null);
 	let hasAnyBoardTasks = $state(true);
 	let busyRuns = $state({});
+	let hasLiveActivityBaseline = false;
+	let lastLiveActivityRevision = 0;
+	let lastLiveAccountKey = '';
+	let doneReconciliation = null;
+	let doneReconciliationQueued = false;
 
 	function formatCompletedAt(value) {
 		return completedAtFormatter.format(new Date(value));
@@ -203,6 +210,69 @@
 		await loadNextBatch({ reset: true });
 	}
 
+	function reconcileDoneItems(nextItems) {
+		tasks = mergeDoneSnapshots(tasks, nextItems, new Set(Object.keys(busyRuns)));
+	}
+
+	function reconcileNewestDoneRuns() {
+		if (doneReconciliation) {
+			doneReconciliationQueued = true;
+			return doneReconciliation;
+		}
+
+		doneReconciliation = (async () => {
+			if (tasks.length === 0) {
+				await reloadTasks();
+				return;
+			}
+
+			const knownRunIds = new Set(tasks.map((task) => task.id));
+			const discoveredRuns = [];
+			let cursor = null;
+			let reachedKnownRun = false;
+
+			do {
+				const history = await loadDoneFeed({
+					limit: DONE_BATCH_SIZE,
+					cursor,
+					tzOffsetMinutes: timezoneOffsetMinutes
+				});
+
+				for (const task of history.tasks) {
+					if (knownRunIds.has(task.id)) {
+						reachedKnownRun = true;
+						break;
+					}
+
+					discoveredRuns.push(task);
+				}
+
+				cursor = history.nextCursor;
+
+				if (!history.hasMore) {
+					break;
+				}
+			} while (!reachedKnownRun && cursor);
+
+			if (discoveredRuns.length > 0) {
+				reconcileDoneItems(discoveredRuns);
+			}
+		})()
+			.catch((error) => {
+				loadError = error.message;
+			})
+			.finally(() => {
+				doneReconciliation = null;
+
+				if (doneReconciliationQueued) {
+					doneReconciliationQueued = false;
+					void reconcileNewestDoneRuns();
+				}
+			});
+
+		return doneReconciliation;
+	}
+
 	async function handleSaveDoneRunTimes(runId, times) {
 		actionError = '';
 		setBusy(runId, 'done-time');
@@ -326,11 +396,30 @@
 
 			await reloadTasks();
 		};
+		const unsubscribeLiveActivity = liveActivity.subscribe((snapshot) => {
+			if (snapshot.accountKey !== lastLiveAccountKey) {
+				lastLiveAccountKey = snapshot.accountKey;
+				lastLiveActivityRevision = 0;
+				hasLiveActivityBaseline = false;
+			}
+
+			if (!snapshot.activeLoaded || snapshot.activityRevision <= lastLiveActivityRevision) {
+				return;
+			}
+
+			if (hasLiveActivityBaseline) {
+				void reconcileNewestDoneRuns();
+			}
+
+			hasLiveActivityBaseline = true;
+			lastLiveActivityRevision = snapshot.activityRevision;
+		});
 
 		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 
 		return () => {
 			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
+			unsubscribeLiveActivity();
 		};
 	});
 </script>

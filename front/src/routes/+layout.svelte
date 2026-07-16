@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 
 	import { initializeSession, session } from '$lib/session';
+	import { startLiveActivity } from '$lib/live-activity';
 	import { initializeTheme } from '$lib/theme';
 	import { normalizeAppPathname } from '$lib/routing';
 	import Header from './Header.svelte';
@@ -125,6 +126,7 @@
 		initializeTheme();
 		initializeSession();
 		registerServiceWorker();
+		return startLiveActivity();
 	});
 
 	const currentPath = $derived(normalizeAppPathname(page.url.pathname));

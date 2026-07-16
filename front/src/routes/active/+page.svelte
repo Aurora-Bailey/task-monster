@@ -5,6 +5,8 @@
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
+	import { liveActivity } from '$lib/live-activity';
+	import { mergeProtectedTaskSnapshot } from '$lib/live-activity-state';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import TaskCard from '$lib/TaskCard.svelte';
 	import { loadPanicStatus, PANIC_UPDATED_EVENT } from '$lib/panic-client';
@@ -43,6 +45,8 @@
 	let hasAnyBoardTasks = $state(true);
 
 	let clockIntervalId = null;
+	let lastLiveActiveRevision = 0;
+	let lastLiveAccountKey = '';
 
 	async function loadActiveBoardState() {
 		const [nextActiveTasks, nextDaymapTasks, nextInactiveTasks] = await Promise.all([
@@ -83,6 +87,20 @@
 
 	function getTaskById(taskId) {
 		return tasks.find((task) => task.id === taskId) ?? null;
+	}
+
+	function mergeLiveTasks(nextTasks) {
+		const protectedTaskIds = new Set(Object.keys(busyTasks));
+		const focusedTaskId = document.activeElement?.closest?.('[data-task-id]')?.dataset?.taskId;
+
+		if (focusedTaskId) {
+			protectedTaskIds.add(focusedTaskId);
+		}
+
+		for (const card of document.querySelectorAll('[data-task-dirty="true"][data-task-id]')) {
+			protectedTaskIds.add(card.dataset.taskId);
+		}
+		return mergeProtectedTaskSnapshot(tasks, nextTasks, protectedTaskIds);
 	}
 
 	function mergeTaskUpdate(
@@ -297,6 +315,19 @@
 					loadError = error.message;
 				}
 			};
+			const unsubscribeLiveActivity = liveActivity.subscribe((snapshot) => {
+				if (snapshot.accountKey !== lastLiveAccountKey) {
+					lastLiveAccountKey = snapshot.accountKey;
+					lastLiveActiveRevision = 0;
+				}
+
+				if (!snapshot.activeLoaded || snapshot.activeRevision <= lastLiveActiveRevision) {
+					return;
+				}
+
+				lastLiveActiveRevision = snapshot.activeRevision;
+				tasks = mergeLiveTasks(snapshot.activeTasks);
+			});
 
 			window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 			window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
@@ -305,6 +336,7 @@
 				window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 				window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 				window.clearInterval(clockIntervalId);
+				unsubscribeLiveActivity();
 			};
 		}
 	});

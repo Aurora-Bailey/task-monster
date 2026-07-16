@@ -1009,6 +1009,9 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
 	class="task-card"
+	data-task-id={task.id ?? task.taskId ?? ''}
+	data-task-dirty={['pending', 'saving'].includes(noteSaveStatus) ||
+		['pending', 'saving'].includes(instanceNoteSaveStatus)}
 	class:is-active={variant !== 'inactive'}
 	class:is-inactive={isInactiveCard}
 	class:is-busy={busyAction !== null}

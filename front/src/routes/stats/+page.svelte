@@ -2,13 +2,12 @@
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
+	import { liveActivity } from '$lib/live-activity';
 	import { buildHueShiftSplitFill, getHueShiftColor } from '$lib/hue-shift-colors';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
-	import { PANIC_UPDATED_EVENT } from '$lib/panic-client';
 	import { buildTasksHref } from '$lib/routing';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { loadStatsHeatmap } from '$lib/stats-client';
-	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 
 	const DAYS_PER_BATCH = 10;
 	const MINUTES_PER_DAY = 24 * 60;
@@ -48,6 +47,9 @@
 	let loadError = $state('');
 	let timezoneOffsetMinutes = 0;
 	let sentinel = $state(null);
+	let liveToday = null;
+	let lastLiveHeatmapRevision = 0;
+	let lastLiveAccountKey = '';
 
 	function getTodayDay() {
 		const now = new Date();
@@ -284,6 +286,28 @@
 		};
 	}
 
+	function applyLiveToday(today) {
+		if (!today) {
+			return;
+		}
+
+		liveToday = today;
+
+		if (days.length === 0) {
+			return;
+		}
+
+		const normalizedToday = normalizeDay(today);
+		const existingIndex = days.findIndex((day) => day.day === normalizedToday.day);
+
+		if (existingIndex === -1) {
+			days = [normalizedToday, ...days];
+			return;
+		}
+
+		days = days.map((day, index) => (index === existingIndex ? normalizedToday : day));
+	}
+
 	async function loadNextBatch({ reset = false } = {}) {
 		if (isLoadingMore || (isLoadingInitial && !reset)) {
 			return;
@@ -308,7 +332,14 @@
 				count: DAYS_PER_BATCH,
 				tzOffsetMinutes: timezoneOffsetMinutes
 			});
-			const nextDays = (heatmap.days ?? []).map(normalizeDay);
+			let nextDays = (heatmap.days ?? []).map(normalizeDay);
+
+			if (reset && liveToday) {
+				const normalizedLiveToday = normalizeDay(liveToday);
+				nextDays = nextDays.map((day) =>
+					day.day === normalizedLiveToday.day ? normalizedLiveToday : day
+				);
+			}
 			const oldestLoadedDay = nextDays[nextDays.length - 1]?.day ?? batchStartDay;
 
 			days = reset ? nextDays : [...days, ...nextDays];
@@ -363,12 +394,6 @@
 			return;
 		}
 
-		const handlePanicUpdated = () => {
-			void reloadHeatmap();
-		};
-		const handleTaskUpdated = () => {
-			void reloadHeatmap();
-		};
 		const handleAppRefresh = (event) => {
 			if (
 				event.detail?.refresh?.tasks !== true &&
@@ -380,15 +405,26 @@
 
 			void reloadHeatmap();
 		};
+		const unsubscribeLiveActivity = liveActivity.subscribe((snapshot) => {
+			if (snapshot.accountKey !== lastLiveAccountKey) {
+				lastLiveAccountKey = snapshot.accountKey;
+				lastLiveHeatmapRevision = 0;
+				liveToday = null;
+			}
+
+			if (!snapshot.heatmapLoaded || snapshot.heatmapRevision <= lastLiveHeatmapRevision) {
+				return;
+			}
+
+			lastLiveHeatmapRevision = snapshot.heatmapRevision;
+			applyLiveToday(snapshot.today);
+		});
 
 		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
-		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
-		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 
 		return () => {
 			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
-			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
-			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
+			unsubscribeLiveActivity();
 		};
 	});
 </script>

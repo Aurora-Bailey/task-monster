@@ -274,5 +274,5 @@ Fastify/Ajv currently emits strict-mode warnings at startup for schemas that use
 
 ## Verification
 
-- there is no automated test suite yet
+- quick-action concurrency is covered by `TEST_MONGO_URL=<mongodb url> npm run test:back`, which uses a disposable database name
 - current cheap smoke check is booting the server against a reachable Mongo instance

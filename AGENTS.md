@@ -19,6 +19,7 @@ The repo is an npm workspace (`front` + `back`); prefer the root commands.
 - Dev (frontend only): `npm run dev:front`
 - Frontend build check: `npm run build`
 - Frontend lint: `npm run lint`
+- Frontend live-state tests: `npm run test:front`
 - Backend start: `npm run start`
 - Backend integration tests: `TEST_MONGO_URL=<mongodb url> npm run test:back`
 - Frontend GitHub Pages build check: `cd front && BASE_PATH=/task-monster PUBLIC_API_BASE_URL=https://taskmonster-api.aurora-bailey.dev npm run build`
@@ -386,6 +387,13 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - App-wide refresh events:
   - `front/src/lib/app-events.js`
   - account switching dispatches `taskmonster:app-refresh`
+- Shared live activity synchronization:
+  - `front/src/lib/live-activity.js`
+  - starts from the authenticated app shell and polls active tasks every 30 seconds while the tab is visible
+  - refreshes immediately on focus, reconnect, account switch, and same-tab task/panic events
+  - owns the shared current-day heatmap snapshot used by the header and stats page, refreshing it at minute boundaries and after activity changes
+  - pauses polling in hidden tabs, prevents overlapping requests, and rejects responses from an earlier account generation
+  - `/tasks`, `/active`, `/stats`, and `/done` reconcile shared snapshots while preserving active edits, loaded history, and page position
 - Shared task card:
   - `front/src/lib/TaskCard.svelte`
 - Shared sort control:
@@ -449,6 +457,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - cells, overlap segments, glows, and stats activity underlines use the same fully opaque shifted task color
   - the category legend stays on the base category colors
   - panic overlap is marked with a small solid red dot in the top-right of each affected cell
+- The header and `/stats` consume the same live current-day heatmap snapshot; `/stats` replaces only today while retaining its previously loaded historical batches
 - The task activity row under each `/stats` day grid underlines each task in its task color and shows its day-clipped active duration as a compact minute label
   - each task name/duration entry links to that task's exact `/tasks?task=<taskId>` filter
 - Repeatable cards on `/tasks` expose compact seven-day buttons directly on the card for automatic Daymap scheduling
@@ -552,6 +561,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 
 - Backend quick-action concurrency has a Mongo-backed integration regression test in `back/test/quick-actions.integration.test.js`
   - it only runs when `TEST_MONGO_URL` is explicitly supplied and uses a disposable database name
+- Frontend live snapshot fingerprinting and edit-preserving reconciliation are covered by `front/test/live-activity-state.test.js`
 - Cheap smoke checks that match current workflow:
   - `npm run lint`
   - `npm run build`

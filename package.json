@@ -12,6 +12,7 @@
     "dev:front": "npm run dev --workspace front",
     "start": "npm run start --workspace back",
     "test:back": "npm run test:integration --workspace back",
+    "test:front": "npm test --workspace front",
     "build": "npm run build --workspace front",
     "lint": "npm run lint --workspace front"
   },

@@ -172,6 +172,11 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - each grid is followed by a muted dot-separated list of distinct task names worked that day
   - each task name/duration entry links to that task's exact filter on `/tasks`
   - scrolling near the bottom requests older day batches
+- Authenticated app activity is synchronized through `src/lib/live-activity.js`
+  - active tasks poll once every 30 seconds while the tab is visible and refresh immediately after focus, reconnect, account switch, or a same-tab task event
+  - the header and stats page share one current-day heatmap snapshot refreshed at minute boundaries and when active activity changes
+  - tasks, active, stats, and done reconcile shared snapshots without replacing loaded history, current sorting/filtering, or in-progress card edits
+  - hidden tabs pause polling and stale responses from a previous account are ignored
 - Panic mode is controlled from the top nav, not from the active page itself
 - The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides URLs, JSON bodies, curl examples, and iPhone/Apple Watch setup for all five shortcuts: stop, next, switching start, add task, and stop task
   - add task activates the task id copied from a Day Map card without ending other active tasks
@@ -185,6 +190,8 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
   - dev mode unregisters existing Task Monster service workers and clears `task-monster-pwa-*` caches to avoid stale local files
 - Account switching dispatches `taskmonster:app-refresh`
   - active, tasks, done, stats, and the header trace listen for the refresh event where needed
+
+Run focused live-state reconciliation tests from the repository root with `npm run test:front`.
 
 ## Data source notes
 

@@ -17,10 +17,10 @@
 
 	import { APP_REFRESH_EVENT, dispatchAppRefresh } from '$lib/app-events';
 	import { buildHueShiftSplitFill, getHueShiftColor } from '$lib/hue-shift-colors';
+	import { liveActivity } from '$lib/live-activity';
 	import {
 		dispatchPanicUpdated,
 		getCurrentLocalDay,
-		getCurrentTimezoneOffsetMinutes,
 		loadPanicStatus,
 		PANIC_UPDATED_EVENT,
 		startPanic,
@@ -28,10 +28,8 @@
 	} from '$lib/panic-client';
 	import { normalizeAppPathname } from '$lib/routing';
 	import { accountSessions, session, switchAccount } from '$lib/session';
-	import { loadStatsHeatmap } from '$lib/stats-client';
 	import { formatElapsedDuration } from '$lib/task-format';
 	import { getThemeDefinition } from '$lib/theme';
-	import { TASKS_UPDATED_EVENT } from '$lib/tasks-client';
 	import logo from '$lib/images/tm-logo-crop.png';
 
 	const MINUTES_PER_HOUR = 60;
@@ -244,18 +242,6 @@
 		return String(value).padStart(2, '0');
 	}
 
-	function getCurrentMinuteKey() {
-		const date = new Date();
-
-		return [
-			date.getFullYear(),
-			padDateTimePart(date.getMonth() + 1),
-			padDateTimePart(date.getDate()),
-			padDateTimePart(date.getHours()),
-			padDateTimePart(date.getMinutes())
-		].join('-');
-	}
-
 	function getLocalDayStartMs(day) {
 		const [year, month, date] = day.split('-').map((part) => Number.parseInt(part, 10));
 
@@ -364,29 +350,6 @@
 				panicking
 			};
 		});
-	}
-
-	async function loadCurrentHourTrace() {
-		if (!user) {
-			currentHourTrace = Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
-			return;
-		}
-
-		try {
-			const heatmap = await loadStatsHeatmap({
-				startDay: getCurrentLocalDay(),
-				count: 1,
-				tzOffsetMinutes: getCurrentTimezoneOffsetMinutes()
-			});
-			const today = heatmap.days?.[0];
-
-			currentHourTrace = today
-				? buildCurrentHourTrace(today)
-				: Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
-		} catch (error) {
-			console.error(error);
-			currentHourTrace = Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
-		}
 	}
 
 	async function loadPanic() {
@@ -520,13 +483,16 @@
 
 	onMount(() => {
 		void loadPanic();
-		void loadCurrentHourTrace();
 
 		if (!browser) {
 			return;
 		}
 
-		let currentMinuteKey = getCurrentMinuteKey();
+		const unsubscribeLiveActivity = liveActivity.subscribe((snapshot) => {
+			currentHourTrace = snapshot.today
+				? buildCurrentHourTrace(snapshot.today)
+				: Array.from({ length: MINUTES_PER_HOUR }, () => EMPTY_TRACE_MINUTE);
+		});
 		let lastScrollY = Math.max(0, window.scrollY);
 		let topNavScrollFrame = 0;
 		const updateTopNavVisibility = () => {
@@ -601,33 +567,19 @@
 			const nextNowMs = Date.now();
 			nowMs = nextNowMs;
 			const nextLocalDay = getCurrentLocalDay();
-			const nextMinuteKey = getCurrentMinuteKey();
 
 			if (nextLocalDay !== currentLocalDay) {
 				currentLocalDay = nextLocalDay;
 				void loadPanic();
-			}
-
-			if (nextMinuteKey !== currentMinuteKey) {
-				currentMinuteKey = nextMinuteKey;
-				void loadCurrentHourTrace();
 			}
 		}, 1000);
 		const handleAppRefresh = async (event) => {
 			if (event.detail?.refresh?.panic === true) {
 				await loadPanic();
 			}
-
-			if (event.detail?.refresh?.tasks === true || event.detail?.refresh?.stats === true) {
-				await loadCurrentHourTrace();
-			}
-		};
-		const handleTaskUpdated = () => {
-			void loadCurrentHourTrace();
 		};
 		const handlePanicUpdated = () => {
 			void loadPanic();
-			void loadCurrentHourTrace();
 		};
 		const handleWindowResize = () => {
 			void updateNavIndicators();
@@ -645,7 +597,6 @@
 
 		window.addEventListener('keydown', handleGlobalKeydown);
 		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
-		window.addEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 		window.addEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 		window.addEventListener('resize', handleWindowResize);
 		window.addEventListener('scroll', handleWindowScroll, { passive: true });
@@ -673,7 +624,6 @@
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown);
 			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
-			window.removeEventListener(TASKS_UPDATED_EVENT, handleTaskUpdated);
 			window.removeEventListener(PANIC_UPDATED_EVENT, handlePanicUpdated);
 			window.removeEventListener('resize', handleWindowResize);
 			window.removeEventListener('scroll', handleWindowScroll);
@@ -683,6 +633,7 @@
 				window.cancelAnimationFrame(topNavScrollFrame);
 			}
 			window.clearInterval(intervalId);
+			unsubscribeLiveActivity();
 		};
 	});
 </script>

@@ -5,6 +5,11 @@
 	import { onMount } from 'svelte';
 
 	import { APP_REFRESH_EVENT } from '$lib/app-events';
+	import { liveActivity } from '$lib/live-activity';
+	import {
+		buildActiveMembershipFingerprint,
+		mergeProtectedTaskSnapshot
+	} from '$lib/live-activity-state';
 	import PageContentReveal from '$lib/PageContentReveal.svelte';
 	import { buildTasksHref } from '$lib/routing';
 	import TaskCard from '$lib/TaskCard.svelte';
@@ -50,6 +55,10 @@
 	let exactFilterStatus = $state('idle');
 	let exactFilterError = $state('');
 	let exactResolveRevision = 0;
+	let lastLiveActiveRevision = 0;
+	let lastLiveAccountKey = '';
+	let liveMembershipReload = null;
+	let liveMembershipReloadQueued = false;
 	const exactTaskId = $derived(page.url.searchParams.get('task')?.trim() || '');
 	const textSearchQuery = $derived(exactTaskId ? '' : page.url.searchParams.get('search') || '');
 	const allBoardTasks = $derived([...activeTasks, ...daymapTasks, ...inactiveTasks]);
@@ -97,6 +106,47 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	function mergeLiveActiveTasks(nextActiveTasks) {
+		const protectedTaskIds = new Set(Object.keys(busyTasks));
+		const focusedTaskId = document.activeElement?.closest?.('[data-task-id]')?.dataset?.taskId;
+
+		if (focusedTaskId) {
+			protectedTaskIds.add(focusedTaskId);
+		}
+
+		for (const card of document.querySelectorAll('[data-task-dirty="true"][data-task-id]')) {
+			protectedTaskIds.add(card.dataset.taskId);
+		}
+		return mergeProtectedTaskSnapshot(activeTasks, nextActiveTasks, protectedTaskIds);
+	}
+
+	function reloadLiveBoardMembership() {
+		if (liveMembershipReload) {
+			liveMembershipReloadQueued = true;
+			return liveMembershipReload;
+		}
+
+		liveMembershipReload = Promise.all([loadDaymapTasks(), loadInactiveTasks()])
+			.then(([nextDaymapTasks, nextInactiveTasks]) => {
+				const activeTaskIds = new Set(activeTasks.map((task) => task.id));
+				daymapTasks = nextDaymapTasks.filter((task) => !activeTaskIds.has(task.id));
+				inactiveTasks = nextInactiveTasks.filter((task) => !activeTaskIds.has(task.id));
+			})
+			.catch((error) => {
+				loadError = error.message;
+			})
+			.finally(() => {
+				liveMembershipReload = null;
+
+				if (liveMembershipReloadQueued) {
+					liveMembershipReloadQueued = false;
+					void reloadLiveBoardMembership();
+				}
+			});
+
+		return liveMembershipReload;
 	}
 
 	async function resolveExactTask(taskId) {
@@ -583,11 +633,31 @@
 
 			await loadTasks();
 		};
+		const unsubscribeLiveActivity = liveActivity.subscribe((snapshot) => {
+			if (snapshot.accountKey !== lastLiveAccountKey) {
+				lastLiveAccountKey = snapshot.accountKey;
+				lastLiveActiveRevision = 0;
+			}
+
+			if (!snapshot.activeLoaded || snapshot.activeRevision <= lastLiveActiveRevision) {
+				return;
+			}
+
+			const previousMembership = buildActiveMembershipFingerprint(activeTasks);
+			lastLiveActiveRevision = snapshot.activeRevision;
+			activeTasks = mergeLiveActiveTasks(snapshot.activeTasks);
+			const nextMembership = buildActiveMembershipFingerprint(activeTasks);
+
+			if (previousMembership !== nextMembership) {
+				void reloadLiveBoardMembership();
+			}
+		});
 
 		window.addEventListener(APP_REFRESH_EVENT, handleAppRefresh);
 
 		return () => {
 			window.removeEventListener(APP_REFRESH_EVENT, handleAppRefresh);
+			unsubscribeLiveActivity();
 		};
 	});
 
