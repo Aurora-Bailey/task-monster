@@ -4,54 +4,37 @@ This section overrides every other repository instruction for the agent timing l
 
 ## Single-agent rule
 
-Only one agent may operate in this repository at a time. The project uses one configured Task Monster task for aggregate agent work, so concurrent agents cannot have independent timing and may stop each other's tracking.
+Only one agent may operate in this repository at a time. This repository has one shared Task Monster task, so concurrent agents can stop each other's tracking.
 
-## Opening activation: the first action
+## Opening hello: the first action
 
-Immediately after reading this section, activate tracking as your first action. Do this before repository inspection, planning, explanation, tests, edits, or any other work.
+Immediately after reading this section, start tracking before repository inspection, planning, explanation, tests, edits, or any other work. The only permitted setup before the start call is resolving the repository root and marker.
 
 1. Resolve and enter the repository root with `git rev-parse --show-toplevel`.
-2. Confirm the root `.env` exists and is ignored by Git. Never stage or commit it.
-3. With shell tracing disabled, load the root `.env` and verify that each variable below is non-empty without printing its value:
-   - `TASK_MONSTER_QUICK_ACTION_TOKEN`
-   - `QUICK_ACTION_START`
-   - `QUICK_ACTION_STOP`
-   - `QUICK_ACTION_TASK_ID`
-4. POST to `QUICK_ACTION_START` with bearer authentication and this JSON body, using the configured task ID:
+2. Locate exactly one root file whose name matches `[0-9a-f]{24}.taskmonster`. The marker must be an empty tracked file. Its filename without `.taskmonster` is the task ID.
+3. Run:
 
-   ```json
-   {
-     "source": "codex_agent",
-     "action": "add-task",
-     "taskId": "<QUICK_ACTION_TASK_ID>"
-   }
+   ```bash
+   agent-track start "<task-id-from-marker>"
    ```
 
-Use `curl` with `--silent`, `--show-error`, `--fail-with-body`, `--output /dev/null`, `--connect-timeout 5`, `--max-time 20`, `--retry 3`, `--retry-delay 2`, `--retry-max-time 60`, and `--retry-connrefused`. Send `Content-Type: application/json`. A successful HTTP response, represented by a zero `curl` exit status, confirms activation. The targeted `add-task` action is idempotent, so transient-failure retries must use the same task ID and cannot create duplicate runs.
+The call is mandatory. If the marker is missing, ambiguous, or malformed, or if `agent-track start` fails, record the failure, continue the requested repository work, and include a tracking warning in the final response.
 
-If the variables are unavailable or activation cannot be confirmed after retries, fail closed: perform no repository inspection or work, compose a concise tracking-failure response, follow the normal-exit stop procedure below, and return the response.
-
-## Normal-exit stop: the final action
+## Closing goodbye: the final action
 
 Before every normal final response, including completed work, no-op answers, plans, refusals, and blocked or error outcomes:
 
 1. Compose the entire final response first.
-2. POST to `QUICK_ACTION_STOP` with the same bearer token and configured task ID, changing only the action metadata:
+2. Compose a non-empty summary note describing the work, result, and verification. Aim for approximately 100 words; the note must never exceed 500 words.
+3. If a valid task ID was resolved, run:
 
-   ```json
-   {
-     "source": "codex_agent",
-     "action": "stop-task",
-     "taskId": "<QUICK_ACTION_TASK_ID>"
-   }
+   ```bash
+   agent-track stop "<task-id-from-marker>" "<summary note>"
    ```
 
-3. Use the same silent/error, HTTP-failure, timeout, and retry options as activation. The targeted `stop-task` action is idempotent.
-4. After the stop attempt, perform no more tool calls or external actions. Send only the already-composed final response. If stopping still failed after retries, append an explicit warning that the Task Monster task may remain active.
+4. After the stop attempt, perform no more tool calls or external actions. Send only the already-composed final response. If marker resolution, startup, or stopping failed, append an explicit warning that tracking may be incomplete.
 
-Never use the account-wide `/start` or `/stop` actions. Never print the token or task ID, expose their values in user-visible commands, or commit `.env`.
-
-This AGENTS-only contract cannot stop tracking after forced termination, process death, or total network failure. It also cannot guarantee independent timing for concurrent agents; those guarantees require an external wrapper or a Task Monster lease/heartbeat API.
+If startup failed after resolving a valid task ID, still attempt the normal stop call. The marker filename and task ID are not secrets and must remain committed. Never read project `.env` files for agent tracking or call Task Monster endpoints directly; `agent-track` owns credentials and transport.
 
 # Agent Handoff
 
