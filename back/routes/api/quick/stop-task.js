@@ -1,6 +1,6 @@
 const { ObjectId } = require('mongodb');
 
-const { runQuickStopTask } = require('../../../lib/quick-actions');
+const { runQuickStopTask, validateQuickActionNotes } = require('../../../lib/quick-actions');
 const { requireQuickToken } = require('../../../lib/quick-tokens');
 
 async function quickStopTaskRoute(app) {
@@ -18,6 +18,7 @@ async function quickStopTaskRoute(app) {
 					properties: {
 						source: { type: 'string' },
 						action: { type: 'string' },
+						notes: { type: ['string', 'null'] },
 						taskId: {}
 					}
 				},
@@ -48,6 +49,7 @@ async function quickStopTaskRoute(app) {
 		},
 		async (request, reply) => {
 			const taskId = request.body?.taskId;
+			const notesValidation = validateQuickActionNotes(request.body?.notes);
 
 			if (typeof taskId !== 'string' || !ObjectId.isValid(taskId)) {
 				return reply.code(400).send({
@@ -57,10 +59,19 @@ async function quickStopTaskRoute(app) {
 				});
 			}
 
+			if (!notesValidation.ok) {
+				return reply.code(400).send({
+					ok: false,
+					error: notesValidation.error,
+					message: notesValidation.message
+				});
+			}
+
 			const at = new Date();
 			const result = await runQuickStopTask(app.mongo.db, {
 				userId: request.quick.userId,
 				taskId,
+				notes: notesValidation.notes,
 				at
 			});
 

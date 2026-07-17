@@ -332,11 +332,14 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
     - already-active retries return success without creating a duplicate open run
     - returns `message: "<title> active"`
   - `POST /api/quick/stop-task`
-    - accepts required `taskId` plus optional `source` and `action` string metadata
+    - accepts required `taskId` plus optional `source` and `action` string metadata and optional `notes` string or null
     - requires `tasks:stop`
     - marks only the selected active task done, applying the same tally, repeatable pin, and one-time archival behavior as quick stop
     - leaves other active tasks untouched and never starts a queued task
+    - trims optional notes; blank or null notes behave like omission, the hard limits are 500 whitespace-delimited words and 4,000 characters, and integrations are advised to stay under 100 words
+    - inserts supplied notes after any existing run instance note and immediately before `-- Ended with shortcut`
     - active transitions return `stoppedCount: 1`; inactive or archived retries return `stoppedCount: 0` without creating history
+    - retrying an already-stopped task never adds or changes historical notes
     - returns `message: "<title> marked done"` or `message: "<title> already stopped"`
   - targeted actions return `400 invalid_task_id` for malformed ids and `404 task_not_found` for missing or foreign-owned tasks
   - quick actions append `-- Ended with shortcut` to the bottom of each run they complete
@@ -616,6 +619,7 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 
 - Backend quick-action concurrency has a Mongo-backed integration regression test in `back/test/quick-actions.integration.test.js`
   - it only runs when `TEST_MONGO_URL` is explicitly supplied and uses a disposable database name
+- Quick stop task note composition and validation boundaries have always-on unit coverage in `back/test/quick-action-notes.test.js`
 - Frontend live snapshot fingerprinting and edit-preserving reconciliation are covered by `front/test/live-activity-state.test.js`
 - Cheap smoke checks that match current workflow:
   - `npm run lint`

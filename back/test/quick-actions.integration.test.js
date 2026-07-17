@@ -5,7 +5,11 @@ const test = require('node:test');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const { ensureDatabaseIndexes } = require('../lib/mongo');
-const { runQuickAddTask, runQuickStopTask } = require('../lib/quick-actions');
+const {
+	SHORTCUT_INSTANCE_NOTE,
+	runQuickAddTask,
+	runQuickStopTask
+} = require('../lib/quick-actions');
 
 function createDeferred() {
 	let resolve;
@@ -107,9 +111,22 @@ test(
 		});
 
 		await runInserted.promise;
+		await db.collection('task_runs').updateOne(
+			{
+				taskId: task._id,
+				userId,
+				endedAt: null
+			},
+			{
+				$set: {
+					instanceNote: 'Existing session context.'
+				}
+			}
+		);
 		const stopResult = await runQuickStopTask(db, {
 			userId,
 			taskId: task._id,
+			notes: '  Finished the requested work.  ',
 			at: new Date('2026-07-15T13:01:00.000Z')
 		});
 		assert.equal(stopResult.stoppedCount, 1);
@@ -129,5 +146,34 @@ test(
 		assert.equal(allRuns.length, 2);
 		assert.equal(allRuns.filter((taskRun) => taskRun.endingReason === 'done').length, 1);
 		assert.equal(finalTask.activeToday === false && openRunCount > 0, false);
+		assert.equal(
+			allRuns.find((taskRun) => taskRun.endingReason === 'done').instanceNote,
+			`Existing session context.\n\nFinished the requested work.\n\n${SHORTCUT_INSTANCE_NOTE}`
+		);
+
+		const finalStopResult = await runQuickStopTask(db, {
+			userId,
+			taskId: task._id,
+			notes: 'Final completion note.',
+			at: new Date('2026-07-15T13:02:00.000Z')
+		});
+		const retryResult = await runQuickStopTask(db, {
+			userId,
+			taskId: task._id,
+			notes: 'This retry must not change history.',
+			at: new Date('2026-07-15T13:03:00.000Z')
+		});
+		const finalCompletedRun = await db.collection('task_runs').findOne({
+			taskId: task._id,
+			userId,
+			endedAt: new Date('2026-07-15T13:02:00.000Z')
+		});
+
+		assert.equal(finalStopResult.stoppedCount, 1);
+		assert.equal(retryResult.stoppedCount, 0);
+		assert.equal(
+			finalCompletedRun.instanceNote,
+			`Final completion note.\n\n${SHORTCUT_INSTANCE_NOTE}`
+		);
 	}
 );

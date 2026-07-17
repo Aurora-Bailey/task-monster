@@ -193,7 +193,9 @@ Quick action semantics:
 - quick start accepts `{ "taskId": "<task id>" }`, marks other active task runs `done`, then activates that task
 - quick add task accepts a task id, activates that owned task without ending other active tasks, removes it from the queue when needed, and does not duplicate an already-open run
 - quick stop task accepts a task id, marks only that active task `done`, applies the same tally/pin/archive updates as quick stop, and never activates the queue
-- quick add task and quick stop task accept optional `source` and `action` string metadata alongside the required `taskId`; both are retry-safe
+- quick stop task accepts optional `notes` alongside optional `source` and `action` metadata; notes are trimmed, limited to 500 words and 4,000 characters, and documented with an under-100-word recommendation
+- supplied quick stop task notes are placed after any existing instance note and immediately before `-- Ended with shortcut`; null, blank, or omitted notes preserve the old output
+- quick add task and quick stop task are retry-safe; retrying a completed targeted stop does not add or change historical notes
 - targeted activation and completion use a recoverable per-task transition token so overlapping add/stop requests cannot publish an active task without a run or leave an open run on an inactive task
 - quick stop returns `message: "All active tasks marked done"`
 - quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
@@ -274,5 +276,6 @@ Fastify/Ajv currently emits strict-mode warnings at startup for schemas that use
 
 ## Verification
 
-- quick-action concurrency is covered by `TEST_MONGO_URL=<mongodb url> npm run test:back`, which uses a disposable database name
+- quick stop task note validation and composition are covered without Mongo by `npm run test:back`
+- quick-action concurrency is also covered by that command when `TEST_MONGO_URL` is supplied; it uses a disposable database name
 - current cheap smoke check is booting the server against a reachable Mongo instance

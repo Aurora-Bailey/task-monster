@@ -181,6 +181,7 @@ The frontend is a client-rendered SvelteKit app that talks directly to the Fasti
 - The quick actions page creates `tmq_live_*` tokens, lists active shortcut tokens, revokes them, and provides URLs, JSON bodies, curl examples, and iPhone/Apple Watch setup for all five shortcuts: stop, next, switching start, add task, and stop task
   - add task activates the task id copied from a Day Map card without ending other active tasks
   - stop task marks only the copied task id Done, leaves other active tasks running, and never advances the queue
+  - stop task can include optional completion `notes`; examples recommend fewer than 100 words, enforce 500 words and 4,000 characters, and show that the note is inserted before the shortcut marker
   - setup examples display each response's `message` field and explain retry-safe targeted results
   - generated raw shortcut tokens are cached in localStorage on that browser so copy examples can include the real bearer token
 - PWA behavior:

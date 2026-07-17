@@ -5,13 +5,66 @@ const { closeOpenTaskRun, openTaskRun } = require('./task-runs');
 const { serializeTask, toObjectId } = require('./tasks');
 
 const SHORTCUT_INSTANCE_NOTE = '-- Ended with shortcut';
+const MAX_QUICK_ACTION_NOTES_CHARACTERS = 4000;
+const MAX_QUICK_ACTION_NOTES_WORDS = 500;
 const QUICK_ACTION_TRANSITION_WAIT_ATTEMPTS = 10;
 const QUICK_ACTION_TRANSITION_WAIT_MILLISECONDS = 10;
 
-function appendShortcutInstanceNote(instanceNote) {
-	const trimmedNote = typeof instanceNote === 'string' ? instanceNote.trimEnd() : '';
+function normalizeQuickActionNotes(notes) {
+	return typeof notes === 'string' ? notes.trim() : '';
+}
 
-	return trimmedNote ? `${trimmedNote}\n\n${SHORTCUT_INSTANCE_NOTE}` : SHORTCUT_INSTANCE_NOTE;
+function countQuickActionNoteWords(notes) {
+	const normalizedNotes = normalizeQuickActionNotes(notes);
+
+	return normalizedNotes ? normalizedNotes.split(/\s+/u).length : 0;
+}
+
+function validateQuickActionNotes(notes) {
+	if (notes === undefined || notes === null) {
+		return {
+			ok: true,
+			notes: null
+		};
+	}
+
+	if (typeof notes !== 'string') {
+		return {
+			ok: false,
+			error: 'invalid_notes',
+			message: 'Notes must be a string.'
+		};
+	}
+
+	const normalizedNotes = normalizeQuickActionNotes(notes);
+
+	if (Array.from(normalizedNotes).length > MAX_QUICK_ACTION_NOTES_CHARACTERS) {
+		return {
+			ok: false,
+			error: 'notes_too_long',
+			message: `Notes must be ${MAX_QUICK_ACTION_NOTES_CHARACTERS.toLocaleString('en-US')} characters or fewer.`
+		};
+	}
+
+	if (countQuickActionNoteWords(normalizedNotes) > MAX_QUICK_ACTION_NOTES_WORDS) {
+		return {
+			ok: false,
+			error: 'notes_too_long',
+			message: `Notes must be ${MAX_QUICK_ACTION_NOTES_WORDS} words or fewer.`
+		};
+	}
+
+	return {
+		ok: true,
+		notes: normalizedNotes || null
+	};
+}
+
+function appendShortcutInstanceNote(instanceNote, notes) {
+	const trimmedNote = typeof instanceNote === 'string' ? instanceNote.trimEnd() : '';
+	const normalizedNotes = normalizeQuickActionNotes(notes);
+
+	return [trimmedNote, normalizedNotes, SHORTCUT_INSTANCE_NOTE].filter(Boolean).join('\n\n');
 }
 
 function normalizeTaskIds(taskIds = []) {
@@ -276,7 +329,10 @@ async function ensureOpenTaskRun(db, { userId, task }) {
 	return taskRun;
 }
 
-async function completeActiveTask(db, { userId, taskId, completedAt = new Date() } = {}) {
+async function completeActiveTask(
+	db,
+	{ userId, taskId, completedAt = new Date(), completionNotes = null } = {}
+) {
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		const task = await findSettledOwnedTask(db, {
 			userId,
@@ -308,7 +364,7 @@ async function completeActiveTask(db, { userId, taskId, completedAt = new Date()
 				? task.activeTallyCount
 				: null;
 		const previousQueuePosition = Number.isInteger(task.queuePosition) ? task.queuePosition : null;
-		const instanceNote = appendShortcutInstanceNote(openTaskRun.instanceNote);
+		const instanceNote = appendShortcutInstanceNote(openTaskRun.instanceNote, completionNotes);
 		const transition = {
 			id: transitionId,
 			type: 'completing',
@@ -701,7 +757,7 @@ async function runQuickAddTask(db, { userId, taskId, at = new Date() } = {}) {
 	};
 }
 
-async function runQuickStopTask(db, { userId, taskId, at = new Date() } = {}) {
+async function runQuickStopTask(db, { userId, taskId, notes = null, at = new Date() } = {}) {
 	const task = await db.collection('tasks').findOne({
 		_id: toObjectId(taskId),
 		userId: toObjectId(userId)
@@ -714,6 +770,7 @@ async function runQuickStopTask(db, { userId, taskId, at = new Date() } = {}) {
 	const completeResult = await completeActiveTask(db, {
 		userId,
 		taskId: task._id,
+		completionNotes: notes,
 		completedAt: at
 	});
 
@@ -780,10 +837,14 @@ async function runQuickStart(db, { userId, taskId, at = new Date() } = {}) {
 }
 
 module.exports = {
+	MAX_QUICK_ACTION_NOTES_CHARACTERS,
+	MAX_QUICK_ACTION_NOTES_WORDS,
 	SHORTCUT_INSTANCE_NOTE,
 	appendShortcutInstanceNote,
 	completeAllActiveTasks,
 	completeActiveTask,
+	countQuickActionNoteWords,
+	normalizeQuickActionNotes,
 	recoverQuickActionTransitions,
 	runQuickAddTask,
 	runQuickNext,
@@ -791,5 +852,6 @@ module.exports = {
 	runQuickStop,
 	runQuickStopTask,
 	startTaskById,
-	startNextQueuedTask
+	startNextQueuedTask,
+	validateQuickActionNotes
 };

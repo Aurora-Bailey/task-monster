@@ -159,9 +159,10 @@ Quick action routes:
   - activates the selected owned task without ending any other active task; queued tasks leave the queue when activated
   - retries are safe and return `message: "<title> active"` without opening a duplicate run
 - `POST /api/quick/stop-task`
-  - accepts JSON body `{ "source": "ios_shortcut", "action": "stop-task", "taskId": "<task id>" }`; `source` and `action` are optional
+  - accepts JSON body `{ "source": "ios_shortcut", "action": "stop-task", "taskId": "<task id>", "notes": "<optional completion note>" }`; `source`, `action`, and `notes` are optional
   - requires a shortcut token with `tasks:stop`
-  - marks only the selected active task Done, appends `-- Ended with shortcut`, leaves other active tasks untouched, and never starts the queue
+  - marks only the selected active task Done, places supplied `notes` after the existing instance note and before `-- Ended with shortcut`, leaves other active tasks untouched, and never starts the queue
+  - trims optional notes, recommends fewer than 100 words, and rejects values above 500 words or 4,000 characters
   - retries return `stoppedCount: 0` with `message: "<title> already stopped"` and create no additional history
 
 Task routes:

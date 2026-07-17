@@ -95,7 +95,7 @@
 	$: curlStopTask = `curl -X POST "${stopTaskUrl}" \\
   -H "Authorization: Bearer ${docsToken}" \\
   -H "Content-Type: application/json" \\
-  --data '{"source":"ios_shortcut","action":"stop-task","taskId":"64f000000000000000000000"}'`;
+  --data '{"source":"ios_shortcut","action":"stop-task","taskId":"64f000000000000000000000","notes":"Finished the task and documented the result."}'`;
 	$: shortcutHeaders = `Authorization: Bearer ${docsToken}
 Content-Type: application/json`;
 	$: messageKey = 'message';
@@ -120,7 +120,8 @@ Content-Type: application/json`;
 	$: stopTaskBody = `{
   "source": "ios_shortcut",
   "action": "stop-task",
-  "taskId": "64f000000000000000000000"
+  "taskId": "64f000000000000000000000",
+  "notes": "Finished the task and documented the result."
 }`;
 
 	function formatDateTime(value) {
@@ -486,6 +487,20 @@ Content-Type: application/json`;
 					</div>
 
 					<div class="doc-section">
+						<h3>Optional stop-task notes</h3>
+						<p>
+							The targeted tm stop task body can include an optional <strong>notes</strong> string.
+							Task Monster trims its outer whitespace and places it after any existing instance
+							note, immediately before <strong>-- Ended with shortcut</strong>. Keep it under 100
+							words when possible; the hard limits are 500 words and 4,000 characters.
+						</p>
+						<p>
+							Omit notes, send null, or send a blank value to preserve the existing behavior. A
+							retry after the task has stopped does not change its completed run.
+						</p>
+					</div>
+
+					<div class="doc-section">
 						<h3>iPhone shortcut: tm stop</h3>
 						<ol>
 							<li>Open Shortcuts, tap +, and name the shortcut <strong>tm stop</strong>.</li>
@@ -580,7 +595,10 @@ Content-Type: application/json`;
 							<li>Paste a task id copied from a Day Map card when prompted.</li>
 							<li>Add URL and paste the stop-task endpoint.</li>
 							<li>Add Get Contents of URL, set Method to POST, and add the headers.</li>
-							<li>Use the JSON body below with <strong>taskId</strong> from Provided Input.</li>
+							<li>
+								Use the JSON body below with <strong>taskId</strong> from Provided Input. Optionally
+								map dictated, prompted, device, or agent output into <strong>notes</strong>.
+							</li>
 							<li>Show the response's <strong>message</strong> value as the result.</li>
 							<li>Enable Show on Apple Watch to run it from the Watch app or a complication.</li>
 						</ol>
