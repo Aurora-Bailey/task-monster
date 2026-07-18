@@ -64,6 +64,7 @@ async function quickStartRoute(app) {
 			const result = await runQuickStart(app.mongo.db, {
 				userId: request.quick.userId,
 				taskId,
+				quickTokenId: request.quick.tokenId,
 				at
 			});
 

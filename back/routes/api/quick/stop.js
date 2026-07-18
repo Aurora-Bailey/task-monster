@@ -29,13 +29,14 @@ async function quickStopRoute(app) {
 			const at = new Date();
 			const result = await runQuickStop(app.mongo.db, {
 				userId: request.quick.userId,
+				quickTokenId: request.quick.tokenId,
 				at
 			});
 
 			return {
 				ok: true,
 				action: 'stop',
-				message: 'All active tasks marked done',
+				message: 'All tasks started by this token marked done',
 				stoppedCount: result.stoppedCount,
 				at: at.toISOString()
 			};

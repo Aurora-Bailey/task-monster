@@ -71,6 +71,23 @@ function normalizeTaskIds(taskIds = []) {
 	return taskIds.filter(Boolean).map((taskId) => toObjectId(taskId));
 }
 
+function emptyCompletionResult(notStoppedReason = 'not_active') {
+	return {
+		stoppedCount: 0,
+		previousTaskRunId: null,
+		task: null,
+		notStoppedReason
+	};
+}
+
+function isRunOwnedByQuickToken(taskRun, quickTokenId) {
+	return Boolean(
+		taskRun?.startedByQuickTokenId &&
+			quickTokenId &&
+			toObjectId(taskRun.startedByQuickTokenId).equals(toObjectId(quickTokenId))
+	);
+}
+
 function delay(milliseconds) {
 	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -177,7 +194,8 @@ async function recoverQuickActionTransition(db, { userId, task }) {
 			endingReason: 'done',
 			tallyCount: transition.completedTallyCount ?? undefined,
 			instanceNote: transition.instanceNote,
-			quickActionId: transition.id
+			quickActionId: transition.id,
+			startedByQuickTokenId: transition.startedByQuickTokenId
 		});
 
 		if (!closedRun) {
@@ -186,6 +204,9 @@ async function recoverQuickActionTransition(db, { userId, task }) {
 				userId: task.userId,
 				taskId: task._id,
 				quickActionId: transition.id,
+				...(transition.startedByQuickTokenId
+					? { startedByQuickTokenId: transition.startedByQuickTokenId }
+					: {}),
 				endedAt: {
 					$ne: null
 				}
@@ -331,8 +352,12 @@ async function ensureOpenTaskRun(db, { userId, task }) {
 
 async function completeActiveTask(
 	db,
-	{ userId, taskId, completedAt = new Date(), completionNotes = null } = {}
+	{ userId, taskId, quickTokenId, completedAt = new Date(), completionNotes = null } = {}
 ) {
+	if (!quickTokenId) {
+		return emptyCompletionResult('not_owned');
+	}
+
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		const task = await findSettledOwnedTask(db, {
 			userId,
@@ -340,11 +365,7 @@ async function completeActiveTask(
 		});
 
 		if (!task || task.archived === true || task.activeToday !== true) {
-			return {
-				stoppedCount: 0,
-				previousTaskRunId: null,
-				task: null
-			};
+			return emptyCompletionResult();
 		}
 
 		const openTaskRun = await ensureOpenTaskRun(db, {
@@ -354,6 +375,10 @@ async function completeActiveTask(
 
 		if (!openTaskRun) {
 			continue;
+		}
+
+		if (!isRunOwnedByQuickToken(openTaskRun, quickTokenId)) {
+			return emptyCompletionResult('not_owned');
 		}
 
 		const transitionId = randomUUID();
@@ -372,7 +397,8 @@ async function completeActiveTask(
 			startedAt,
 			completedAt,
 			completedTallyCount,
-			instanceNote
+			instanceNote,
+			startedByQuickTokenId: openTaskRun.startedByQuickTokenId
 		};
 		const claimedTask = await db.collection('tasks').findOneAndUpdate(
 			{
@@ -450,7 +476,8 @@ async function completeActiveTask(
 				endingReason: 'done',
 				tallyCount: completedTallyCount ?? undefined,
 				instanceNote,
-				quickActionId: transitionId
+				quickActionId: transitionId,
+				startedByQuickTokenId: quickTokenId
 			});
 
 			if (!closedRun) {
@@ -459,6 +486,7 @@ async function completeActiveTask(
 					userId: task.userId,
 					taskId: task._id,
 					quickActionId: transitionId,
+					startedByQuickTokenId: toObjectId(quickTokenId),
 					endedAt: {
 						$ne: null
 					}
@@ -497,29 +525,54 @@ async function completeActiveTask(
 		}
 	}
 
-	return {
-		stoppedCount: 0,
-		previousTaskRunId: null,
-		task: null
-	};
+	return emptyCompletionResult();
 }
 
 async function completeAllActiveTasks(
 	db,
-	{ userId, completedAt = new Date(), excludeTaskIds = [] } = {}
+	{ userId, quickTokenId, completedAt = new Date(), excludeTaskIds = [] } = {}
 ) {
+	if (!quickTokenId) {
+		return {
+			stoppedCount: 0,
+			previousTaskRunId: null
+		};
+	}
+
 	const excludedTaskObjectIds = normalizeTaskIds(excludeTaskIds);
-	const activeTaskFilter = {
+	const ownedOpenRunFilter = {
 		userId: toObjectId(userId),
-		archived: false,
-		activeToday: true
+		startedByQuickTokenId: toObjectId(quickTokenId),
+		endedAt: null
 	};
 
 	if (excludedTaskObjectIds.length > 0) {
-		activeTaskFilter._id = {
+		ownedOpenRunFilter.taskId = {
 			$nin: excludedTaskObjectIds
 		};
 	}
+
+	const ownedOpenRuns = await db
+		.collection('task_runs')
+		.find(ownedOpenRunFilter)
+		.project({ taskId: 1 })
+		.toArray();
+
+	if (ownedOpenRuns.length === 0) {
+		return {
+			stoppedCount: 0,
+			previousTaskRunId: null
+		};
+	}
+
+	const activeTaskFilter = {
+		userId: toObjectId(userId),
+		archived: false,
+		activeToday: true,
+		_id: {
+			$in: ownedOpenRuns.map((taskRun) => taskRun.taskId)
+		}
+	};
 
 	const activeTasks = await db
 		.collection('tasks')
@@ -536,6 +589,7 @@ async function completeAllActiveTasks(
 		const result = await completeActiveTask(db, {
 			userId,
 			taskId: task._id,
+			quickTokenId,
 			completedAt
 		});
 
@@ -553,16 +607,23 @@ async function completeAllActiveTasks(
 	};
 }
 
-async function startNextQueuedTask(db, { userId, startedAt = new Date() } = {}) {
+async function startNextQueuedTask(
+	db,
+	{ userId, quickTokenId, startedAt = new Date() } = {}
+) {
 	const nextTask = await activateNextQueuedTask(db, {
 		userId,
-		activatedAt: startedAt
+		activatedAt: startedAt,
+		startedByQuickTokenId: quickTokenId
 	});
 
 	return nextTask ? serializeTask(nextTask) : null;
 }
 
-async function startTaskById(db, { userId, taskId, startedAt = new Date() } = {}) {
+async function startTaskById(
+	db,
+	{ userId, taskId, quickTokenId, startedAt = new Date() } = {}
+) {
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		const task = await findSettledOwnedTask(db, {
 			userId,
@@ -629,7 +690,8 @@ async function startTaskById(db, { userId, taskId, startedAt = new Date() } = {}
 				tallyTarget: Number.isInteger(task.tallyTarget) ? task.tallyTarget : null,
 				startTallyCount: task.trackingType === 'tally' ? activeTallyCount : null,
 				tallyCount: task.trackingType === 'tally' ? activeTallyCount : null,
-				quickActionId: transitionId
+				quickActionId: transitionId,
+				startedByQuickTokenId: quickTokenId
 			});
 
 			startedTask = await db.collection('tasks').findOneAndUpdate(
@@ -732,17 +794,22 @@ async function startTaskById(db, { userId, taskId, startedAt = new Date() } = {}
 	return null;
 }
 
-async function runQuickStop(db, { userId, at = new Date() } = {}) {
+async function runQuickStop(db, { userId, quickTokenId, at = new Date() } = {}) {
 	return completeAllActiveTasks(db, {
 		userId,
+		quickTokenId,
 		completedAt: at
 	});
 }
 
-async function runQuickAddTask(db, { userId, taskId, at = new Date() } = {}) {
+async function runQuickAddTask(
+	db,
+	{ userId, taskId, quickTokenId, at = new Date() } = {}
+) {
 	const task = await startTaskById(db, {
 		userId,
 		taskId,
+		quickTokenId,
 		startedAt: at
 	});
 
@@ -757,7 +824,10 @@ async function runQuickAddTask(db, { userId, taskId, at = new Date() } = {}) {
 	};
 }
 
-async function runQuickStopTask(db, { userId, taskId, notes = null, at = new Date() } = {}) {
+async function runQuickStopTask(
+	db,
+	{ userId, taskId, quickTokenId, notes = null, at = new Date() } = {}
+) {
 	const task = await db.collection('tasks').findOne({
 		_id: toObjectId(taskId),
 		userId: toObjectId(userId)
@@ -770,6 +840,7 @@ async function runQuickStopTask(db, { userId, taskId, notes = null, at = new Dat
 	const completeResult = await completeActiveTask(db, {
 		userId,
 		taskId: task._id,
+		quickTokenId,
 		completionNotes: notes,
 		completedAt: at
 	});
@@ -777,18 +848,21 @@ async function runQuickStopTask(db, { userId, taskId, notes = null, at = new Dat
 	return {
 		previousTaskRunId: completeResult.previousTaskRunId,
 		stoppedCount: completeResult.stoppedCount,
+		notStoppedReason: completeResult.notStoppedReason ?? null,
 		taskId: task._id.toString(),
 		taskTitle: task.name
 	};
 }
 
-async function runQuickNext(db, { userId, at = new Date() } = {}) {
+async function runQuickNext(db, { userId, quickTokenId, at = new Date() } = {}) {
 	const stopResult = await completeAllActiveTasks(db, {
 		userId,
+		quickTokenId,
 		completedAt: at
 	});
 	const nextTask = await startNextQueuedTask(db, {
 		userId,
+		quickTokenId,
 		startedAt: at
 	});
 
@@ -800,7 +874,10 @@ async function runQuickNext(db, { userId, at = new Date() } = {}) {
 	};
 }
 
-async function runQuickStart(db, { userId, taskId, at = new Date() } = {}) {
+async function runQuickStart(
+	db,
+	{ userId, taskId, quickTokenId, at = new Date() } = {}
+) {
 	const taskObjectId = toObjectId(taskId);
 	const task = await db.collection('tasks').findOne({
 		_id: taskObjectId,
@@ -814,12 +891,14 @@ async function runQuickStart(db, { userId, taskId, at = new Date() } = {}) {
 
 	const completeResult = await completeAllActiveTasks(db, {
 		userId,
+		quickTokenId,
 		completedAt: at,
 		excludeTaskIds: [taskObjectId]
 	});
 	const startedTask = await startTaskById(db, {
 		userId,
 		taskId: taskObjectId,
+		quickTokenId,
 		startedAt: at
 	});
 

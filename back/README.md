@@ -57,7 +57,7 @@ At startup, the backend loads the root `.env` and then reads from `process.env` 
 - `panic_runs`
 - `quick_action_tokens`
 
-Indexes are created on startup in `lib/mongo.js`. Before index creation, startup recovers interrupted quick-action transitions and reconciles orphaned, duplicate, or missing open task runs. A partial unique index enforces at most one open `task_runs` record per user/task.
+Indexes are created on startup in `lib/mongo.js`. Before index creation, startup recovers interrupted quick-action transitions and reconciles orphaned, duplicate, or missing open task runs. A partial unique index enforces at most one open `task_runs` record per user/task. Runs started through a quick action store that token's id in `task_runs.startedByQuickTokenId`; manual and reconciled runs leave it absent.
 
 ## Auth and sessions
 
@@ -188,20 +188,21 @@ Queue semantics:
 
 Quick action semantics:
 
-- quick stop marks all active task runs `done`, applies normal Done task-state updates, and starts nothing
-- quick next marks all active task runs `done`, applies normal Done task-state updates, then activates the first queued Day Map task by queue order
-- quick start accepts `{ "taskId": "<task id>" }`, marks other active task runs `done`, then activates that task
-- quick add task accepts a task id, activates that owned task without ending other active tasks, removes it from the queue when needed, and does not duplicate an already-open run
-- quick stop task accepts a task id, marks only that active task `done`, applies the same tally/pin/archive updates as quick stop, and never activates the queue
+- quick stop marks only active runs started by the calling quick token `done`, applies normal Done task-state updates, and starts nothing
+- quick next marks only active runs started by the calling quick token `done`, then activates the first queued Day Map task under that token
+- quick start accepts `{ "taskId": "<task id>" }`, marks other runs started by the calling quick token `done`, then activates that task under the token
+- quick add task accepts a task id, activates that owned task under the calling token without ending other active tasks, removes it from the queue when needed, and does not duplicate or take ownership of an already-open run
+- quick stop task accepts a task id, marks it `done` only when the calling token started its open run, applies the same tally/pin/archive updates as quick stop, and never activates the queue
+- quick actions leave runs started by other tokens and unattributed app, legacy, or reconciled runs active; normal app controls can still complete any owned run, including runs whose originating token was revoked
 - quick stop task accepts optional `notes` alongside optional `source` and `action` metadata; notes are trimmed, limited to 500 words and 4,000 characters, and documented with an under-100-word recommendation
 - supplied quick stop task notes are placed after any existing instance note and immediately before `-- Ended with shortcut`; null, blank, or omitted notes preserve the old output
 - quick add task and quick stop task are retry-safe; retrying a completed targeted stop does not add or change historical notes
 - targeted activation and completion use a recoverable per-task transition token so overlapping add/stop requests cannot publish an active task without a run or leave an open run on an inactive task
-- quick stop returns `message: "All active tasks marked done"`
+- quick stop returns `message: "All tasks started by this token marked done"`
 - quick next returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
 - quick start returns `message: "<title> active"`
 - quick add task returns `message: "<title> active"`
-- quick stop task returns `stoppedCount: 1` and `message: "<title> marked done"`, or retry-safe `stoppedCount: 0` and `message: "<title> already stopped"`
+- quick stop task returns `stoppedCount: 1` and `message: "<title> marked done"`; retry-safe `stoppedCount: 0` uses either `message: "<title> already stopped"` or `message: "<title> cannot be stopped by this token"`
 - quick start and quick add task require `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
 - quick stop and quick stop task require `tasks:stop`; quick next requires `tasks:next`
 - quick actions append `-- Ended with shortcut` to the bottom of every run they complete
@@ -276,6 +277,6 @@ Fastify/Ajv currently emits strict-mode warnings at startup for schemas that use
 
 ## Verification
 
-- quick stop task note validation and composition are covered without Mongo by `npm run test:back`
-- quick-action concurrency is also covered by that command when `TEST_MONGO_URL` is supplied; it uses a disposable database name
+- quick stop task note validation/composition and quick-token ownership invariants are covered without Mongo by `npm run test:back`
+- quick-action concurrency and per-token ownership isolation are also covered by that command when `TEST_MONGO_URL` is supplied; tests use disposable database names
 - current cheap smoke check is booting the server against a reachable Mongo instance

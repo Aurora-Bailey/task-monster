@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "nodemon --watch index.js --watch lib --watch routes index.js",
     "start": "node index.js",
-    "test:integration": "node test/quick-action-notes.test.js && node test/quick-actions.integration.test.js"
+    "test:integration": "node test/quick-action-notes.test.js && node test/quick-action-ownership.test.js && node test/quick-actions.integration.test.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

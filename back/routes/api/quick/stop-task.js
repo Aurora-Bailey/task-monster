@@ -71,6 +71,7 @@ async function quickStopTaskRoute(app) {
 			const result = await runQuickStopTask(app.mongo.db, {
 				userId: request.quick.userId,
 				taskId,
+				quickTokenId: request.quick.tokenId,
 				notes: notesValidation.notes,
 				at
 			});
@@ -89,7 +90,9 @@ async function quickStopTaskRoute(app) {
 				message:
 					result.stoppedCount === 1
 						? `${result.taskTitle} marked done`
-						: `${result.taskTitle} already stopped`,
+						: result.notStoppedReason === 'not_owned'
+							? `${result.taskTitle} cannot be stopped by this token`
+							: `${result.taskTitle} already stopped`,
 				stoppedCount: result.stoppedCount,
 				taskId: result.taskId,
 				taskTitle: result.taskTitle,

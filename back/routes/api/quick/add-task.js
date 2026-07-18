@@ -52,6 +52,7 @@ async function quickAddTaskRoute(app) {
 			const result = await runQuickAddTask(app.mongo.db, {
 				userId: request.quick.userId,
 				taskId,
+				quickTokenId: request.quick.tokenId,
 				at
 			});
 

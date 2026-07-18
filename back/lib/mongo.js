@@ -116,6 +116,13 @@ async function ensureDatabaseIndexes(db) {
 	);
 
 	await db.collection('task_runs').createIndex(
+		{ userId: 1, startedByQuickTokenId: 1, endedAt: 1 },
+		{
+			name: 'task_runs_userId_startedByQuickTokenId_endedAt'
+		}
+	);
+
+	await db.collection('task_runs').createIndex(
 		{ userId: 1, taskId: 1 },
 		{
 			name: 'task_runs_userId_taskId_one_open_unique',

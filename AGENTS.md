@@ -211,6 +211,11 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
   - stored on the open or closed `task_runs` record
   - editable only while active
 - Exact active spans are recorded in `task_runs`
+- Quick-action-started runs store the originating token id on `task_runs.startedByQuickTokenId`
+  - quick actions can only complete runs started by that same quick token
+  - app/session controls remain account-level overrides and can complete any owned run
+  - existing, manual, and reconciled runs without a token id are never completed by quick actions
+  - replacing or revoking a token does not transfer its active runs to another token
 - quick-action task transitions use `tasks.quickActionTransition` as a recoverable per-task operation lock
 - startup recovers interrupted quick transitions, reconciles orphaned or duplicate open runs, and enforces one open `task_runs` record per user/task with a partial unique index
 - Tally changes during an active tally task update both the task document and the open run
@@ -298,36 +303,36 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 - Quick action stop/next/start/add-task/stop-task routes:
   - `POST /api/quick/stop`
     - requires a `tmq_live_*` shortcut token with `tasks:stop`
-    - marks all active tasks done for the token owner and starts nothing
+    - marks all active tasks started by that exact quick token done and starts nothing
     - closed runs use `endingReason: 'done'`
-    - returns `message: "All active tasks marked done"`
+    - returns `message: "All tasks started by this token marked done"`
   - `POST /api/quick/next`
     - requires a `tmq_live_*` shortcut token with `tasks:next`
-    - marks all active tasks done for the token owner, then activates the first queued Daymap task
+    - marks only tasks started by that exact quick token done, then activates the first queued Daymap task under that token
     - closed runs use `endingReason: 'done'`
     - returns `message: "Next Task: <title>"` when a queued task starts, otherwise `message: "No next task queued"`
   - `POST /api/quick/start`
     - accepts JSON body `{ "taskId": "<task id>" }`
     - requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
-    - marks other active tasks done for the token owner, then activates the requested task
+    - marks other tasks started by that exact quick token done, then activates the requested task under that token
     - closed runs use `endingReason: 'done'`
     - returns `message: "<title> active"`
   - `POST /api/quick/add-task`
     - accepts required `taskId` plus optional `source` and `action` string metadata
     - requires `tasks:start`; legacy quick tokens with `tasks:next` are accepted for compatibility
     - activates the requested inactive, Daymap, scheduled, or queued task without ending any other active task
-    - already-active retries return success without creating a duplicate open run
+    - already-active retries return success without creating a duplicate open run or transferring token ownership
     - returns `message: "<title> active"`
   - `POST /api/quick/stop-task`
     - accepts required `taskId` plus optional `source` and `action` string metadata and optional `notes` string or null
     - requires `tasks:stop`
-    - marks only the selected active task done, applying the same tally, repeatable pin, and one-time archival behavior as quick stop
+    - marks the selected active task done only when the same quick token started its open run, applying the same tally, repeatable pin, and one-time archival behavior as quick stop
     - leaves other active tasks untouched and never starts a queued task
     - trims optional notes; blank or null notes behave like omission, the hard limits are 500 whitespace-delimited words and 4,000 characters, and integrations are advised to stay under 100 words
     - inserts supplied notes after any existing run instance note and immediately before `-- Ended with shortcut`
-    - active transitions return `stoppedCount: 1`; inactive or archived retries return `stoppedCount: 0` without creating history
+    - owned active transitions return `stoppedCount: 1`; inactive, archived, unattributed, or other-token runs return `stoppedCount: 0` without creating history
     - retrying an already-stopped task never adds or changes historical notes
-    - returns `message: "<title> marked done"` or `message: "<title> already stopped"`
+    - returns `message: "<title> marked done"`, `message: "<title> already stopped"`, or `message: "<title> cannot be stopped by this token"`
   - targeted actions return `400 invalid_task_id` for malformed ids and `404 task_not_found` for missing or foreign-owned tasks
   - quick actions append `-- Ended with shortcut` to the bottom of each run they complete
   - quick routes derive `userId` from the token record, not from request input
@@ -605,8 +610,10 @@ Per-app commands (`cd front && npm run dev`, `cd back && npm run dev`, etc.) sti
 ## Verification and gaps
 
 - Backend quick-action concurrency has a Mongo-backed integration regression test in `back/test/quick-actions.integration.test.js`
-  - it only runs when `TEST_MONGO_URL` is explicitly supplied and uses a disposable database name
+  - it covers transition concurrency, per-token stop isolation, unattributed runs, queue ownership, ownership non-transfer, and the normal app override
+  - it only runs when `TEST_MONGO_URL` is explicitly supplied and uses disposable database names
 - Quick stop task note composition and validation boundaries have always-on unit coverage in `back/test/quick-action-notes.test.js`
+- Quick token ownership persistence and stop filtering have always-on unit coverage in `back/test/quick-action-ownership.test.js`
 - Frontend live snapshot fingerprinting and edit-preserving reconciliation are covered by `front/test/live-activity-state.test.js`
 - Cheap smoke checks that match current workflow:
   - `npm run lint`

@@ -39,7 +39,10 @@ async function collapseQueuePositionsAfter(db, { userId, queuePosition }) {
 	);
 }
 
-async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) {
+async function activateNextQueuedTask(
+	db,
+	{ userId, activatedAt = new Date(), startedByQuickTokenId = null }
+) {
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		const queuedTask = await db
 			.collection('tasks')
@@ -100,7 +103,8 @@ async function activateNextQueuedTask(db, { userId, activatedAt = new Date() }) 
 			tallyUnit: queuedTask.tallyUnit ?? null,
 			tallyTarget: Number.isInteger(queuedTask.tallyTarget) ? queuedTask.tallyTarget : null,
 			startTallyCount: queuedTask.trackingType === 'tally' ? activeTallyCount : null,
-			tallyCount: queuedTask.trackingType === 'tally' ? activeTallyCount : null
+			tallyCount: queuedTask.trackingType === 'tally' ? activeTallyCount : null,
+			startedByQuickTokenId
 		});
 
 		return activatedTask;

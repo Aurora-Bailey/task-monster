@@ -309,8 +309,8 @@ Content-Type: application/json`;
 		<h1>One tap. One backend call.</h1>
 		<p class="lede">
 			Create a limited token for iOS Shortcuts and Apple Watch. Use five focused actions to stop
-			everything, move to the queue's next task, switch tasks, add one active task, or stop one
-			selected task. The backend derives your account from the token.
+			that token's tasks, move to the queue's next task, switch tasks, add one active task, or stop
+			one selected task. The backend derives your account from the token.
 		</p>
 	</div>
 
@@ -487,6 +487,21 @@ Content-Type: application/json`;
 					</div>
 
 					<div class="doc-section">
+						<h3>Token-isolated task runs</h3>
+						<p>
+							A shortcut token can stop only task runs that the same token started. This applies to
+							tm stop, tm next, tm start's replacement step, and tm stop task. Tasks started in the
+							app or by another integration token keep running.
+						</p>
+						<p>
+							Use a separate token for each device or integration you want isolated. App controls
+							can still stop any task on your account, and using an already-active task does not
+							transfer it to a different token. A replacement token also does not inherit runs from
+							a revoked token, so stop those runs in the app when needed.
+						</p>
+					</div>
+
+					<div class="doc-section">
 						<h3>Optional stop-task notes</h3>
 						<p>
 							The targeted tm stop task body can include an optional <strong>notes</strong> string.
@@ -540,8 +555,8 @@ Content-Type: application/json`;
 						<h3>iPhone shortcut: tm start</h3>
 						<ol>
 							<li>
-								Create a shortcut named <strong>tm start</strong> to switch away from every other active
-								task.
+								Create a shortcut named <strong>tm start</strong> to switch away from other active tasks
+								started by the same token.
 							</li>
 							<li>Add Ask for Input and set the input type to Text.</li>
 							<li>Paste a task id copied from the bottom of a Day Map card when prompted.</li>
@@ -603,8 +618,9 @@ Content-Type: application/json`;
 							<li>Enable Show on Apple Watch to run it from the Watch app or a complication.</li>
 						</ol>
 						<p>
-							This marks only the selected active task Done. It leaves other tasks running, never
-							starts the queue, and is safe to retry after the task has stopped.
+							This marks the selected active task Done only when this token started it. It leaves
+							other tasks running, never starts the queue, and is safe to retry after the task has
+							stopped.
 						</p>
 						{@render copyBlock('stop-task-url', 'URL', stopTaskUrl, copiedKey, copyText)}
 						{@render copyBlock(
@@ -633,7 +649,7 @@ Content-Type: application/json`;
 							<li>Add Show Result and pass it the dictionary value.</li>
 						</ol>
 						<ul>
-							<li>tm stop: <strong>All active tasks marked done</strong></li>
+							<li>tm stop: <strong>All tasks started by this token marked done</strong></li>
 							<li>
 								tm next: <strong>Next Task: Dishes</strong> or
 								<strong>No next task queued</strong>
@@ -642,7 +658,8 @@ Content-Type: application/json`;
 							<li>tm add task: <strong>Dishes active</strong></li>
 							<li>
 								tm stop task: <strong>Dishes marked done</strong> or
-								<strong>Dishes already stopped</strong> on a retry
+								<strong>Dishes already stopped</strong> on a retry, or
+								<strong>Dishes cannot be stopped by this token</strong>
 							</li>
 						</ul>
 					</div>

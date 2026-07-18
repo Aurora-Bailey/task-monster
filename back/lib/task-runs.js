@@ -12,7 +12,8 @@ async function openTaskRun(
 		startTallyCount = null,
 		tallyCount = null,
 		instanceNote = null,
-		quickActionId = null
+		quickActionId = null,
+		startedByQuickTokenId = null
 	}
 ) {
 	const taskRun = {
@@ -35,6 +36,10 @@ async function openTaskRun(
 		taskRun.quickActionId = quickActionId;
 	}
 
+	if (startedByQuickTokenId) {
+		taskRun.startedByQuickTokenId = toObjectId(startedByQuickTokenId);
+	}
+
 	const result = await db.collection('task_runs').insertOne(taskRun);
 
 	return {
@@ -54,7 +59,8 @@ async function closeOpenTaskRun(
 		endingReason = 'inactive',
 		tallyCount,
 		instanceNote,
-		quickActionId
+		quickActionId,
+		startedByQuickTokenId
 	}
 ) {
 	const update = {
@@ -87,6 +93,10 @@ async function closeOpenTaskRun(
 
 	if (runId) {
 		filter._id = toObjectId(runId);
+	}
+
+	if (startedByQuickTokenId) {
+		filter.startedByQuickTokenId = toObjectId(startedByQuickTokenId);
 	}
 
 	return db.collection('task_runs').findOneAndUpdate(

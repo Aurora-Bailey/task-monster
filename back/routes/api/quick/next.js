@@ -39,6 +39,7 @@ async function quickNextRoute(app) {
 			const at = new Date();
 			const result = await runQuickNext(app.mongo.db, {
 				userId: request.quick.userId,
+				quickTokenId: request.quick.tokenId,
 				at
 			});
 			const message = result.nextTaskTitle
